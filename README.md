@@ -12,7 +12,7 @@ All the data used part of this project is mocked.
 
 ### Getting Started
 
-Clone the repo locally: https://github.com/santhh/swarm-data-tokenization.git  
+Clone the repo locally: git clone https://cloud-swarm.googlesource.com/data-tokenization
 
 Run this for fully structured (example # 1 or 2) data by replacing argument related to your project:  
 
