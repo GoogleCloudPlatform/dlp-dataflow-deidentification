@@ -1,0 +1,39 @@
+{
+ "name": "projects/<id>/deidentifyTemplates/<name>",
+ "createTime": "2018-06-19T15:58:32.214456Z",
+ "updateTime": "2018-06-19T15:58:32.214456Z",
+ "deidentifyConfig": {
+  "recordTransformations": {
+   "fieldTransformations": [
+    {
+     "fields": [
+      {
+       "name": "SIN"
+      },
+      {
+       "name": "AccountNumber"
+      },
+      {
+       "name": "CreditCard"
+      },
+      {
+       "name": "PhoneNumber"
+      }
+     ],
+     "primitiveTransformation": {
+      "cryptoReplaceFfxFpeConfig": {
+       "cryptoKey": {
+        "kmsWrapped": {
+         "wrappedKey": "kms_wrapped_key",
+         "cryptoKeyName": "projects/<id>/locations/global/keyRings/<key_rung_name>/cryptoKeys/<key_name>"
+  
+        }
+       },
+       "customAlphabet": "1234567890-"
+      }
+     }
+    }
+   ]
+  }
+ }
+}

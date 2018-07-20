@@ -1,0 +1,17 @@
+{
+ "name": "projects/<id>/deidentifyTemplates/<name>",
+ "createTime": "2018-06-21T14:29:24.595407Z",
+ "updateTime": "2018-06-21T14:29:24.595407Z",
+ "deidentifyConfig": {
+  "infoTypeTransformations": {
+   "transformations": [
+    {
+     "primitiveTransformation": {
+      "replaceWithInfoTypeConfig": {
+      }
+     }
+    }
+   ]
+  }
+ }
+}
