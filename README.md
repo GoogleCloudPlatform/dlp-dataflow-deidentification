@@ -101,12 +101,22 @@ By using KMS API and pass a encryption key, you can generate a KMS wrapped key.
  curl -s -X POST "https://cloudkms.googleapis.com/v1/projects/<id>/locations/global/keyRings/<key_ring_name>/cryptoKeys/<key_name>:encrypt"  -d "{\"plaintext\":\"<key>"}"  -H "Authorization:Bearer $(gcloud auth application-default print-access-token)"  -H "Content-Type:application/json"
 
 ```
-KMS Wrapped key: "CiQAB3BWoa2D0UQTpmkE/u0sP5PRQBpQr8EoS4rc8b7EWKHReMcSQQAlBr7wi5erTwHkb+hhjrzC7o/uu0xCf8e7/bvUTaNkfIfh+rs9782nDwlrF9EyOhQlXIaNbRRIxroyKekQuES+"
+Example KMS Wrapped key: 
+
+```
+"CiQAB3BWoa2D0UQTpmkE/u0sP5PRQBpQr8EoS4rc8b7EWKHReMcSQQAlBr7wi5erTwHkb+hhjrzC7o/uu0xCf8e7/bvUTaNkfIfh+rs9782nDwlrF9EyOhQlXIaNbRRIxroyKekQuES+"
+```
 ### Local Build
+
+Clone the project 
+Import as a gradle project in your IDE
 Uncomment one of the lines below as needed from build.gradle file if you just wanted to compile locally from IDE  
+
+
+```
 //mainClassName = 'com.google.swarm.tokenization.CSVBatchPipeline'
 //mainClassName = 'com.google.swarm.tokenization.TextStreamingPipeline'
-
+```
 
 
 

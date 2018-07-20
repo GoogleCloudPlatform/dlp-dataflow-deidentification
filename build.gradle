@@ -39,7 +39,7 @@ apply plugin: 'idea'
 apply plugin: 'com.github.johnrengelman.shadow'
 
 // gradle run will pass this as java args. Only to be used for compile locally if needed For example: gradle build
-//mainClassName = 'com.google.swarm.tokenization.CSVBatchPipeline'
+mainClassName = 'com.google.swarm.tokenization.CSVBatchPipeline'
 //mainClassName = 'com.google.swarm.tokenization.TextStreamingPipeline'
 group 'com.google.swarm'
 version '0.1.0'
