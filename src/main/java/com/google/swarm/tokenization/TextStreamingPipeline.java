@@ -52,7 +52,7 @@ import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.swarm.tokenization.common.KMSFactory;
 import com.google.swarm.tokenization.common.StorageFactory;
-import com.google.swarm.tokenization.common.TextStreamingPipelineOptions;
+import com.google.swarm.tokenization.common.TokenizePipelineOptions;
 import com.google.swarm.tokenization.common.WriteOneFilePerWindow;
 
 public class TextStreamingPipeline {
@@ -62,9 +62,9 @@ public class TextStreamingPipeline {
 
 	public static void main(String[] args)
 			throws IOException, GeneralSecurityException {
-		TextStreamingPipelineOptions options = PipelineOptionsFactory
-				.fromArgs(args).withValidation()
-				.as(TextStreamingPipelineOptions.class);
+
+		TokenizePipelineOptions options = PipelineOptionsFactory.fromArgs(args)
+				.withValidation().as(TokenizePipelineOptions.class);
 
 		Pipeline p = Pipeline.create(options);
 		p.apply(FileIO.match().filepattern(options.getInputFile()).continuously(

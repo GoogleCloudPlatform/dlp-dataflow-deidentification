@@ -44,12 +44,7 @@ import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.util.Charsets;
-import com.google.api.services.cloudkms.v1.CloudKMS;
-import com.google.api.services.cloudkms.v1.model.DecryptRequest;
-import com.google.api.services.cloudkms.v1.model.DecryptResponse;
 import com.google.api.services.storage.Storage;
 import com.google.cloud.dlp.v2.DlpServiceClient;
 import com.google.privacy.dlp.v2.ContentItem;
@@ -58,28 +53,16 @@ import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
-import com.google.privacy.dlp.v2.Value;
-import com.google.swarm.tokenization.common.CSVPipelineOptions;
+import com.google.swarm.tokenization.common.TokenizePipelineOptions;
 import com.google.swarm.tokenization.common.KMSFactory;
 import com.google.swarm.tokenization.common.StorageFactory;
+import com.google.swarm.tokenization.common.Util;
 import com.google.swarm.tokenization.common.WriteOneFilePerWindow;
 
 public class CSVBatchPipeline {
 
 	public static final Logger LOG = LoggerFactory
 			.getLogger(CSVBatchPipeline.class);
-
-	// convert CSV row into Table.Row
-	private static Table.Row convertCsvRowToTableRow(String row) {
-		String[] values = row.split(",");
-		Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
-		for (String value : values) {
-			tableRowBuilder.addValues(
-					Value.newBuilder().setStringValue(value).build());
-		}
-
-		return tableRowBuilder.build();
-	}
 
 	@SuppressWarnings("serial")
 	public static class FormatTableData extends DoFn<Table, String> {
@@ -88,7 +71,7 @@ public class CSVBatchPipeline {
 		public FormatTableData(boolean addHeader) {
 			this.addHeader = addHeader;
 		}
-		
+
 		@ProcessElement
 		public void processElement(ProcessContext c) {
 			Table encryptedData = c.element();
@@ -96,12 +79,12 @@ public class CSVBatchPipeline {
 			List<FieldId> outputHeaderFields = encryptedData.getHeadersList();
 			List<Table.Row> outputRows = encryptedData.getRowsList();
 			List<String> outputHeaders = outputHeaderFields.stream()
-					.map(FieldId::getName).collect(Collectors.toList());			
-			if(this.addHeader) {
-		    	bufferedWriter.append(String.join(",", outputHeaders) + "\n");
-		    	this.addHeader= false;
-		    }	
-			
+					.map(FieldId::getName).collect(Collectors.toList());
+			if (this.addHeader) {
+				bufferedWriter.append(String.join(",", outputHeaders) + "\n");
+				this.addHeader = false;
+			}
+
 			for (Table.Row outputRow : outputRows) {
 				String row = outputRow.getValuesList().stream()
 						.map(value -> value.getStringValue())
@@ -124,58 +107,6 @@ public class CSVBatchPipeline {
 		}
 	}
 
-	public static InputStream downloadObject(Storage storage, String bucketName,
-			String objectName, String base64CseKey, String base64CseKeyHash)
-			throws Exception {
-
-		// Set the CSEK headers
-		final HttpHeaders httpHeaders = new HttpHeaders();
-		httpHeaders.set("x-goog-encryption-algorithm", "AES256");
-		httpHeaders.set("x-goog-encryption-key", base64CseKey);
-		httpHeaders.set("x-goog-encryption-key-sha256", base64CseKeyHash);
-		Storage.Objects.Get getObject = storage.objects().get(bucketName,
-				objectName);
-		getObject.setRequestHeaders(httpHeaders);
-
-		try {
-
-			return getObject.executeMediaAsInputStream();
-		} catch (GoogleJsonResponseException e) {
-			LOG.info("Error downloading: " + e.getContent());
-			System.exit(1);
-			return null;
-		}
-	}
-
-	private static String parseBucketName(String value) {
-		// gs://name/ -> name
-		return value.substring(5, value.length() - 1);
-	}
-
-	public static String decrypt(String projectId, String locationId,
-			String keyRingId, String cryptoKeyId, String ciphertext)
-			throws IOException, GeneralSecurityException {
-		// Create the Cloud KMS client.
-		CloudKMS kms = KMSFactory.getService();
-		// The resource name of the cryptoKey
-		String cryptoKeyName = String.format(
-				"projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s", projectId,
-				locationId, keyRingId, cryptoKeyId);
-
-		DecryptRequest request = new DecryptRequest().setCiphertext(ciphertext);
-		DecryptResponse response = kms.projects().locations().keyRings()
-				.cryptoKeys().decrypt(cryptoKeyName, request).execute();
-
-		return response.getPlaintext().toString();
-	}
-
-	private static boolean findEncryptionType(String keyRing, String keyName, String csek, String csekhash) {
-		
-		if (keyRing.equals("null")||keyName.equals("null")||csek.equals("null")||csekhash.equals("null"))
-			return false;
-		else
-			return true;
-	}
 	@SuppressWarnings("serial")
 	public static class CSVFileReader extends DoFn<ReadableFile, List<Table>> {
 		private ValueProvider<Integer> batchSize;
@@ -193,17 +124,18 @@ public class CSVBatchPipeline {
 				ValueProvider<String> cSekhash)
 				throws IOException, GeneralSecurityException {
 			this.batchSize = batchSize;
-			
-			this.customerSuppliedKey = findEncryptionType(fileDecryptKeyRing.get(),fileDecryptKey.get(), cSek.get(), cSekhash.get());
+
+			this.customerSuppliedKey = Util.findEncryptionType(
+					fileDecryptKeyRing.get(), fileDecryptKey.get(), cSek.get(),
+					cSekhash.get());
 			if (customerSuppliedKey)
-				this.key = decrypt(kmsKeyProjectName.get(), "global",
+				this.key = KMSFactory.decrypt(kmsKeyProjectName.get(), "global",
 						fileDecryptKeyRing.get(), fileDecryptKey.get(),
 						cSek.get().toString());
 			else
-				this.key=null;
+				this.key = null;
 			this.cSek = cSek;
 			this.cSekhash = cSekhash;
-			
 
 		}
 
@@ -212,8 +144,8 @@ public class CSVBatchPipeline {
 
 			objectName = c.element().getMetadata().resourceId().getFilename()
 					.toString();
-			bucketName = parseBucketName(c.element().getMetadata().resourceId()
-					.getCurrentDirectory().toString());
+			bucketName = Util.parseBucketName(c.element().getMetadata()
+					.resourceId().getCurrentDirectory().toString());
 			LOG.info(
 					"Bucket Name: " + bucketName + " File Name: " + objectName);
 
@@ -221,7 +153,7 @@ public class CSVBatchPipeline {
 				BufferedReader br;
 				InputStream objectData = null;
 
-				if(!this.customerSuppliedKey) {
+				if (!this.customerSuppliedKey) {
 
 					ReadableByteChannel channel = c.element().open();
 					br = new BufferedReader(
@@ -237,8 +169,9 @@ public class CSVBatchPipeline {
 						e.printStackTrace();
 					}
 					try {
-						objectData = downloadObject(storage, bucketName,
-								objectName, key, cSekhash.get().toString());
+						objectData = StorageFactory.downloadObject(storage,
+								bucketName, objectName, key,
+								cSekhash.get().toString());
 					} catch (Exception e) {
 						LOG.error(
 								"Error Reading the Encrypted File in GCS- Customer Supplied Key");
@@ -256,8 +189,8 @@ public class CSVBatchPipeline {
 						.collect(Collectors.toList());
 
 				while (!endOfFile) {
-					List<String> lines = readBatch(br, this.batchSize);
-					Table batchData = createDLPTable(headers, lines);
+					List<String> lines = Util.readBatch(br, this.batchSize);
+					Table batchData = Util.createDLPTable(headers, lines);
 					tables.add(batchData);
 					if (lines.size() < batchSize.get().intValue()) {
 						endOfFile = true;
@@ -346,40 +279,11 @@ public class CSVBatchPipeline {
 		}
 	}
 
-	private static List<String> readBatch(BufferedReader reader,
-			ValueProvider<Integer> batchSize) throws IOException {
-		List<String> result = new ArrayList<>();
-
-		for (int i = 0; i < batchSize.get().intValue(); i++) {
-			String line = reader.readLine();
-			if (line != null) {
-				result.add(line);
-			} else {
-				return result;
-			}
-		}
-		return result;
-	}
-
-	private static Table createDLPTable(List<FieldId> headers,
-			List<String> lines) {
-
-		List<Table.Row> rows = new ArrayList<>();
-		lines.forEach(line -> {
-			rows.add(convertCsvRowToTableRow(line));
-		});
-		Table table = Table.newBuilder().addAllHeaders(headers).addAllRows(rows)
-				.build();
-
-		return table;
-
-	}
-
 	public static void main(String[] args)
 			throws IOException, GeneralSecurityException {
 
-		CSVPipelineOptions options = PipelineOptionsFactory.fromArgs(args)
-				.withValidation().as(CSVPipelineOptions.class);
+		TokenizePipelineOptions options = PipelineOptionsFactory.fromArgs(args)
+				.withValidation().as(TokenizePipelineOptions.class);
 
 		Pipeline p = Pipeline.create(options);
 		p.apply(FileIO.match().filepattern(options.getInputFile())

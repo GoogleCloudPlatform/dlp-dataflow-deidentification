@@ -39,8 +39,7 @@ import org.joda.time.format.ISODateTimeFormat;
 public class WriteOneFilePerWindow
 		extends
 			PTransform<PCollection<String>, PDone> {
-	
-	
+
 	private static final DateTimeFormatter FORMATTER = ISODateTimeFormat
 			.hourMinute();
 	private String filenamePrefix;
@@ -54,17 +53,17 @@ public class WriteOneFilePerWindow
 
 	@Override
 	public PDone expand(PCollection<String> input) {
-		
+
 		ResourceId resource = FileBasedSink
 				.convertToFileResourceIfPossible(filenamePrefix);
 		TextIO.Write write = TextIO.write().to(new PerWindowFiles(resource))
 				.withTempDirectory(resource.getCurrentDirectory())
 				.withWindowedWrites();
 		// .withoutSharding();
-	
+
 		if (numShards != null) {
 			write = write.withNumShards(numShards);
-	
+
 		}
 		return input.apply(write);
 	}

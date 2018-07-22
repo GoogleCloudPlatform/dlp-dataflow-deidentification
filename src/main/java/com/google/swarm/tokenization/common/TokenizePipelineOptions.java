@@ -22,7 +22,7 @@ import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.ValueProvider;
 
-public interface CSVPipelineOptions extends PipelineOptions {
+public interface TokenizePipelineOptions extends PipelineOptions {
 
 	@Description("Project to use for DLP calls")
 	ValueProvider<String> getDlpProject();

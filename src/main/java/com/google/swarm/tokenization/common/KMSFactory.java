@@ -20,6 +20,9 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Collection;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpTransport;
@@ -27,8 +30,12 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.cloudkms.v1.CloudKMS;
 import com.google.api.services.cloudkms.v1.CloudKMSScopes;
+import com.google.api.services.cloudkms.v1.model.DecryptRequest;
+import com.google.api.services.cloudkms.v1.model.DecryptResponse;
 
 public class KMSFactory {
+
+	public static final Logger LOG = LoggerFactory.getLogger(KMSFactory.class);
 	private static CloudKMS instance = null;
 
 	public static synchronized CloudKMS getService()
@@ -53,6 +60,22 @@ public class KMSFactory {
 
 		return new CloudKMS.Builder(transport, jsonFactory, credential)
 				.setApplicationName("Cloud KMS ").build();
+	}
+	public static String decrypt(String projectId, String locationId,
+			String keyRingId, String cryptoKeyId, String ciphertext)
+			throws IOException, GeneralSecurityException {
+		// Create the Cloud KMS client.
+		CloudKMS kms = KMSFactory.getService();
+		// The resource name of the cryptoKey
+		String cryptoKeyName = String.format(
+				"projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s", projectId,
+				locationId, keyRingId, cryptoKeyId);
+
+		DecryptRequest request = new DecryptRequest().setCiphertext(ciphertext);
+		DecryptResponse response = kms.projects().locations().keyRings()
+				.cryptoKeys().decrypt(cryptoKeyName, request).execute();
+
+		return response.getPlaintext().toString();
 	}
 
 }
