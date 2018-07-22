@@ -84,6 +84,11 @@ public class CSVBatchPipeline {
 	@SuppressWarnings("serial")
 	public static class FormatTableData extends DoFn<Table, String> {
 
+		private boolean addHeader;
+		public FormatTableData(boolean addHeader) {
+			this.addHeader = addHeader;
+		}
+		
 		@ProcessElement
 		public void processElement(ProcessContext c) {
 			Table encryptedData = c.element();
@@ -91,8 +96,12 @@ public class CSVBatchPipeline {
 			List<FieldId> outputHeaderFields = encryptedData.getHeadersList();
 			List<Table.Row> outputRows = encryptedData.getRowsList();
 			List<String> outputHeaders = outputHeaderFields.stream()
-					.map(FieldId::getName).collect(Collectors.toList());
-			bufferedWriter.append(String.join(",", outputHeaders) + "\n");
+					.map(FieldId::getName).collect(Collectors.toList());			
+			if(this.addHeader) {
+		    	bufferedWriter.append(String.join(",", outputHeaders) + "\n");
+		    	this.addHeader= false;
+		    }	
+			
 			for (Table.Row outputRow : outputRows) {
 				String row = outputRow.getValuesList().stream()
 						.map(value -> value.getStringValue())
@@ -101,7 +110,7 @@ public class CSVBatchPipeline {
 			}
 
 			// LOG.info("Format Data: " + bufferedWriter.toString());
-			c.output(bufferedWriter.toString());
+			c.output(bufferedWriter.toString().trim());
 		}
 	}
 
@@ -160,6 +169,13 @@ public class CSVBatchPipeline {
 		return response.getPlaintext().toString();
 	}
 
+	private static boolean findEncryptionType(String keyRing, String keyName, String csek, String csekhash) {
+		
+		if (keyRing.equals("null")||keyName.equals("null")||csek.equals("null")||csekhash.equals("null"))
+			return false;
+		else
+			return true;
+	}
 	@SuppressWarnings("serial")
 	public static class CSVFileReader extends DoFn<ReadableFile, List<Table>> {
 		private ValueProvider<Integer> batchSize;
@@ -168,6 +184,7 @@ public class CSVBatchPipeline {
 		private String objectName;
 		private String bucketName;
 		private String key;
+		private boolean customerSuppliedKey;
 
 		public CSVFileReader(ValueProvider<String> kmsKeyProjectName,
 				ValueProvider<String> fileDecryptKeyRing,
@@ -176,11 +193,17 @@ public class CSVBatchPipeline {
 				ValueProvider<String> cSekhash)
 				throws IOException, GeneralSecurityException {
 			this.batchSize = batchSize;
-			this.key = decrypt(kmsKeyProjectName.get(), "global",
-					fileDecryptKeyRing.get(), fileDecryptKey.get(),
-					cSek.get().toString());
+			
+			this.customerSuppliedKey = findEncryptionType(fileDecryptKeyRing.get(),fileDecryptKey.get(), cSek.get(), cSekhash.get());
+			if (customerSuppliedKey)
+				this.key = decrypt(kmsKeyProjectName.get(), "global",
+						fileDecryptKeyRing.get(), fileDecryptKey.get(),
+						cSek.get().toString());
+			else
+				this.key=null;
 			this.cSek = cSek;
 			this.cSekhash = cSekhash;
+			
 
 		}
 
@@ -198,8 +221,7 @@ public class CSVBatchPipeline {
 				BufferedReader br;
 				InputStream objectData = null;
 
-				if (cSek.get().toString().equals("null")
-						|| cSekhash.get().toString().equals("null")) {
+				if(!this.customerSuppliedKey) {
 
 					ReadableByteChannel channel = c.element().open();
 					br = new BufferedReader(
@@ -377,7 +399,7 @@ public class CSVBatchPipeline {
 						ParDo.of(new TokenizeData(options.getDlpProject(),
 								options.getDeidentifyTemplateName(),
 								options.getInspectTemplateName())))
-				.apply("Format Table Data", ParDo.of(new FormatTableData()))
+				.apply("Format Table Data", ParDo.of(new FormatTableData(true)))
 				// 1 minute window
 				.apply(Window.<String>into(
 						FixedWindows.of(Duration.standardMinutes(1))))

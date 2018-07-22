@@ -16,6 +16,8 @@
  */
 package com.google.swarm.tokenization.common;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import javax.annotation.Nullable;
 
 import org.apache.beam.sdk.io.FileBasedSink;
@@ -33,12 +35,12 @@ import org.apache.beam.sdk.values.PDone;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-
 @SuppressWarnings("serial")
 public class WriteOneFilePerWindow
 		extends
 			PTransform<PCollection<String>, PDone> {
+	
+	
 	private static final DateTimeFormatter FORMATTER = ISODateTimeFormat
 			.hourMinute();
 	private String filenamePrefix;
@@ -52,15 +54,17 @@ public class WriteOneFilePerWindow
 
 	@Override
 	public PDone expand(PCollection<String> input) {
+		
 		ResourceId resource = FileBasedSink
 				.convertToFileResourceIfPossible(filenamePrefix);
 		TextIO.Write write = TextIO.write().to(new PerWindowFiles(resource))
 				.withTempDirectory(resource.getCurrentDirectory())
 				.withWindowedWrites();
 		// .withoutSharding();
-
+	
 		if (numShards != null) {
 			write = write.withNumShards(numShards);
+	
 		}
 		return input.apply(write);
 	}
