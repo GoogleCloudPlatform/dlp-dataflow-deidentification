@@ -27,7 +27,6 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
-import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -39,11 +38,6 @@ import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.api.client.http.HttpHeaders;
-import com.google.api.services.cloudkms.v1.CloudKMS;
-import com.google.api.services.cloudkms.v1.model.DecryptRequest;
-import com.google.api.services.cloudkms.v1.model.DecryptResponse;
 import com.google.api.services.storage.Storage;
 import com.google.cloud.dlp.v2.DlpServiceClient;
 import com.google.privacy.dlp.v2.ContentItem;
@@ -53,6 +47,7 @@ import com.google.privacy.dlp.v2.ProjectName;
 import com.google.swarm.tokenization.common.KMSFactory;
 import com.google.swarm.tokenization.common.StorageFactory;
 import com.google.swarm.tokenization.common.TokenizePipelineOptions;
+import com.google.swarm.tokenization.common.Util;
 import com.google.swarm.tokenization.common.WriteOneFilePerWindow;
 
 public class TextStreamingPipeline {
@@ -136,50 +131,7 @@ public class TextStreamingPipeline {
 		}
 	}
 
-	private static String parseBucketName(String value) {
-		// gs://name/ -> name
-		return value.substring(5, value.length() - 1);
-	}
 
-	public static String decrypt(String projectId, String locationId,
-			String keyRingId, String cryptoKeyId, String ciphertext)
-			throws IOException, GeneralSecurityException {
-		// Create the Cloud KMS client.
-		CloudKMS kms = KMSFactory.getService();
-		// The resource name of the cryptoKey
-		String cryptoKeyName = String.format(
-				"projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s", projectId,
-				locationId, keyRingId, cryptoKeyId);
-
-		DecryptRequest request = new DecryptRequest().setCiphertext(ciphertext);
-		DecryptResponse response = kms.projects().locations().keyRings()
-				.cryptoKeys().decrypt(cryptoKeyName, request).execute();
-
-		return response.getPlaintext().toString();
-	}
-
-	private static InputStream downloadObject(Storage storage,
-			String bucketName, String objectName, String base64CseKey,
-			String base64CseKeyHash) throws Exception {
-
-		// Set the CSEK headers
-		final HttpHeaders httpHeaders = new HttpHeaders();
-		httpHeaders.set("x-goog-encryption-algorithm", "AES256");
-		httpHeaders.set("x-goog-encryption-key", base64CseKey);
-		httpHeaders.set("x-goog-encryption-key-sha256", base64CseKeyHash);
-
-		Storage.Objects.Get getObject = storage.objects().get(bucketName,
-				objectName);
-		getObject.setRequestHeaders(httpHeaders);
-
-		try {
-			return getObject.executeMediaAsInputStream();
-		} catch (GoogleJsonResponseException e) {
-			LOG.info("Error downloading: " + e.getContent());
-			System.exit(1);
-			return null;
-		}
-	}
 
 	@SuppressWarnings("serial")
 	public static class TextFileReader extends DoFn<ReadableFile, String> {
@@ -189,6 +141,8 @@ public class TextStreamingPipeline {
 		private String objectName;
 		private String bucketName;
 		private String key;
+		private boolean customerSuppliedKey;
+
 
 		public TextFileReader(ValueProvider<String> kmsKeyProjectName,
 				ValueProvider<String> fileDecryptKeyRing,
@@ -197,9 +151,15 @@ public class TextStreamingPipeline {
 				ValueProvider<String> cSekhash)
 				throws IOException, GeneralSecurityException {
 			this.batchSize = batchSize;
-			this.key = decrypt(kmsKeyProjectName.get(), "global",
-					fileDecryptKeyRing.get(), fileDecryptKey.get(),
-					cSek.get().toString());
+			this.customerSuppliedKey = Util.findEncryptionType(
+					fileDecryptKeyRing.get(), fileDecryptKey.get(), cSek.get(),
+					cSekhash.get());
+			if (customerSuppliedKey)
+				this.key = KMSFactory.decrypt(kmsKeyProjectName.get(), "global",
+						fileDecryptKeyRing.get(), fileDecryptKey.get(),
+						cSek.get().toString());
+			else
+				this.key = null;
 			this.cSek = cSek;
 			this.cSekhash = cSekhash;
 		}
@@ -209,17 +169,12 @@ public class TextStreamingPipeline {
 
 			objectName = c.element().getMetadata().resourceId().getFilename()
 					.toString();
-			bucketName = parseBucketName(c.element().getMetadata().resourceId()
+			bucketName = Util.parseBucketName(c.element().getMetadata().resourceId()
 					.getCurrentDirectory().toString());
 			LOG.info(
 					"Bucket Name: " + bucketName + " File Name: " + objectName);
 
-			if (cSek.get().toString().equals("null")
-					|| cSekhash.get().toString().equals("null")) {
-
-				// default FileIO can handle the request as file is encrypted
-				// using customer
-				// managed key in KMS
+			if (!this.customerSuppliedKey) {
 
 				try {
 
@@ -242,14 +197,11 @@ public class TextStreamingPipeline {
 
 			} else {
 
-				// let input stream handle the request as file is encrypted
-				// using customer
-				// supplied key
 
 				try {
 
 					Storage storage = StorageFactory.getService();
-					InputStream objectData = downloadObject(storage, bucketName,
+					InputStream objectData = StorageFactory.downloadObject(storage, bucketName,
 							objectName, key, cSekhash.get().toString());
 
 					byte[] data = new byte[this.batchSize.get().intValue()];
