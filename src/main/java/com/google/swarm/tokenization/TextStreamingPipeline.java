@@ -86,9 +86,9 @@ public class TextStreamingPipeline {
 	@SuppressWarnings("serial")
 	public static class TokenizeData extends DoFn<String, String> {
 
-		final ValueProvider<String> projectId;
-		final ValueProvider<String> deIdentifyTemplateName;
-		final ValueProvider<String> inspectTemplateName;
+		private ValueProvider<String> projectId;
+		private ValueProvider<String> deIdentifyTemplateName;
+		private ValueProvider<String> inspectTemplateName;
 
 		public TokenizeData(ValueProvider<String> projectId,
 				ValueProvider<String> deIdentifyTemplateName,
@@ -109,12 +109,12 @@ public class TextStreamingPipeline {
 
 				DeidentifyContentRequest request = DeidentifyContentRequest
 						.newBuilder()
-						.setParent(ProjectName
-								.of(this.projectId.get().toString()).toString())
+						.setParent(ProjectName.of(this.projectId.get())
+								.toString())
 						.setDeidentifyTemplateName(
-								this.deIdentifyTemplateName.get().toString())
+								this.deIdentifyTemplateName.get())
 						.setInspectTemplateName(
-								this.inspectTemplateName.get().toString())
+								this.inspectTemplateName.get())
 						.setItem(contentItem).build();
 
 				DeidentifyContentResponse response = dlpServiceClient
@@ -132,16 +132,16 @@ public class TextStreamingPipeline {
 
 	@SuppressWarnings("serial")
 	public static class TextFileReader extends DoFn<ReadableFile, String> {
-		private Integer batchSize;
-		private String cSek;
-		private String cSekhash;
-		private String kmsKeyProjectName;
+		private ValueProvider<Integer> batchSize;
+		private ValueProvider<String> cSek;
+		private ValueProvider<String> cSekhash;
+		private ValueProvider<String> kmsKeyProjectName;
 		private String objectName;
 		private String bucketName;
 		private String key;
 		private boolean customerSuppliedKey;
-		private String fileDecryptKey;
-		private String fileDecryptKeyName;
+		private ValueProvider<String> fileDecryptKey;
+		private ValueProvider<String> fileDecryptKeyName;
 
 		public TextFileReader(ValueProvider<String> kmsKeyProjectName,
 				ValueProvider<String> fileDecryptKeyRing,
@@ -149,25 +149,14 @@ public class TextStreamingPipeline {
 				ValueProvider<Integer> batchSize, ValueProvider<String> cSek,
 				ValueProvider<String> cSekhash)
 				throws IOException, GeneralSecurityException {
-			if (batchSize.isAccessible())
-				this.batchSize = batchSize.get();
-
-			if (kmsKeyProjectName.isAccessible())
-				this.kmsKeyProjectName = kmsKeyProjectName.get();
-			if (fileDecryptKey.isAccessible())
-				this.fileDecryptKey = fileDecryptKey.get();
-
-			if (fileDecryptKeyRing.isAccessible())
-				this.fileDecryptKeyName = fileDecryptKeyRing.get();
-
-			if (cSek.isAccessible())
-				this.cSek = cSek.get();
-			if (cSekhash.isAccessible())
-				this.cSekhash = cSekhash.get();
-
+			this.batchSize = batchSize;
+			this.kmsKeyProjectName = kmsKeyProjectName;
+			this.fileDecryptKey = fileDecryptKey;
+			this.fileDecryptKeyName = fileDecryptKeyRing;
+			this.cSek = cSek;
+			this.cSekhash = cSekhash;
 			this.customerSuppliedKey = false;
 			this.key = null;
-
 		}
 
 		@ProcessElement
@@ -175,14 +164,13 @@ public class TextStreamingPipeline {
 				throws IOException, GeneralSecurityException {
 
 			this.customerSuppliedKey = Util.findEncryptionType(
-					this.fileDecryptKeyName, this.fileDecryptKey, this.cSek,
-					this.cSekhash);
+					this.fileDecryptKeyName.get(), this.fileDecryptKey.get(),
+					this.cSek.get(), this.cSekhash.get());
 
 			if (customerSuppliedKey)
-				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
-						this.fileDecryptKeyName, this.fileDecryptKey,
-						this.cSek);
-
+				this.key = KMSFactory.decrypt(this.kmsKeyProjectName.get(),
+						"global", this.fileDecryptKeyName.get(),
+						this.fileDecryptKey.get(), this.cSek.get());
 			objectName = c.element().getMetadata().resourceId().getFilename()
 					.toString();
 			bucketName = Util.parseBucketName(c.element().getMetadata()
@@ -195,7 +183,7 @@ public class TextStreamingPipeline {
 				try {
 
 					SeekableByteChannel channel = c.element().openSeekable();
-					ByteBuffer bf = ByteBuffer.allocate(batchSize.intValue());
+					ByteBuffer bf = ByteBuffer.allocate(batchSize.get().intValue());
 					while ((channel.read(bf)) > 0) {
 						bf.flip();
 						byte[] data = bf.array();
@@ -216,9 +204,9 @@ public class TextStreamingPipeline {
 
 					Storage storage = StorageFactory.getService();
 					InputStream objectData = StorageFactory.downloadObject(
-							storage, bucketName, objectName, key, cSekhash);
+							storage, bucketName, objectName, key, cSekhash.get());
 
-					byte[] data = new byte[this.batchSize.intValue()];
+					byte[] data = new byte[this.batchSize.get().intValue()];
 					int bytesRead = 0;
 					int offset = 0;
 					while ((bytesRead = objectData.read(data, offset,

@@ -109,8 +109,8 @@ public class CSVBatchPipeline {
 
 	@SuppressWarnings("serial")
 	public static class CSVFileReader extends DoFn<ReadableFile, List<Table>> {
-		private ValueProvider<Integer>batchSize;
-		private ValueProvider<String>cSek;
+		private ValueProvider<Integer> batchSize;
+		private ValueProvider<String> cSek;
 		private ValueProvider<String> cSekhash;
 		private ValueProvider<String> kmsKeyProjectName;
 		private String objectName;
@@ -127,15 +127,14 @@ public class CSVBatchPipeline {
 				ValueProvider<String> cSekhash)
 				throws IOException, GeneralSecurityException {
 
-			
-				this.batchSize = batchSize;
-				this.kmsKeyProjectName = kmsKeyProjectName;
-				this.fileDecryptKey = fileDecryptKey;
-				this.fileDecryptKeyName = fileDecryptKeyRing;
-				this.cSek = cSek;
-				this.cSekhash = cSekhash;
-				this.customerSuppliedKey = false;
-				this.key = null;
+			this.batchSize = batchSize;
+			this.kmsKeyProjectName = kmsKeyProjectName;
+			this.fileDecryptKey = fileDecryptKey;
+			this.fileDecryptKeyName = fileDecryptKeyRing;
+			this.cSek = cSek;
+			this.cSekhash = cSekhash;
+			this.customerSuppliedKey = false;
+			this.key = null;
 
 		}
 
@@ -144,13 +143,13 @@ public class CSVBatchPipeline {
 				throws IOException, GeneralSecurityException {
 
 			this.customerSuppliedKey = Util.findEncryptionType(
-					this.fileDecryptKeyName.get(), this.fileDecryptKey.get(), this.cSek.get(),
-					this.cSekhash.get());
+					this.fileDecryptKeyName.get(), this.fileDecryptKey.get(),
+					this.cSek.get(), this.cSekhash.get());
 
 			if (customerSuppliedKey)
-				this.key = KMSFactory.decrypt(this.kmsKeyProjectName.get(), "global",
-						this.fileDecryptKeyName.get(), this.fileDecryptKey.get(),
-						this.cSek.get());
+				this.key = KMSFactory.decrypt(this.kmsKeyProjectName.get(),
+						"global", this.fileDecryptKeyName.get(),
+						this.fileDecryptKey.get(), this.cSek.get());
 
 			bucketName = Util.parseBucketName(c.element().getMetadata()
 					.resourceId().getCurrentDirectory().toString());
@@ -162,8 +161,8 @@ public class CSVBatchPipeline {
 					+ " File Name: " + objectName + " CSK"
 					+ this.customerSuppliedKey + " csek: " + this.cSek
 					+ " csekhash: " + this.cSekhash + " key ring name: "
-					+ this.fileDecryptKeyName + " Key: " + this.fileDecryptKey 
-					+"Batch Size: "+this.batchSize);
+					+ this.fileDecryptKeyName + " Key: " + this.fileDecryptKey
+					+ "Batch Size: " + this.batchSize);
 
 			try {
 				BufferedReader br;
@@ -204,7 +203,8 @@ public class CSVBatchPipeline {
 						.collect(Collectors.toList());
 
 				while (!endOfFile) {
-					List<String> lines = Util.readBatch(br, this.batchSize.get());
+					List<String> lines = Util.readBatch(br,
+							this.batchSize.get());
 					Table batchData = Util.createDLPTable(headers, lines);
 					tables.add(batchData);
 					if (lines.size() < this.batchSize.get()) {
@@ -229,30 +229,28 @@ public class CSVBatchPipeline {
 	public static class TokenizeData extends DoFn<Table, Table> {
 
 		private ValueProvider<String> projectId;
-		private ValueProvider<String>deIdentifyTemplateName;
+		private ValueProvider<String> deIdentifyTemplateName;
 		private ValueProvider<String> inspectTemplateName;
 		private boolean inspectTemplateExist;
 
 		public TokenizeData(ValueProvider<String> projectId,
 				ValueProvider<String> deIdentifyTemplateName,
 				ValueProvider<String> inspectTemplateName) {
-			
-				this.projectId = projectId;
-				this.deIdentifyTemplateName = deIdentifyTemplateName;
-			    this.inspectTemplateName = inspectTemplateName;
-				this.inspectTemplateExist = false;
-			
-			
+
+			this.projectId = projectId;
+			this.deIdentifyTemplateName = deIdentifyTemplateName;
+			this.inspectTemplateName = inspectTemplateName;
+			this.inspectTemplateExist = false;
+
 		}
 
 		@ProcessElement
 		public void processElement(ProcessContext c) {
 			Table nonEncryptedData = c.element();
 			Table encryptedData;
-			if (this.inspectTemplateName.get()!=null)
-				this.inspectTemplateExist=true;
-			
-			LOG.info("ITE:"+this.inspectTemplateExist);
+			if (this.inspectTemplateName.get() != null)
+				this.inspectTemplateExist = true;
+
 			try (DlpServiceClient dlpServiceClient = DlpServiceClient
 					.create()) {
 
@@ -263,16 +261,17 @@ public class CSVBatchPipeline {
 
 				if (this.inspectTemplateExist) {
 					request = DeidentifyContentRequest.newBuilder()
-							.setParent(
-									ProjectName.of(this.projectId.get()).toString())
+							.setParent(ProjectName.of(this.projectId.get())
+									.toString())
 							.setDeidentifyTemplateName(
 									this.deIdentifyTemplateName.get())
-							.setInspectTemplateName(this.inspectTemplateName.get())
+							.setInspectTemplateName(
+									this.inspectTemplateName.get())
 							.setItem(tableItem).build();
 				} else {
 					request = DeidentifyContentRequest.newBuilder()
-							.setParent(
-									ProjectName.of(this.projectId.get()).toString())
+							.setParent(ProjectName.of(this.projectId.get())
+									.toString())
 							.setDeidentifyTemplateName(
 									this.deIdentifyTemplateName.get())
 							.setItem(tableItem).build();
