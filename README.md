@@ -14,10 +14,15 @@ All the data used part of this project is mocked.
 
 Clone the repo locally: git clone https://cloud-swarm.googlesource.com/data-tokenization
 
+Example below includes use case to encrypt input file in GCS with a customer supplied key. PoC also works for google managed or customer managed encryption keys. Just take out encryption related arguments from the gradle run based on the encryption method. 
 Run this for fully structured (example # 1 or 2) data by replacing argument related to your project:  
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline -Pargs="--streaming --project=<project_id> --runner=DirectRunner  --inputFile=gs://<bucket_name>/pii-structured-data-*.csv --batchSize=<number> --dlpProject=<project_id> --deidentifyTemplateName=projects/<project_id>/deidentifyTemplates/<name> --inspectTemplateName=null --outputFile=gs://<bucket_name>/output-structured-data --csek=<kms_wrapped_key> --csekhash=<hash_key> --fileDecryptKeyName=<key_ring_name>--fileDecryptKey=<key_name>"	
+example#1
+gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline -Pargs="--streaming --project= --runner=DirectRunner  --inputFile=gs://<bucket>/pii-structured-data-*.csv --batchSize=4700 --dlpProject=<project_id> --deidentifyTemplateName=projects/<project_id>/deidentifyTemplates/8658110966372436613 --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key"
+
+
+
 ```
 Run this for non structured data (example #3) data by replacing argument related to your project 
 
@@ -90,6 +95,7 @@ If it's successful, file is successfully open and parsed by the batch size speci
 It creates a DLP table object as a content item with the chunk data and call DLP api to tokenize  by using the template passed.
 At then end it writes the tokenized data in a GCS bucket.
 
+Please note for GMK or customer managed key use cases, there is no call to KMS is made.
 ### Known Issue
 It requires split dofn feature which is deployed in beam 2.5 for dataflow runner. Currently it requires beam 2.6 snapshot to be able to successfully run.  
 Also there is a known issue regarding GRPC version conflict with other google cloud products. That's why in gradle build file uses shaded jar concept to build and compile. Once the issue is resolved, build file can be updated to take out shading part.  
@@ -109,14 +115,24 @@ Example KMS Wrapped key:
 ### Local Build
 
 Clone the project 
-Import as a gradle project in your IDE
-Uncomment one of the lines below as needed from build.gradle file if you just wanted to compile locally from IDE  
+Import as a gradle project in your IDE and execute gradle build.
 
+### Dataflow template creation
+
+you can create a dataflow template by following command:
 
 ```
-//mainClassName = 'com.google.swarm.tokenization.CSVBatchPipeline'
-//mainClassName = 'com.google.swarm.tokenization.TextStreamingPipeline'
+gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=scotia-tokezation --runner=DataflowRunner --templateLocation=gs://df-template/dlp-tokenization  --gcpTempLocation=gs://dlp-df-temp/data --workerHarnessContainerImage=dataflow.gcr.io/v1beta3/beam-java-streaming:beam-master-20180710"
 ```
+And execute it either by UI, REST API or GCloud
+
+```
+gcloud dataflow jobs run test-run-3 --gcs-location gs://df-template/dlp-tokenization --parameters inputFile=gs://pii-batch-data/test-gmk-semi.csv,project=<id>,batchSize=100,deidentifyTemplateName=projects/<id>/deidentifyTemplates/6375801268847293878,outputFile=gs://output-tokenization-data/output-structured-data,inspectTemplateName=projects/<id>/inspectTemplates/7795191927316697091 
+```
+### To Do
+
+- Unit Test and Code Coverage 
+
 
 
 

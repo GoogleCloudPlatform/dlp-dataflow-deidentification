@@ -171,7 +171,8 @@ public class CSVBatchPipeline {
 					+ " File Name: " + objectName + " CSK"
 					+ this.customerSuppliedKey + " csek: " + this.cSek
 					+ " csekhash: " + this.cSekhash + " key ring name: "
-					+ this.fileDecryptKeyName + " Key: " + this.fileDecryptKey);
+					+ this.fileDecryptKeyName + " Key: " + this.fileDecryptKey 
+					+"Batch Size: "+this.batchSize);
 
 			try {
 				BufferedReader br;
