@@ -119,7 +119,6 @@ public class CSVBatchPipeline {
 		private boolean customerSuppliedKey;
 		private String fileDecryptKey;
 		private String fileDecryptKeyName;
-		
 
 		public CSVFileReader(ValueProvider<String> kmsKeyProjectName,
 				ValueProvider<String> fileDecryptKeyRing,
@@ -127,62 +126,53 @@ public class CSVBatchPipeline {
 				ValueProvider<Integer> batchSize, ValueProvider<String> cSek,
 				ValueProvider<String> cSekhash)
 				throws IOException, GeneralSecurityException {
-			
-			if(batchSize.isAccessible())
+
+			if (batchSize.isAccessible())
 				this.batchSize = batchSize.get();
-			
+
 			if (kmsKeyProjectName.isAccessible())
-				this.kmsKeyProjectName=kmsKeyProjectName.get();
-			if(fileDecryptKey.isAccessible())
-				this.fileDecryptKey=fileDecryptKey.get();
-			
-			if(fileDecryptKeyRing.isAccessible())
-				this.fileDecryptKeyName=fileDecryptKeyRing.get();
-			
-			if(cSek.isAccessible())
+				this.kmsKeyProjectName = kmsKeyProjectName.get();
+			if (fileDecryptKey.isAccessible())
+				this.fileDecryptKey = fileDecryptKey.get();
+
+			if (fileDecryptKeyRing.isAccessible())
+				this.fileDecryptKeyName = fileDecryptKeyRing.get();
+
+			if (cSek.isAccessible())
 				this.cSek = cSek.get();
-			if(cSekhash.isAccessible())
+			if (cSekhash.isAccessible())
 				this.cSekhash = cSekhash.get();
-			
-			this.customerSuppliedKey = Util.findEncryptionType(
-					this.fileDecryptKeyName, this.fileDecryptKey, this.cSek,
-					this.cSekhash);
-			
-		
-			
-			if (customerSuppliedKey)
-				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
-						this.fileDecryptKeyName, this.fileDecryptKey,
-						this.cSek);
-			else 
-				this.key=null;
-	
-			LOG.info("Constructor"+" Bucket Name: " + bucketName + " File Name: " 
-					+ objectName+" CSK"+this.customerSuppliedKey +" csek: "
-					+this.cSek +" csekhash: "+this.cSekhash+" key ring name: "
-					+this.fileDecryptKeyName+" Key: "+this.fileDecryptKey);
+
+			this.customerSuppliedKey = false;
+			this.key = null;
 
 		}
 
 		@ProcessElement
-		public void processElement(ProcessContext c) throws IOException, GeneralSecurityException {
+		public void processElement(ProcessContext c)
+				throws IOException, GeneralSecurityException {
 
-			
-		
+			this.customerSuppliedKey = Util.findEncryptionType(
+					this.fileDecryptKeyName, this.fileDecryptKey, this.cSek,
+					this.cSekhash);
+
+			if (customerSuppliedKey)
+				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
+						this.fileDecryptKeyName, this.fileDecryptKey,
+						this.cSek);
+
 			bucketName = Util.parseBucketName(c.element().getMetadata()
 					.resourceId().getCurrentDirectory().toString());
-			
+
 			objectName = c.element().getMetadata().resourceId().getFilename()
 					.toString();
-			
-			
-			LOG.info("Process Element:"+" Bucket Name: " + bucketName + " File Name: " 
-			+ objectName+" CSK"+this.customerSuppliedKey +" csek: "
-			+this.cSek +" csekhash: "+this.cSekhash+" key ring name: "
-			+this.fileDecryptKeyName+" Key: "+this.fileDecryptKey);
 
-			
-			
+			LOG.info("Process Element:" + " Bucket Name: " + bucketName
+					+ " File Name: " + objectName + " CSK"
+					+ this.customerSuppliedKey + " csek: " + this.cSek
+					+ " csekhash: " + this.cSekhash + " key ring name: "
+					+ this.fileDecryptKeyName + " Key: " + this.fileDecryptKey);
+
 			try {
 				BufferedReader br;
 				InputStream objectData = null;
@@ -204,8 +194,7 @@ public class CSVBatchPipeline {
 					}
 					try {
 						objectData = StorageFactory.downloadObject(storage,
-								bucketName, objectName, key,
-								cSekhash);
+								bucketName, objectName, key, cSekhash);
 					} catch (Exception e) {
 						LOG.error(
 								"Error Reading the Encrypted File in GCS- Customer Supplied Key");
@@ -262,7 +251,7 @@ public class CSVBatchPipeline {
 			if (inspectTemplateName.isAccessible()) {
 				this.inspectTemplateName = inspectTemplateName.get();
 				this.inspectTemplateExist = true;
-			}else {
+			} else {
 				this.inspectTemplateExist = false;
 			}
 		}
@@ -281,19 +270,16 @@ public class CSVBatchPipeline {
 
 				if (this.inspectTemplateExist) {
 					request = DeidentifyContentRequest.newBuilder()
-							.setParent(ProjectName
-									.of(this.projectId)
-									.toString())
+							.setParent(
+									ProjectName.of(this.projectId).toString())
 							.setDeidentifyTemplateName(
 									this.deIdentifyTemplateName)
-							.setInspectTemplateName(
-									this.inspectTemplateName)
+							.setInspectTemplateName(this.inspectTemplateName)
 							.setItem(tableItem).build();
 				} else {
 					request = DeidentifyContentRequest.newBuilder()
-							.setParent(ProjectName
-									.of(this.projectId)
-									.toString())
+							.setParent(
+									ProjectName.of(this.projectId).toString())
 							.setDeidentifyTemplateName(
 									this.deIdentifyTemplateName)
 							.setItem(tableItem).build();
@@ -339,7 +325,7 @@ public class CSVBatchPipeline {
 				// 1 minute window
 				.apply(Window.<String>into(
 						FixedWindows.of(Duration.standardMinutes(1))))
-				.apply(new WriteOneFilePerWindow(options.getOutputFile(),1));
+				.apply(new WriteOneFilePerWindow(options.getOutputFile(), 1));
 
 		p.run();
 	}

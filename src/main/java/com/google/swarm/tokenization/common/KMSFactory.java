@@ -65,23 +65,24 @@ public class KMSFactory {
 			String keyRingId, String cryptoKeyId, String ciphertext)
 			throws IOException, GeneralSecurityException {
 		// Create the Cloud KMS client.
-		if (projectId!=null || keyRingId!=null || 
-				cryptoKeyId!=null||ciphertext!=null) {
+		if (projectId != null || keyRingId != null || cryptoKeyId != null
+				|| ciphertext != null) {
 			CloudKMS kms = KMSFactory.getService();
 			// The resource name of the cryptoKey
 			String cryptoKeyName = String.format(
-					"projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s", projectId,
-					locationId, keyRingId, cryptoKeyId);
+					"projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s",
+					projectId, locationId, keyRingId, cryptoKeyId);
 
-			DecryptRequest request = new DecryptRequest().setCiphertext(ciphertext);
+			DecryptRequest request = new DecryptRequest()
+					.setCiphertext(ciphertext);
 			DecryptResponse response = kms.projects().locations().keyRings()
 					.cryptoKeys().decrypt(cryptoKeyName, request).execute();
 
 			return response.getPlaintext().toString();
-		
+
 		}
 		return null;
-		
+
 	}
 
 }

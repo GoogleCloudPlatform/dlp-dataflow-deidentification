@@ -43,16 +43,17 @@ public class WriteOneFilePerWindow
 
 	private static final DateTimeFormatter FORMATTER = ISODateTimeFormat
 			.hourMinute();
-	
+
 	private String filenamePrefix;
 	@Nullable
 	private Integer numShards;
 
-	public WriteOneFilePerWindow(ValueProvider<String> filenamePrefix, Integer numShards) {
+	public WriteOneFilePerWindow(ValueProvider<String> filenamePrefix,
+			Integer numShards) {
 		if (filenamePrefix.isAccessible())
 			this.filenamePrefix = filenamePrefix.get();
-		else 
-			this.filenamePrefix= "output";
+		else
+			this.filenamePrefix = "output";
 		this.numShards = numShards;
 	}
 

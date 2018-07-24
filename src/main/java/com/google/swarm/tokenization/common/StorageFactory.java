@@ -67,8 +67,6 @@ public class StorageFactory {
 			String objectName, String base64CseKey, String base64CseKeyHash)
 			throws Exception {
 
-		
-		
 		// Set the CSEK headers
 		final HttpHeaders httpHeaders = new HttpHeaders();
 		httpHeaders.set("x-goog-encryption-algorithm", "AES256");

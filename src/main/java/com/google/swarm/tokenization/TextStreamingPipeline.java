@@ -78,7 +78,7 @@ public class TextStreamingPipeline {
 								options.getInspectTemplateName())))
 				.apply(Window.<String>into(
 						FixedWindows.of(Duration.standardMinutes(1))))
-				.apply(new WriteOneFilePerWindow(options.getOutputFile(),1));
+				.apply(new WriteOneFilePerWindow(options.getOutputFile(), 1));
 
 		p.run().waitUntilFinish();
 	}
@@ -130,8 +130,6 @@ public class TextStreamingPipeline {
 		}
 	}
 
-
-
 	@SuppressWarnings("serial")
 	public static class TextFileReader extends DoFn<ReadableFile, String> {
 		private ValueProvider<Integer> batchSize;
@@ -141,7 +139,6 @@ public class TextStreamingPipeline {
 		private String bucketName;
 		private String key;
 		private boolean customerSuppliedKey;
-
 
 		public TextFileReader(ValueProvider<String> kmsKeyProjectName,
 				ValueProvider<String> fileDecryptKeyRing,
@@ -168,8 +165,8 @@ public class TextStreamingPipeline {
 
 			objectName = c.element().getMetadata().resourceId().getFilename()
 					.toString();
-			bucketName = Util.parseBucketName(c.element().getMetadata().resourceId()
-					.getCurrentDirectory().toString());
+			bucketName = Util.parseBucketName(c.element().getMetadata()
+					.resourceId().getCurrentDirectory().toString());
 			LOG.info(
 					"Bucket Name: " + bucketName + " File Name: " + objectName);
 
@@ -196,12 +193,12 @@ public class TextStreamingPipeline {
 
 			} else {
 
-
 				try {
 
 					Storage storage = StorageFactory.getService();
-					InputStream objectData = StorageFactory.downloadObject(storage, bucketName,
-							objectName, key, cSekhash.get().toString());
+					InputStream objectData = StorageFactory.downloadObject(
+							storage, bucketName, objectName, key,
+							cSekhash.get().toString());
 
 					byte[] data = new byte[this.batchSize.get().intValue()];
 					int bytesRead = 0;

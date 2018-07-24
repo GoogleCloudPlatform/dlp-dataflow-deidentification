@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.beam.sdk.options.ValueProvider;
-
 import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
@@ -56,8 +54,8 @@ public class Util {
 	public static boolean findEncryptionType(String keyRing, String keyName,
 			String csek, String csekhash) {
 
-		if (keyRing!=null || keyName!=null
-			|| csek!=null|| csekhash!=null)
+		if (keyRing != null || keyName != null || csek != null
+				|| csekhash != null)
 			return true;
 		else
 			return false;
