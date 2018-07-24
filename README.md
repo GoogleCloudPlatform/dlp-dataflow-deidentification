@@ -88,16 +88,17 @@ Batch Size by number of rows/ call
 
 
 ### How the Dataflow pipeline works?
-It requires dataflow 2.6 snapshot build for split DoFn feature with FileIO. It polls for incoming file in given interval (10 seconds- hardcoded currently) in the GCS bucket and create a unbounded data source. There is one minute window to write to a target gcs bucket.
-
-DF pipeline calls the KMS api to decrypt the key in memory so that file can be read. 
-If it's successful, file is successfully open and parsed by the batch size specified
-It creates a DLP table object as a content item with the chunk data and call DLP api to tokenize  by using the template passed.
-At then end it writes the tokenized data in a GCS bucket.
-
+It requires dataflow 2.6 snapshot build for split DoFn feature with FileIO.  
+It polls for incoming file in given interval (10 seconds- hardcoded currently) in the GCS bucket and create a unbounded data source.  
+There is one minute window to write to a target gcs bucket.
+DF pipeline calls the KMS api to decrypt the key in memory so that file can be read   
+If it's successful, file is successfully open and parsed by the batch size specified  
+It creates a DLP table object as a content item with the chunk data and call DLP api to tokenize  by using the template passed  
+At then end it writes the tokenized data in a GCS bucket.  
 Please note for GMK or customer managed key use cases, there is no call to KMS is made.
+
 ### Known Issue
-It requires split dofn feature which is deployed in beam 2.5 for dataflow runner. Currently it requires beam 2.6 snapshot to be able to successfully run.  
+It requires split dofn feature which requires beam 2.6 to be able to successfully execiute gor growth.never() termination condition and watermark to advance.  
 Also there is a known issue regarding GRPC version conflict with other google cloud products. That's why in gradle build file uses shaded jar concept to build and compile. Once the issue is resolved, build file can be updated to take out shading part.  
 
 ### How to generate KMS wrapped key
@@ -132,6 +133,7 @@ gcloud dataflow jobs run test-run-3 --gcs-location gs://df-template/dlp-tokeniza
 ### To Do
 
 - Unit Test and Code Coverage 
+- There is a bug currently open for data flow template and value provider.
 
 
 
