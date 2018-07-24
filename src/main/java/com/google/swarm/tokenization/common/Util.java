@@ -27,10 +27,10 @@ public class Util {
 		return tableRowBuilder.build();
 	}
 	public static List<String> readBatch(BufferedReader reader,
-			ValueProvider<Integer> batchSize) throws IOException {
+			Integer batchSize) throws IOException {
 		List<String> result = new ArrayList<>();
 
-		for (int i = 0; i < batchSize.get().intValue(); i++) {
+		for (int i = 0; i < batchSize.intValue(); i++) {
 			String line = reader.readLine();
 			if (line != null) {
 				result.add(line);
@@ -56,11 +56,11 @@ public class Util {
 	public static boolean findEncryptionType(String keyRing, String keyName,
 			String csek, String csekhash) {
 
-		if (keyRing.equals("null") || keyName.equals("null")
-				|| csek.equals("null") || csekhash.equals("null"))
-			return false;
-		else
+		if (keyRing!=null || keyName!=null
+			|| csek!=null|| csekhash!=null)
 			return true;
+		else
+			return false;
 	}
 
 }

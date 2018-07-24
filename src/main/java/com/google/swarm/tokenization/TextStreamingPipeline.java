@@ -78,8 +78,7 @@ public class TextStreamingPipeline {
 								options.getInspectTemplateName())))
 				.apply(Window.<String>into(
 						FixedWindows.of(Duration.standardMinutes(1))))
-				.apply(new WriteOneFilePerWindow(options.getOutputFile().get(),
-						1));
+				.apply(new WriteOneFilePerWindow(options.getOutputFile(),1));
 
 		p.run().waitUntilFinish();
 	}

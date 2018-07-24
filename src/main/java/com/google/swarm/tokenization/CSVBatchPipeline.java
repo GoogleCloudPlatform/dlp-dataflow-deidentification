@@ -109,13 +109,17 @@ public class CSVBatchPipeline {
 
 	@SuppressWarnings("serial")
 	public static class CSVFileReader extends DoFn<ReadableFile, List<Table>> {
-		private ValueProvider<Integer> batchSize;
-		private ValueProvider<String> cSek;
-		private ValueProvider<String> cSekhash;
+		private Integer batchSize;
+		private String cSek;
+		private String cSekhash;
+		private String kmsKeyProjectName;
 		private String objectName;
 		private String bucketName;
 		private String key;
 		private boolean customerSuppliedKey;
+		private String fileDecryptKey;
+		private String fileDecryptKeyName;
+		
 
 		public CSVFileReader(ValueProvider<String> kmsKeyProjectName,
 				ValueProvider<String> fileDecryptKeyRing,
@@ -123,32 +127,62 @@ public class CSVBatchPipeline {
 				ValueProvider<Integer> batchSize, ValueProvider<String> cSek,
 				ValueProvider<String> cSekhash)
 				throws IOException, GeneralSecurityException {
-			this.batchSize = batchSize;
-
+			
+			if(batchSize.isAccessible())
+				this.batchSize = batchSize.get();
+			
+			if (kmsKeyProjectName.isAccessible())
+				this.kmsKeyProjectName=kmsKeyProjectName.get();
+			if(fileDecryptKey.isAccessible())
+				this.fileDecryptKey=fileDecryptKey.get();
+			
+			if(fileDecryptKeyRing.isAccessible())
+				this.fileDecryptKeyName=fileDecryptKeyRing.get();
+			
+			if(cSek.isAccessible())
+				this.cSek = cSek.get();
+			if(cSekhash.isAccessible())
+				this.cSekhash = cSekhash.get();
+			
 			this.customerSuppliedKey = Util.findEncryptionType(
-					fileDecryptKeyRing.get(), fileDecryptKey.get(), cSek.get(),
-					cSekhash.get());
+					this.fileDecryptKeyName, this.fileDecryptKey, this.cSek,
+					this.cSekhash);
+			
+		
+			
 			if (customerSuppliedKey)
-				this.key = KMSFactory.decrypt(kmsKeyProjectName.get(), "global",
-						fileDecryptKeyRing.get(), fileDecryptKey.get(),
-						cSek.get().toString());
-			else
-				this.key = null;
-			this.cSek = cSek;
-			this.cSekhash = cSekhash;
+				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
+						this.fileDecryptKeyName, this.fileDecryptKey,
+						this.cSek);
+			else 
+				this.key=null;
+	
+			LOG.info("Constructor"+" Bucket Name: " + bucketName + " File Name: " 
+					+ objectName+" CSK"+this.customerSuppliedKey +" csek: "
+					+this.cSek +" csekhash: "+this.cSekhash+" key ring name: "
+					+this.fileDecryptKeyName+" Key: "+this.fileDecryptKey);
 
 		}
 
 		@ProcessElement
-		public void processElement(ProcessContext c) {
+		public void processElement(ProcessContext c) throws IOException, GeneralSecurityException {
 
-			objectName = c.element().getMetadata().resourceId().getFilename()
-					.toString();
+			
+		
 			bucketName = Util.parseBucketName(c.element().getMetadata()
 					.resourceId().getCurrentDirectory().toString());
-			LOG.info(
-					"Bucket Name: " + bucketName + " File Name: " + objectName);
+			
+			objectName = c.element().getMetadata().resourceId().getFilename()
+					.toString();
+			
+			
+			LOG.info("Process Element:"+" Bucket Name: " + bucketName + " File Name: " 
+			+ objectName+" CSK"+this.customerSuppliedKey +" csek: "
+			+this.cSek +" csekhash: "+this.cSekhash+" key ring name: "
+			+this.fileDecryptKeyName+" Key: "+this.fileDecryptKey);
 
+			
+			
 			try {
 				BufferedReader br;
 				InputStream objectData = null;
@@ -171,7 +205,7 @@ public class CSVBatchPipeline {
 					try {
 						objectData = StorageFactory.downloadObject(storage,
 								bucketName, objectName, key,
-								cSekhash.get().toString());
+								cSekhash);
 					} catch (Exception e) {
 						LOG.error(
 								"Error Reading the Encrypted File in GCS- Customer Supplied Key");
@@ -192,7 +226,7 @@ public class CSVBatchPipeline {
 					List<String> lines = Util.readBatch(br, this.batchSize);
 					Table batchData = Util.createDLPTable(headers, lines);
 					tables.add(batchData);
-					if (lines.size() < batchSize.get().intValue()) {
+					if (lines.size() < batchSize) {
 						endOfFile = true;
 					}
 				}
@@ -213,23 +247,23 @@ public class CSVBatchPipeline {
 	@SuppressWarnings("serial")
 	public static class TokenizeData extends DoFn<Table, Table> {
 
-		final ValueProvider<String> projectId;
-		final ValueProvider<String> deIdentifyTemplateName;
-		final ValueProvider<String> inspectTemplateName;
-		boolean inspectTemplateExist;
+		private String projectId;
+		private String deIdentifyTemplateName;
+		private String inspectTemplateName;
+		private boolean inspectTemplateExist;
 
 		public TokenizeData(ValueProvider<String> projectId,
 				ValueProvider<String> deIdentifyTemplateName,
 				ValueProvider<String> inspectTemplateName) {
-			this.projectId = projectId;
-			this.deIdentifyTemplateName = deIdentifyTemplateName;
-			this.inspectTemplateName = inspectTemplateName;
-			// result of a bug in DLP template.
-			if (inspectTemplateName.get().toString()
-					.equals(new String("null"))) {
-				this.inspectTemplateExist = false;
-			} else {
+			if (projectId.isAccessible())
+				this.projectId = projectId.get();
+			if (deIdentifyTemplateName.isAccessible())
+				this.deIdentifyTemplateName = deIdentifyTemplateName.get();
+			if (inspectTemplateName.isAccessible()) {
+				this.inspectTemplateName = inspectTemplateName.get();
 				this.inspectTemplateExist = true;
+			}else {
+				this.inspectTemplateExist = false;
 			}
 		}
 
@@ -248,22 +282,20 @@ public class CSVBatchPipeline {
 				if (this.inspectTemplateExist) {
 					request = DeidentifyContentRequest.newBuilder()
 							.setParent(ProjectName
-									.of(this.projectId.get().toString())
+									.of(this.projectId)
 									.toString())
 							.setDeidentifyTemplateName(
-									this.deIdentifyTemplateName.get()
-											.toString())
+									this.deIdentifyTemplateName)
 							.setInspectTemplateName(
-									this.inspectTemplateName.get().toString())
+									this.inspectTemplateName)
 							.setItem(tableItem).build();
 				} else {
 					request = DeidentifyContentRequest.newBuilder()
 							.setParent(ProjectName
-									.of(this.projectId.get().toString())
+									.of(this.projectId)
 									.toString())
 							.setDeidentifyTemplateName(
-									this.deIdentifyTemplateName.get()
-											.toString())
+									this.deIdentifyTemplateName)
 							.setItem(tableItem).build();
 
 				}
@@ -307,10 +339,9 @@ public class CSVBatchPipeline {
 				// 1 minute window
 				.apply(Window.<String>into(
 						FixedWindows.of(Duration.standardMinutes(1))))
-				.apply(new WriteOneFilePerWindow(options.getOutputFile().get(),
-						1));
+				.apply(new WriteOneFilePerWindow(options.getOutputFile(),1));
 
-		p.run().waitUntilFinish();
+		p.run();
 	}
 
 }

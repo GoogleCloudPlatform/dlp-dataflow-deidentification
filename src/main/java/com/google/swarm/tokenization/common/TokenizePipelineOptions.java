@@ -17,7 +17,6 @@
 
 package com.google.swarm.tokenization.common;
 
-import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.ValueProvider;
@@ -44,27 +43,22 @@ public interface TokenizePipelineOptions extends PipelineOptions {
 	ValueProvider<String> getInspectTemplateName();
 	void setInspectTemplateName(ValueProvider<String> value);
 
-	@Description("Default batch Size")
-	@Default.Integer(1000)
+	@Description("batch Size")
 	ValueProvider<Integer> getBatchSize();
 	void setBatchSize(ValueProvider<Integer> value);
 	@Description("encryption_key (CSEK) to decrypt the bucket")
-	@Default.String("0xh0XFLhgE5WiD73TuARo71jSOl8FONcqin4+00jSLg=")
 	ValueProvider<String> getCsek();
 	void setCsek(ValueProvider<String> value);
 
 	@Description("CSEK hash to decrypt the bucket")
-	@Default.String("lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE=")
 	ValueProvider<String> getCsekhash();
 	void setCsekhash(ValueProvider<String> value);
 
 	@Description("GCS File Decryption Key Name")
-	@Default.String("gcs-bucket-encryption")
 	ValueProvider<String> getFileDecryptKey();
 	void setFileDecryptKey(ValueProvider<String> value);
 
 	@Description("GCS File Decryption Key Ring Name")
-	@Default.String("data-file-key")
 	ValueProvider<String> getFileDecryptKeyName();
 	void setFileDecryptKeyName(ValueProvider<String> value);
 

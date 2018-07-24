@@ -26,6 +26,7 @@ import org.apache.beam.sdk.io.FileBasedSink.OutputFileHints;
 import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.io.fs.ResolveOptions.StandardResolveOptions;
 import org.apache.beam.sdk.io.fs.ResourceId;
+import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow;
@@ -42,12 +43,16 @@ public class WriteOneFilePerWindow
 
 	private static final DateTimeFormatter FORMATTER = ISODateTimeFormat
 			.hourMinute();
+	
 	private String filenamePrefix;
 	@Nullable
 	private Integer numShards;
 
-	public WriteOneFilePerWindow(String filenamePrefix, Integer numShards) {
-		this.filenamePrefix = filenamePrefix;
+	public WriteOneFilePerWindow(ValueProvider<String> filenamePrefix, Integer numShards) {
+		if (filenamePrefix.isAccessible())
+			this.filenamePrefix = filenamePrefix.get();
+		else 
+			this.filenamePrefix= "output";
 		this.numShards = numShards;
 	}
 
