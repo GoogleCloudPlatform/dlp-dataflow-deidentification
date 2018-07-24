@@ -14,9 +14,8 @@ import com.google.privacy.dlp.v2.Value;
 import com.google.swarm.tokenization.CSVBatchPipeline;
 
 public class Util {
-	
-	public static final Logger LOG = LoggerFactory
-			.getLogger(Util.class);
+
+	public static final Logger LOG = LoggerFactory.getLogger(Util.class);
 	public static String parseBucketName(String value) {
 		// gs://name/ -> name
 		return value.substring(5, value.length() - 1);
@@ -61,7 +60,8 @@ public class Util {
 	public static boolean findEncryptionType(String keyRing, String keyName,
 			String csek, String csekhash) {
 
-		LOG.info("findEncryptionType:"+keyRing+" "+keyName+" "+csek+" "+csekhash);
+		LOG.info("findEncryptionType:" + keyRing + " " + keyName + " " + csek
+				+ " " + csekhash);
 		if (keyRing != null || keyName != null || csek != null
 				|| csekhash != null)
 			return true;
