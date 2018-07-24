@@ -80,7 +80,7 @@ public class TextStreamingPipeline {
 						FixedWindows.of(Duration.standardMinutes(1))))
 				.apply(new WriteOneFilePerWindow(options.getOutputFile(), 1));
 
-		p.run().waitUntilFinish();
+		p.run();
 	}
 
 	@SuppressWarnings("serial")
@@ -132,13 +132,16 @@ public class TextStreamingPipeline {
 
 	@SuppressWarnings("serial")
 	public static class TextFileReader extends DoFn<ReadableFile, String> {
-		private ValueProvider<Integer> batchSize;
-		private ValueProvider<String> cSek;
-		private ValueProvider<String> cSekhash;
+		private Integer batchSize;
+		private String cSek;
+		private String cSekhash;
+		private String kmsKeyProjectName;
 		private String objectName;
 		private String bucketName;
 		private String key;
 		private boolean customerSuppliedKey;
+		private String fileDecryptKey;
+		private String fileDecryptKeyName;
 
 		public TextFileReader(ValueProvider<String> kmsKeyProjectName,
 				ValueProvider<String> fileDecryptKeyRing,
@@ -146,22 +149,39 @@ public class TextStreamingPipeline {
 				ValueProvider<Integer> batchSize, ValueProvider<String> cSek,
 				ValueProvider<String> cSekhash)
 				throws IOException, GeneralSecurityException {
-			this.batchSize = batchSize;
-			this.customerSuppliedKey = Util.findEncryptionType(
-					fileDecryptKeyRing.get(), fileDecryptKey.get(), cSek.get(),
-					cSekhash.get());
-			if (customerSuppliedKey)
-				this.key = KMSFactory.decrypt(kmsKeyProjectName.get(), "global",
-						fileDecryptKeyRing.get(), fileDecryptKey.get(),
-						cSek.get().toString());
-			else
-				this.key = null;
-			this.cSek = cSek;
-			this.cSekhash = cSekhash;
+			if (batchSize.isAccessible())
+				this.batchSize = batchSize.get();
+
+			if (kmsKeyProjectName.isAccessible())
+				this.kmsKeyProjectName = kmsKeyProjectName.get();
+			if (fileDecryptKey.isAccessible())
+				this.fileDecryptKey = fileDecryptKey.get();
+
+			if (fileDecryptKeyRing.isAccessible())
+				this.fileDecryptKeyName = fileDecryptKeyRing.get();
+
+			if (cSek.isAccessible())
+				this.cSek = cSek.get();
+			if (cSekhash.isAccessible())
+				this.cSekhash = cSekhash.get();
+
+			this.customerSuppliedKey = false;
+			this.key = null;
+
 		}
 
 		@ProcessElement
-		public void processElement(ProcessContext c) {
+		public void processElement(ProcessContext c)
+				throws IOException, GeneralSecurityException {
+
+			this.customerSuppliedKey = Util.findEncryptionType(
+					this.fileDecryptKeyName, this.fileDecryptKey, this.cSek,
+					this.cSekhash);
+
+			if (customerSuppliedKey)
+				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
+						this.fileDecryptKeyName, this.fileDecryptKey,
+						this.cSek);
 
 			objectName = c.element().getMetadata().resourceId().getFilename()
 					.toString();
@@ -175,8 +195,7 @@ public class TextStreamingPipeline {
 				try {
 
 					SeekableByteChannel channel = c.element().openSeekable();
-					ByteBuffer bf = ByteBuffer
-							.allocate(batchSize.get().intValue());
+					ByteBuffer bf = ByteBuffer.allocate(batchSize.intValue());
 					while ((channel.read(bf)) > 0) {
 						bf.flip();
 						byte[] data = bf.array();
@@ -197,10 +216,9 @@ public class TextStreamingPipeline {
 
 					Storage storage = StorageFactory.getService();
 					InputStream objectData = StorageFactory.downloadObject(
-							storage, bucketName, objectName, key,
-							cSekhash.get().toString());
+							storage, bucketName, objectName, key, cSekhash);
 
-					byte[] data = new byte[this.batchSize.get().intValue()];
+					byte[] data = new byte[this.batchSize.intValue()];
 					int bytesRead = 0;
 					int offset = 0;
 					while ((bytesRead = objectData.read(data, offset,
