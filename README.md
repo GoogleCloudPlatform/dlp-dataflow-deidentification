@@ -18,7 +18,7 @@ Example below includes use case to encrypt input file in GCS with a customer sup
 Run this for fully structured (example # 1 or 2) data by replacing argument related to your project:  
 
 ```
-example#1
+
 gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline -Pargs="--streaming --project= --runner=DirectRunner  --inputFile=gs://<bucket>/pii-structured-data-*.csv --batchSize=4700 --dlpProject=<project_id> --deidentifyTemplateName=projects/<project_id>/deidentifyTemplates/8658110966372436613 --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key"
 
 
