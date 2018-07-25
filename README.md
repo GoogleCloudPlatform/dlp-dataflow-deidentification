@@ -123,7 +123,7 @@ Import as a gradle project in your IDE and execute gradle build.
 you can create a dataflow template by following command:
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=scotia-tokezation --runner=DataflowRunner --templateLocation=gs://df-template/dlp-tokenization  --gcpTempLocation=gs://dlp-df-temp/data --workerHarnessContainerImage=dataflow.gcr.io/v1beta3/beam-java-streaming:beam-master-20180710"
+gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner --templateLocation=gs://df-template/dlp-tokenization  --gcpTempLocation=gs://dlp-df-temp/data --workerHarnessContainerImage=dataflow.gcr.io/v1beta3/beam-java-streaming:beam-master-20180710"
 ```
 And execute it either by UI, REST API or GCloud
 
