@@ -125,7 +125,92 @@ you can create a dataflow template by following command:
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner --templateLocation=gs://df-template/dlp-tokenization  --gcpTempLocation=gs://dlp-df-temp/data --workerHarnessContainerImage=dataflow.gcr.io/v1beta3/beam-java-streaming:beam-master-20180710"
 ```
-And execute it either by UI, REST API or GCloud
+If the template is created successfully, you should see a meesage "Template is created sucessfully" in the console log. 
+
+There is a metadata file needs to be uploaded in the same location where the template is created. Copy the following JSON file and paste it in a file called dlp-tokenization_metadata (Please don't save as json extension)
+
+```
+{
+  "name": "dlp-tokenization",
+  "description": "DLP Data Tokenization Pipeline",
+  "parameters": [{
+    "name": "inputFile",
+    "label": "GCS File Path to Tokenize",
+    "help_text": "gs://MyBucket/object",
+    "regexes": ["^gs:\/\/[^\n\r]+$"],
+    "is_optional": false
+  },
+  {
+    "name": "outputFile",
+    "label": "Location of GCS path where Tokenized Data will be written",
+    "help_text": "Path and filename prefix for writing output files. ex: gs://MyBucket/object",
+    "regexes": ["^gs:\/\/[^\n\r]+$"],
+	 "is_optional": false
+  },
+  {
+      "name": "project",
+      "label": "Name of the Host Project",
+      "help_text": "project_id",
+      "is_optional": false
+    },
+    {
+      "name": "batchSize",
+      "label": "batch size in number of rows",
+      "help_text": "4700, 200",
+		"is_optional": false
+	},
+   {
+      "name": "dlpProject",
+      "label": "Name of the DLP Project",
+      "help_text": "project_id",
+      "is_optional": true
+    },
+    {
+      "name": "inspectTemplateName",
+      "label": "inspect template name",
+      "help_text": "null, projects/{dlp_prject_name}/inspectTemplates/{name}",
+		"is_optional": true
+	},
+   {
+     "name": "deidentifyTemplateName",
+     "label": "deidentify template name",
+     "help_text": "null, projects/{dlp_prject_name}/deidentifyTemplates/{name}",
+	  "is_optional": false
+	},
+  {
+     "name": "csek",
+     "label": "Client Supplied Encryption key (KMS Wrapped)",
+     "help_text": "CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk=",
+     "is_optional": true
+   },
+   {
+     "name": "csekhash",
+     "label": "Hash of CSEK",
+     "help_text": "lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE=",
+	  "is_optional": true
+	},
+  {
+    "name": "fileDecryptKeyName",
+    "label": "Key Ring For Input File Encryption",
+    "help_text": "gcs-bucket-encryption",
+    "is_optional": true
+	},
+   {
+     "name": "fileDecryptKey",
+     "label": "Key Name For Input File Encryption",
+     "help_text": "data-file-key",
+     "is_optional": true
+ 	}
+  
+  ]
+}
+
+
+
+```
+
+
+And execute it either by UI, REST API or GCloud.
 
 ```
 gcloud dataflow jobs run test-run-3 --gcs-location gs://df-template/dlp-tokenization --parameters inputFile=gs://pii-batch-data/test-gmk-semi.csv,project=<id>,batchSize=100,deidentifyTemplateName=projects/<id>/deidentifyTemplates/6375801268847293878,outputFile=gs://output-tokenization-data/output-structured-data,inspectTemplateName=projects/<id>/inspectTemplates/7795191927316697091 
