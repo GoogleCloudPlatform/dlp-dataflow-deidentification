@@ -1,4 +1,4 @@
-## Data Tokenization PoC Using Dataflow/Beam 2.6 and DLP API  
+# Data Tokenization PoC Using Dataflow/Beam 2.6 and DLP API  
 
 This solution works for structure and semi structured data.   
 Example #1: If you have a csv file containing columns like 'user_id' , 'password', 'account_number', 'credit_card_number' etc, this program can be used to tokenize all or subset of the columns.   
@@ -130,6 +130,219 @@ And execute it either by UI, REST API or GCloud
 ```
 gcloud dataflow jobs run test-run-3 --gcs-location gs://df-template/dlp-tokenization --parameters inputFile=gs://pii-batch-data/test-gmk-semi.csv,project=<id>,batchSize=100,deidentifyTemplateName=projects/<id>/deidentifyTemplates/6375801268847293878,outputFile=gs://output-tokenization-data/output-structured-data,inspectTemplateName=projects/<id>/inspectTemplates/7795191927316697091 
 ```
+### DLP template used in the use cases
+#####Example 1: Fully Structured Data 
+Sample input format in CSV:
+UserId,Password,PhoneNumber,CreditCard,SIN,AccountNumber
+dfellowes0@answers.com,dYmeZB,413-686-1509,374283210039640,878-44-9652,182001096-2
+rkermath1@ox.ac.uk,OKJtHxB,859-180-4370,5038057247505321293,275-41-2120,793375128-8
+snagle2@ftc.gov,VQsYF9Iv68,569-519-7788,3533613600755599,265-63-9123,644327532-2
+
+DLP Deidentify Template Used:
+
+```
+{
+ "name": "projects/{id}/deidentifyTemplates/8658110966372436613",
+ "createTime": "2018-06-19T15:58:32.214456Z",
+ "updateTime": "2018-06-19T15:58:32.214456Z",
+ "deidentifyConfig": {
+  "recordTransformations": {
+   "fieldTransformations": [
+    {
+     "fields": [
+      {
+       "name": "SIN"
+      },
+      {
+       "name": "AccountNumber"
+      },
+      {
+       "name": "CreditCard"
+      },
+      {
+       "name": "PhoneNumber"
+      }
+     ],
+     "primitiveTransformation": {
+      "cryptoReplaceFfxFpeConfig": {
+       "cryptoKey": {
+        "kmsWrapped": {
+         "wrappedKey": "CiQAku+QvbDmstgYj4NEaoV6FGuB8l3jjWcUiyzJ+HR8NXYZSCASQQBdX/BxUhNiRixvCZnR5/zjFd8D0w9td1w6LUHccIb8HL0s+bK9iOzdllgcXRDC3X9tjx2oqI+S6lFd9tqE5ftd",
+         "cryptoKeyName": "projects/{id}/locations/global/keyRings/customer-pii-data-ring/cryptoKeys/pii-data-key"
+        }
+       },
+       "customAlphabet": "1234567890-"
+      }
+     }
+    }
+   ]
+  }
+ }
+}
+```
+#####Example 2: Semi Structured Data 
+Sample input format in CSV:
+UserId,SIN,AccountNumber,Password,CreditCard,Comments
+ofakeley0@elpais.com,607-82-9963,679647039-7,5433c541-a735-4783-ac1b-bdb1f95ba7b5,6706970503473868,Please change my number to. Thanks
+cstubbington1@ibm.com,543-43-5623,466928803-2,b2892e74-9588-4c23-9645-ea4fdf4729e8,3549127839068106,Please change my number to 674-486-9054. Thanks
+ekaman2@home.pl,231-68-8007,242426152-0,ce7e4400-92ea-4ba9-8758-5c6215b68b47,201665969359626,Please change my number to 430-349-3493. Thanks
+
+DLP Deidentify Template Used:
+
+```
+{
+ "name": "projects/{id}/deidentifyTemplates/6375801268847293878",
+ "createTime": "2018-06-18T19:59:13.902712Z",
+ "updateTime": "2018-06-19T12:25:03.554233Z",
+ "deidentifyConfig": {
+  "recordTransformations": {
+   "fieldTransformations": [
+    {
+     "fields": [
+      {
+       "name": "SIN"
+      },
+      {
+       "name": "AccountNumber"
+      },
+      {
+       "name": "CreditCard"
+      }
+     ],
+     "primitiveTransformation": {
+      "cryptoReplaceFfxFpeConfig": {
+       "cryptoKey": {
+        "kmsWrapped": {
+         "wrappedKey": "CiQAku+QvbDmstgYj4NEaoV6FGuB8l3jjWcUiyzJ+HR8NXYZSCASQQBdX/BxUhNiRixvCZnR5/zjFd8D0w9td1w6LUHccIb8HL0s+bK9iOzdllgcXRDC3X9tjx2oqI+S6lFd9tqE5ftd",
+         "cryptoKeyName": "projects/{id}/locations/global/keyRings/customer-pii-data-ring/cryptoKeys/pii-data-key"
+        }
+       },
+       "customAlphabet": "1234567890ABCDEF-"
+      }
+     }
+    },
+    {
+     "fields": [
+      {
+       "name": "Comments"
+      }
+     ],
+     "infoTypeTransformations": {
+      "transformations": [
+       {
+        "infoTypes": [
+         {
+          "name": "PHONE_NUMBER"
+         }
+        ],
+        "primitiveTransformation": {
+         "cryptoReplaceFfxFpeConfig": {
+          "cryptoKey": {
+           "kmsWrapped": {
+            "wrappedKey": "CiQAku+QvbDmstgYj4NEaoV6FGuB8l3jjWcUiyzJ+HR8NXYZSCASQQBdX/BxUhNiRixvCZnR5/zjFd8D0w9td1w6LUHccIb8HL0s+bK9iOzdllgcXRDC3X9tjx2oqI+S6lFd9tqE5ftd",
+            "cryptoKeyName": "projects/{id}/locations/global/keyRings/customer-pii-data-ring/cryptoKeys/pii-data-key"
+           }
+          },
+          "customAlphabet": "1234567890-",
+          "surrogateInfoType": {
+           "name": "[PHONE]"
+          }
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}
+ 
+```
+
+DLP Inspect template:
+
+```
+
+{
+ "name": "projects/{id}/inspectTemplates/7795191927316697091",
+ "createTime": "2018-06-23T02:12:32.062789Z",
+ "updateTime": "2018-06-23T02:12:32.062789Z",
+ "inspectConfig": {
+  "infoTypes": [
+   {
+    "name": "PHONE_NUMBER"
+   }
+  ],
+  "minLikelihood": "POSSIBLE",
+  "limits": {
+  }
+ }
+}
+
+```
+
+#####Example 3: Non Structured Data 
+Sed ante. Vivamus tortor. Duis mattis egestas metus.".SI84 7084 7501 2230 378.Operative dynamic frame.5602235457198185.non-volatile.innovate collaborative supply-chains
+Selma Jade.407-24-8213."Morbi non lectus. Aliquam sit amet diam in magna bibendum imperdiet. Nullam orci pede, venenatis non, sodales sed, tincidunt eu, felis.".MD88 XCZD GPMR JX8X 8BN8 9RTA.Mandatory attitude-oriented migration.5285030805458686.function.harness 24/365 markets
+Helga Lane.870-09-7239."Suspendisse potenti. In eleifend quam a odio. In hac habitasse platea dictumst.
+
+DLP Deidentify Template Used:
+
+```
+{
+ "name": "projects/{id}/deidentifyTemplates/2206100676278191052",
+ "createTime": "2018-06-21T14:29:24.595407Z",
+ "updateTime": "2018-06-21T14:29:24.595407Z",
+ "deidentifyConfig": {
+  "infoTypeTransformations": {
+   "transformations": [
+    {
+     "primitiveTransformation": {
+      "replaceWithInfoTypeConfig": {
+      }
+     }
+    }
+   ]
+  }
+ }
+}
+ 
+```
+
+DLP Inspect template:
+
+```
+
+{
+ "name": "projects/{id}/inspectTemplates/3113085388824253847",
+ "createTime": "2018-06-21T14:32:49.905406Z",
+ "updateTime": "2018-06-21T14:32:49.905406Z",
+ "inspectConfig": {
+  "infoTypes": [
+   {
+    "name": "CREDIT_CARD_NUMBER"
+   },
+   {
+    "name": "PERSON_NAME"
+   },
+   {
+    "name": "US_SOCIAL_SECURITY_NUMBER"
+   },
+   {
+    "name": "IBAN_CODE"
+   }
+  ],
+  "minLikelihood": "VERY_UNLIKELY",
+  "limits": {
+  }
+ }
+}
+
+```
+
+
+
 ### To Do
 
 - Unit Test and Code Coverage 
