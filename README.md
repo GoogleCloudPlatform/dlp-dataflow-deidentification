@@ -98,7 +98,7 @@ At then end it writes the tokenized data in a GCS bucket.
 Please note for GMK or customer managed key use cases, there is no call to KMS is made.
 
 ### Known Issue
-It requires split dofn feature which requires beam 2.6 to be able to successfully execiute gor growth.never() termination condition and watermark to advance.  
+It requires split dofn feature which requires beam 2.6 to be able to successfully execute growth.never() termination condition and watermark to advance. https://github.com/apache/beam/pull/5836    
 Also there is a known issue regarding GRPC version conflict with other google cloud products. That's why in gradle build file uses shaded jar concept to build and compile. Once the issue is resolved, build file can be updated to take out shading part.  
 
 ### How to generate KMS wrapped key
