@@ -12,7 +12,7 @@ All the data used part of this project is mocked.
 
 ### Getting Started
 
-Clone the repo locally: git clone https://cloud-swarm.googlesource.com/data-tokenization
+Clone the repo locally.
 
 Example below includes use case to encrypt input file in GCS with a customer supplied key. PoC also works for google managed or customer managed encryption keys. Just take out encryption related arguments from the gradle run based on the encryption method. 
 Run this for fully structured (example # 1 or 2) data by replacing argument related to your project:  
