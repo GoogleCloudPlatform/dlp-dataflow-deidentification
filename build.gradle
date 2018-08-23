@@ -15,7 +15,7 @@
  */
 buildscript {
     ext {
-        dataflowBeamVersion = '2.6.0-SNAPSHOT'
+        dataflowBeamVersion = '2.6.0'
     }
     repositories {
         mavenCentral()
@@ -38,15 +38,15 @@ apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'com.github.johnrengelman.shadow'
 
-mainClassName = System.getProperty("mainClass")
-//mainClassName = 'com.google.swarm.tokenization.CSVBatchPipeline'
+//mainClassName = System.getProperty("mainClass")
+mainClassName = 'com.google.swarm.tokenization.CSVBatchPipeline'
 group 'com.google.swarm'
 version '0.1.0'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
-
+applicationDefaultJvmArgs = ['-Xms4g', '-Xmx16g']
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
@@ -54,15 +54,16 @@ tasks.withType(JavaCompile) {
 
 repositories {
    mavenCentral()
-   maven {
-     		 url "https://repository.apache.org/content/repositories/snapshots/"
-    	}
+   //maven {
+     		 //url "https://repository.apache.org/content/repositories/snapshots/"
+    	//}
+
 }
 
 dependencies {
-    compile group: 'org.apache.beam', name: 'beam-sdks-java-core', version: dataflowBeamVersion, changing: true
-    compile group: 'org.apache.beam', name: 'beam-runners-google-cloud-dataflow-java', version: dataflowBeamVersion, changing: true
-    compile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion, changing: true
+    compile group: 'org.apache.beam', name: 'beam-sdks-java-core', version: dataflowBeamVersion
+    compile group: 'org.apache.beam', name: 'beam-runners-google-cloud-dataflow-java', version: dataflowBeamVersion
+    compile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
 	compile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
 	compile 'com.google.apis:google-api-services-cloudkms:v1-rev53-1.23.0'    
     compile('com.google.cloud:google-cloud-dlp:0.45.0-beta')           
@@ -78,10 +79,10 @@ dependencies {
 	testCompile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
 	
 }
-configurations.all {
+//configurations.all {
     // check for updates every build
-    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
-}
+    //resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+//}
 jar {
     manifest {
        // attributes ('Main-Class': mainClassName)
@@ -102,7 +103,7 @@ shadowJar {
 
 compileJava {
     // Add additional jvm argument
-    options.compilerArgs.addAll(['-Xlint:all'],)
+    options.compilerArgs.addAll(['-Xlint:all'])
 }
 
 // default tasks when you run ./gradlew

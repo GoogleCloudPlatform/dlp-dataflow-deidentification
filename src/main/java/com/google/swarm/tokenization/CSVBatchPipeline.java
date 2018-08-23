@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2018 Google LLC
  *
@@ -19,42 +18,47 @@ package com.google.swarm.tokenization;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
+import java.io.Serializable;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.AvroCoder;
+import org.apache.beam.sdk.coders.DefaultCoder;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.ValueProvider;
+import org.apache.beam.sdk.transforms.Combine;
+import org.apache.beam.sdk.transforms.Combine.CombineFn;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Watch;
+import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
+import org.apache.beam.sdk.values.KV;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.api.client.util.Charsets;
-import com.google.api.services.storage.Storage;
 import com.google.cloud.dlp.v2.DlpServiceClient;
+import com.google.common.util.concurrent.RateLimiter;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.DeidentifyContentRequest;
 import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.Table.Row;
 import com.google.swarm.tokenization.common.KMSFactory;
-import com.google.swarm.tokenization.common.StorageFactory;
 import com.google.swarm.tokenization.common.TokenizePipelineOptions;
 import com.google.swarm.tokenization.common.Util;
 import com.google.swarm.tokenization.common.WriteOneFilePerWindow;
@@ -64,13 +68,17 @@ public class CSVBatchPipeline {
 	public static final Logger LOG = LoggerFactory
 			.getLogger(CSVBatchPipeline.class);
 
+	static RateLimiter rateLimiter = RateLimiter.create(10);
+	static int batchSize =1; 
+	static int rowCounter =0;
+	static int totalNumberofRows =0;
+	static List <String> rows = new ArrayList<>();
+	static List<FieldId> headers = new ArrayList<>();
+	
 	@SuppressWarnings("serial")
-	public static class FormatTableData extends DoFn<Table, String> {
-
-		private boolean addHeader;
-		public FormatTableData(boolean addHeader) {
-			this.addHeader = addHeader;
-		}
+	public static class FormatTableData
+			extends
+				DoFn<Table, KV<String, String>> {
 
 		@ProcessElement
 		public void processElement(ProcessContext c) {
@@ -78,13 +86,15 @@ public class CSVBatchPipeline {
 			StringBuffer bufferedWriter = new StringBuffer();
 			List<FieldId> outputHeaderFields = encryptedData.getHeadersList();
 			List<Table.Row> outputRows = encryptedData.getRowsList();
+
 			List<String> outputHeaders = outputHeaderFields.stream()
 					.map(FieldId::getName).collect(Collectors.toList());
-			if (this.addHeader) {
-				bufferedWriter.append(String.join(",", outputHeaders) + "\n");
-				this.addHeader = false;
-			}
 
+			bufferedWriter.append(String.join(",", outputHeaders) + "\n");
+
+			String headerValue = bufferedWriter.toString().trim();
+
+			bufferedWriter = new StringBuffer();
 			for (Table.Row outputRow : outputRows) {
 				String row = outputRow.getValuesList().stream()
 						.map(value -> value.getStringValue())
@@ -92,23 +102,49 @@ public class CSVBatchPipeline {
 				bufferedWriter.append(row + "\n");
 			}
 
+			String dataValues = bufferedWriter.toString().trim();
 			// LOG.info("Format Data: " + bufferedWriter.toString());
-			c.output(bufferedWriter.toString().trim());
+			// c.output(bufferedWriter.toString().trim());
+
+			c.output(KV.of(headerValue, dataValues));
 		}
 	}
 
 	@SuppressWarnings("serial")
-	public static class DLPTableHandler extends DoFn<List<Table>, Table> {
+
+	public static class CreateDLPTable extends DoFn<String,Table> {
+		
+		void incrementCounter() {
+			synchronized (this) {
+				rowCounter = rowCounter+1;
+			}
+			
+		}
+		
 		@ProcessElement
-		public void processElement(ProcessContext c) {
-			c.element().forEach(table -> {
-				c.output(table);
-			});
+		public void processElement(ProcessContext c) throws IOException {
+			
+	
+			rows.add(c.element());
+			incrementCounter();
+			rowCounter = rowCounter+1;
+			//System.out.println("RowCounter: "+rowCounter+"TotalNumber of Rows: "+totalNumberofRows);
+			if(batchSize==rows.size() || rowCounter==totalNumberofRows-1) {
+				//System.out.println("Size: "+rows.size()+"Batch Size: "+batchSize);
+				c.output(Util.createDLPTable(headers, rows));
+				rows.clear();
+				
+				
+			}
+			
+			
+			
 		}
+		
 	}
-
+	
 	@SuppressWarnings("serial")
-	public static class CSVFileReader extends DoFn<ReadableFile, List<Table>> {
+	public static class CSVFileReader extends DoFn<ReadableFile, String>{
 		private ValueProvider<Integer> batchSize;
 		private ValueProvider<String> cSek;
 		private ValueProvider<String> cSekhash;
@@ -119,7 +155,7 @@ public class CSVBatchPipeline {
 		private boolean customerSuppliedKey;
 		private ValueProvider<String> fileDecryptKey;
 		private ValueProvider<String> fileDecryptKeyName;
-
+		private BufferedReader br;
 		public CSVFileReader(ValueProvider<String> kmsKeyProjectName,
 				ValueProvider<String> fileDecryptKeyRing,
 				ValueProvider<String> fileDecryptKey,
@@ -135,93 +171,144 @@ public class CSVBatchPipeline {
 			this.cSekhash = cSekhash;
 			this.customerSuppliedKey = false;
 			this.key = null;
+			this.br = null;
 
 		}
 
 		@ProcessElement
-		public void processElement(ProcessContext c)
+		public void processElement(ProcessContext c, OffsetRangeTracker tracker)
 				throws IOException, GeneralSecurityException {
-
-			this.customerSuppliedKey = Util.findEncryptionType(
-					this.fileDecryptKeyName.get(), this.fileDecryptKey.get(),
-					this.cSek.get(), this.cSekhash.get());
 
 			if (customerSuppliedKey)
 				this.key = KMSFactory.decrypt(this.kmsKeyProjectName.get(),
 						"global", this.fileDecryptKeyName.get(),
 						this.fileDecryptKey.get(), this.cSek.get());
 
-			bucketName = Util.parseBucketName(c.element().getMetadata()
+			this.bucketName = Util.parseBucketName(c.element().getMetadata()
 					.resourceId().getCurrentDirectory().toString());
 
-			objectName = c.element().getMetadata().resourceId().getFilename()
-					.toString();
+			this.objectName = c.element().getMetadata().resourceId()
+					.getFilename().toString();
 
-			LOG.info("Process Element:" + " Bucket Name: " + bucketName
-					+ " File Name: " + objectName + " CSK"
-					+ this.customerSuppliedKey + " csek: " + this.cSek
-					+ " csekhash: " + this.cSekhash + " key ring name: "
-					+ this.fileDecryptKeyName + " Key: " + this.fileDecryptKey
-					+ "Batch Size: " + this.batchSize);
+			
+			// LOG.info("Process Element:" + " Bucket Name: " + bucketName
+			// + " File Name: " + objectName + " CSK"
+			// + this.customerSuppliedKey + " csek: " + this.cSek
+			// + " csekhash: " + this.cSekhash + " key ring name: "
+			// + this.fileDecryptKeyName + " Key: " + this.fileDecryptKey
+			// + "Batch Size: " + this.batchSize+" BR: "+this.br);
 
-			try {
-				BufferedReader br;
-				InputStream objectData = null;
-
-				if (!this.customerSuppliedKey) {
-
-					ReadableByteChannel channel = c.element().open();
-					br = new BufferedReader(
-							Channels.newReader(channel, Charsets.UTF_8.name()));
-
-				} else {
-
-					Storage storage = null;
-					try {
-						storage = StorageFactory.getService();
-					} catch (GeneralSecurityException e) {
-						LOG.error("Error Creating Storage API Client");
-						e.printStackTrace();
-					}
-					try {
-						objectData = StorageFactory.downloadObject(storage,
-								bucketName, objectName, key, cSekhash.get());
-					} catch (Exception e) {
-						LOG.error(
-								"Error Reading the Encrypted File in GCS- Customer Supplied Key");
-						e.printStackTrace();
-					}
-					br = new BufferedReader(new InputStreamReader(objectData));
-
-				}
-
-				boolean endOfFile = false;
-				List<FieldId> headers;
-				List<Table> tables = new ArrayList<>();
+				this.br = Util.getReader(this.customerSuppliedKey,
+					this.objectName, this.bucketName, c.element(),
+					this.key, this.cSekhash);
 				headers = Arrays.stream(br.readLine().split(",")).map(
 						header -> FieldId.newBuilder().setName(header).build())
 						.collect(Collectors.toList());
-
-				while (!endOfFile) {
-					List<String> lines = Util.readBatch(br,
-							this.batchSize.get());
-					Table batchData = Util.createDLPTable(headers, lines);
-					tables.add(batchData);
-					if (lines.size() < this.batchSize.get()) {
-						endOfFile = true;
-					}
+			
+				CSVBatchPipeline.batchSize=this.batchSize.get().intValue();
+				
+			   long startOffset= tracker.currentRestriction().getFrom();	
+			
+				for (long i=startOffset; tracker.tryClaim(i);i++) {
+						this.br = Util.getReader(this.customerSuppliedKey,
+								this.objectName, this.bucketName, c.element(),
+								this.key, this.cSekhash);
+						c.output(this.br.lines().skip(i - 1).findFirst().get());
+						br.close();
 				}
-				br.close();
-				if (objectData != null)
-					objectData.close();
-				c.output(tables);
+				
+						
+		}	
+			 
 
-			} catch (IOException e) {
-				LOG.error("Error Reading the File " + e.getMessage());
-				e.printStackTrace();
-				System.exit(1);
+		@GetInitialRestriction
+		public OffsetRange getInitialRestriction(ReadableFile dataFile)
+				throws IOException, GeneralSecurityException {
+
+			// this.customerSuppliedKey = Util.findEncryptionType(
+			// this.fileDecryptKeyName.get(), this.fileDecryptKey.get(),
+			// this.cSek.get(), this.cSekhash.get());
+			//
+			//
+
+			if (customerSuppliedKey)
+				this.key = KMSFactory.decrypt(this.kmsKeyProjectName.get(),
+						"global", this.fileDecryptKeyName.get(),
+						this.fileDecryptKey.get(), this.cSek.get());
+
+			this.bucketName = Util.parseBucketName(dataFile.getMetadata()
+					.resourceId().getCurrentDirectory().toString());
+
+			this.objectName = dataFile.getMetadata().resourceId().getFilename()
+					.toString();
+
+			this.br = Util.getReader(this.customerSuppliedKey, this.objectName,
+					this.bucketName, dataFile, this.key, this.cSekhash);
+			totalNumberofRows= Util.countRecords(br);
+			OffsetRange range = new OffsetRange(2, totalNumberofRows + 1);
+//			LOG.info("Initial Restriction Success: Range: " + range.getFrom()
+//					+ " To: " + range.getTo());
+			if (br != null)
+				br.close();
+			return range;
+
+		}
+
+
+		@SplitRestriction
+		public void splitRestriction(ReadableFile element, OffsetRange range,
+				OutputReceiver<OffsetRange> out) {
+
+			
+			
+			for (final OffsetRange p : range.split(this.batchSize.get(),1)) {
+				out.output(p);
 
 			}
+	
+		
+			
+		}
+		
+		 @NewTracker
+		 public OffsetRangeTracker newTracker(OffsetRange range) {
+		
+
+		 //LOG.info("New Tracker from: "+range.getFrom()+" To: "+range.getTo());
+		 return new OffsetRangeTracker(new OffsetRange(range.getFrom(),
+		 range.getTo()));
+		
+		 }
+
+	
+		
+
+	}
+
+	public static boolean checkRate() {
+
+		return rateLimiter.tryAcquire(1, 10, TimeUnit.MILLISECONDS);
+	}
+	@SuppressWarnings("serial")
+	public static class FormatOutputData
+			extends
+				DoFn<KV<String, Iterable<String>>, String> {
+		@ProcessElement
+		public void processElement(ProcessContext c) {
+
+			KV<String, Iterable<String>> outputData = c.element();
+			StringBuffer bufferedWriter = new StringBuffer();
+
+			bufferedWriter.append(outputData.getKey() + "\n");
+
+			outputData.getValue().forEach(value -> {
+
+				bufferedWriter.append(value + "\n");
+
+			});
+
+			c.output(bufferedWriter.toString().trim());
+
 		}
 	}
 
@@ -232,7 +319,6 @@ public class CSVBatchPipeline {
 		private ValueProvider<String> deIdentifyTemplateName;
 		private ValueProvider<String> inspectTemplateName;
 		private boolean inspectTemplateExist;
-
 		public TokenizeData(ValueProvider<String> projectId,
 				ValueProvider<String> deIdentifyTemplateName,
 				ValueProvider<String> inspectTemplateName) {
@@ -246,47 +332,62 @@ public class CSVBatchPipeline {
 
 		@ProcessElement
 		public void processElement(ProcessContext c) {
-			Table nonEncryptedData = c.element();
-			Table encryptedData;
-			if (this.inspectTemplateName.get() != null)
-				this.inspectTemplateExist = true;
 
-			try (DlpServiceClient dlpServiceClient = DlpServiceClient
-					.create()) {
+			// boolean proceed = rateLimiter.tryAcquire(1);
 
-				ContentItem tableItem = ContentItem.newBuilder()
-						.setTable(nonEncryptedData).build();
-				DeidentifyContentRequest request;
-				DeidentifyContentResponse response;
+			if (true) {
 
-				if (this.inspectTemplateExist) {
-					request = DeidentifyContentRequest.newBuilder()
-							.setParent(ProjectName.of(this.projectId.get())
-									.toString())
-							.setDeidentifyTemplateName(
-									this.deIdentifyTemplateName.get())
-							.setInspectTemplateName(
-									this.inspectTemplateName.get())
-							.setItem(tableItem).build();
-				} else {
-					request = DeidentifyContentRequest.newBuilder()
-							.setParent(ProjectName.of(this.projectId.get())
-									.toString())
-							.setDeidentifyTemplateName(
-									this.deIdentifyTemplateName.get())
-							.setItem(tableItem).build();
+				Table nonEncryptedData = c.element();
+				Table encryptedData;
+				// if (this.inspectTemplateName.get() != null)
+				// this.inspectTemplateExist = true;
 
+				try (DlpServiceClient dlpServiceClient = DlpServiceClient
+						.create()) {
+
+					ContentItem tableItem = ContentItem.newBuilder()
+							.setTable(nonEncryptedData).build();
+					DeidentifyContentRequest request;
+					DeidentifyContentResponse response;
+
+					if (this.inspectTemplateExist) {
+						request = DeidentifyContentRequest.newBuilder()
+								.setParent(ProjectName.of(this.projectId.get())
+										.toString())
+								.setDeidentifyTemplateName(
+										this.deIdentifyTemplateName.get())
+								.setInspectTemplateName(
+										this.inspectTemplateName.get())
+								.setItem(tableItem).build();
+					} else {
+						request = DeidentifyContentRequest.newBuilder()
+								.setParent(ProjectName.of(this.projectId.get())
+										.toString())
+								.setDeidentifyTemplateName(
+										this.deIdentifyTemplateName.get())
+								.setItem(tableItem).build();
+
+					}
+
+					if (checkRate()) {
+						response = dlpServiceClient.deidentifyContent(request);
+						encryptedData = response.getItem().getTable();
+						LOG.info("Request Size Successfully Tokenized: "
+								+ request.toByteString().size() + " bytes"
+								+ " Number of rows tokenized: "
+								+ response.getItem().getTable().getRowsCount());
+						c.output(encryptedData);
+					} else {
+						// LOG.info("Check Rate False.. Trying again");
+					}
+
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
-				response = dlpServiceClient.deidentifyContent(request);
-				encryptedData = response.getItem().getTable();
-				LOG.info("Request Size Successfully Tokenized: "
-						+ request.toByteString().size() + " bytes");
-				c.output(encryptedData);
-
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
+
 		}
+
 	}
 
 	public static void main(String[] args)
@@ -298,7 +399,7 @@ public class CSVBatchPipeline {
 		Pipeline p = Pipeline.create(options);
 		p.apply(FileIO.match().filepattern(options.getInputFile())
 				// 10 seconds polling
-				.continuously(Duration.standardSeconds(10),
+				.continuously(Duration.standardSeconds(60),
 						Watch.Growth.never()))
 				.apply(FileIO.readMatches()
 						.withCompression(Compression.UNCOMPRESSED))
@@ -308,15 +409,19 @@ public class CSVBatchPipeline {
 								options.getFileDecryptKey(),
 								options.getBatchSize(), options.getCsek(),
 								options.getCsekhash())))
-				.apply("DLP Table Handler", ParDo.of(new DLPTableHandler()))
+				.apply("Create Table",ParDo.of(new CreateDLPTable()))
 				.apply("Tokenize Data",
 						ParDo.of(new TokenizeData(options.getDlpProject(),
 								options.getDeidentifyTemplateName(),
 								options.getInspectTemplateName())))
-				.apply("Format Table Data", ParDo.of(new FormatTableData(true)))
+				.apply("Format Table Data", ParDo.of(new FormatTableData()))
+
 				// 1 minute window
-				.apply(Window.<String>into(
+				.apply(Window.<KV<String, String>>into(
 						FixedWindows.of(Duration.standardMinutes(1))))
+
+				.apply(GroupByKey.<String, String>create())
+				.apply("Format Output Data", ParDo.of(new FormatOutputData()))
 				.apply(new WriteOneFilePerWindow(options.getOutputFile(), 1));
 
 		p.run();
