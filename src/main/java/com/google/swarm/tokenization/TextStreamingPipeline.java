@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.extensions.gcp.options.GcpOptions;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
@@ -67,13 +68,15 @@ public class TextStreamingPipeline {
 				.apply(FileIO.readMatches()
 						.withCompression(Compression.UNCOMPRESSED))
 				.apply("Text File Reader",
-						ParDo.of(new TextFileReader(options.getDlpProject(),
+						ParDo.of(new TextFileReader(
+								options.as(GcpOptions.class).getProject(),
 								options.getFileDecryptKeyName(),
 								options.getFileDecryptKey(),
 								options.getBatchSize(), options.getCsek(),
 								options.getCsekhash())))
 				.apply("Tokenize Data",
-						ParDo.of(new TokenizeData(options.getDlpProject(),
+						ParDo.of(new TokenizeData(
+								options.as(GcpOptions.class).getProject(),
 								options.getDeidentifyTemplateName(),
 								options.getInspectTemplateName())))
 				.apply(Window.<String>into(
@@ -86,11 +89,11 @@ public class TextStreamingPipeline {
 	@SuppressWarnings("serial")
 	public static class TokenizeData extends DoFn<String, String> {
 
-		private ValueProvider<String> projectId;
+		private String projectId;
 		private ValueProvider<String> deIdentifyTemplateName;
 		private ValueProvider<String> inspectTemplateName;
 
-		public TokenizeData(ValueProvider<String> projectId,
+		public TokenizeData(String projectId,
 				ValueProvider<String> deIdentifyTemplateName,
 				ValueProvider<String> inspectTemplateName) {
 			this.projectId = projectId;
@@ -109,12 +112,10 @@ public class TextStreamingPipeline {
 
 				DeidentifyContentRequest request = DeidentifyContentRequest
 						.newBuilder()
-						.setParent(ProjectName.of(this.projectId.get())
-								.toString())
+						.setParent(ProjectName.of(this.projectId).toString())
 						.setDeidentifyTemplateName(
 								this.deIdentifyTemplateName.get())
-						.setInspectTemplateName(
-								this.inspectTemplateName.get())
+						.setInspectTemplateName(this.inspectTemplateName.get())
 						.setItem(contentItem).build();
 
 				DeidentifyContentResponse response = dlpServiceClient
@@ -135,7 +136,7 @@ public class TextStreamingPipeline {
 		private ValueProvider<Integer> batchSize;
 		private ValueProvider<String> cSek;
 		private ValueProvider<String> cSekhash;
-		private ValueProvider<String> kmsKeyProjectName;
+		private String kmsKeyProjectName;
 		private String objectName;
 		private String bucketName;
 		private String key;
@@ -143,7 +144,7 @@ public class TextStreamingPipeline {
 		private ValueProvider<String> fileDecryptKey;
 		private ValueProvider<String> fileDecryptKeyName;
 
-		public TextFileReader(ValueProvider<String> kmsKeyProjectName,
+		public TextFileReader(String kmsKeyProjectName,
 				ValueProvider<String> fileDecryptKeyRing,
 				ValueProvider<String> fileDecryptKey,
 				ValueProvider<Integer> batchSize, ValueProvider<String> cSek,
@@ -168,8 +169,8 @@ public class TextStreamingPipeline {
 					this.cSek.get(), this.cSekhash.get());
 
 			if (customerSuppliedKey)
-				this.key = KMSFactory.decrypt(this.kmsKeyProjectName.get(),
-						"global", this.fileDecryptKeyName.get(),
+				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
+						this.fileDecryptKeyName.get(),
 						this.fileDecryptKey.get(), this.cSek.get());
 			objectName = c.element().getMetadata().resourceId().getFilename()
 					.toString();
@@ -183,7 +184,8 @@ public class TextStreamingPipeline {
 				try {
 
 					SeekableByteChannel channel = c.element().openSeekable();
-					ByteBuffer bf = ByteBuffer.allocate(batchSize.get().intValue());
+					ByteBuffer bf = ByteBuffer
+							.allocate(batchSize.get().intValue());
 					while ((channel.read(bf)) > 0) {
 						bf.flip();
 						byte[] data = bf.array();
@@ -204,7 +206,8 @@ public class TextStreamingPipeline {
 
 					Storage storage = StorageFactory.getService();
 					InputStream objectData = StorageFactory.downloadObject(
-							storage, bucketName, objectName, key, cSekhash.get());
+							storage, bucketName, objectName, key,
+							cSekhash.get());
 
 					byte[] data = new byte[this.batchSize.get().intValue()];
 					int bytesRead = 0;

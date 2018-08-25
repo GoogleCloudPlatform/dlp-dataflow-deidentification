@@ -16,11 +16,6 @@
 
 package com.google.swarm.tokenization.common;
 
-import com.google.api.client.util.Charsets;
-import com.google.api.services.storage.Storage;
-import com.google.privacy.dlp.v2.FieldId;
-import com.google.privacy.dlp.v2.Table;
-import com.google.privacy.dlp.v2.Value;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,11 +28,16 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.lang3.tuple.Pair;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.api.client.util.Charsets;
+import com.google.api.services.storage.Storage;
+import com.google.privacy.dlp.v2.FieldId;
+import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.Value;
 
 public class Util {
 
@@ -64,27 +64,24 @@ public class Util {
 			String line = reader.readLine();
 			if (line != null) {
 				result.add(line);
-			} else {
-				return result;
 			}
+
 		}
 		return result;
 	}
-	
-	
+
 	public static int countRecords(BufferedReader reader) {
-		
-		LOG.info("Counting Number of Rows..");
-		return  (int) reader.lines().count();
-	
+
+		// LOG.info("Counting Number of Rows..");
+		return (int) reader.lines().count();
+
 	}
-	
-	
-	public static List<FieldId> getHeaders(BufferedReader reader) throws IOException {
-		
-		
-		List<FieldId> headers = Arrays.stream(reader.readLine().split(",")).map(
-				header -> FieldId.newBuilder().setName(header).build())
+
+	public static List<FieldId> getHeaders(BufferedReader reader)
+			throws IOException {
+
+		List<FieldId> headers = Arrays.stream(reader.readLine().split(","))
+				.map(header -> FieldId.newBuilder().setName(header).build())
 				.collect(Collectors.toList());
 		return headers;
 	}
@@ -103,63 +100,61 @@ public class Util {
 	}
 	public static boolean findEncryptionType(String keyRing, String keyName,
 			String csek, String csekhash) {
-
-		LOG.info("findEncryptionType:" + keyRing + " " + keyName + " " + csek
-				+ " " + csekhash);
+		//
+		// LOG.info("findEncryptionType:" + keyRing + " " + keyName + " " + csek
+		// + " " + csekhash);
 		return keyRing != null || keyName != null || csek != null
 				|| csekhash != null;
 	}
-	
 
-	public static BufferedReader getReader(boolean customerSuppliedKey, String objectName, 
-			String bucketName, ReadableFile file, String key, ValueProvider<String> csekhash) {
-		
-		BufferedReader br =null;
+	public static BufferedReader getReader(boolean customerSuppliedKey,
+			String objectName, String bucketName, ReadableFile file, String key,
+			ValueProvider<String> csekhash) {
+
+		BufferedReader br = null;
+		try {
+
+			InputStream objectData = null;
+
+			if (!customerSuppliedKey) {
+
+				ReadableByteChannel channel = file.openSeekable();
+				br = new BufferedReader(
+						Channels.newReader(channel, Charsets.UTF_8.name()));
+			} else {
+
+				Storage storage = null;
 				try {
-					
-					InputStream objectData = null;
-
-					if (!customerSuppliedKey) {
-
-						ReadableByteChannel channel = file.openSeekable();
-						br = new BufferedReader(
-								Channels.newReader(channel, Charsets.UTF_8.name()));
-					} else {
-
-						Storage storage = null;
-						try {
-							storage = StorageFactory.getService();
-						} catch (GeneralSecurityException e) {
-							LOG.error("Error Creating Storage API Client");
-							e.printStackTrace();
-						}
-						try {
-							objectData = StorageFactory.downloadObject(storage,
-									bucketName, objectName, key, csekhash.get());
-						} catch (Exception e) {
-							LOG.error(
-									"Error Reading the Encrypted File in GCS- Customer Supplied Key");
-							e.printStackTrace();
-						}
-						
-						
-						br = new BufferedReader(new InputStreamReader(objectData));
-							
-					}
+					storage = StorageFactory.getService();
+				} catch (GeneralSecurityException e) {
+					LOG.error("Error Creating Storage API Client");
+					e.printStackTrace();
 				}
-					catch (IOException e) {
-						LOG.error("Error Reading the File " + e.getMessage());
-						e.printStackTrace();
-						System.exit(1);
+				try {
+					objectData = StorageFactory.downloadObject(storage,
+							bucketName, objectName, key, csekhash.get());
+				} catch (Exception e) {
+					LOG.error(
+							"Error Reading the Encrypted File in GCS- Customer Supplied Key");
+					e.printStackTrace();
+				}
 
-					}
+				br = new BufferedReader(new InputStreamReader(objectData));
 
-				
-				
+			}
+
+			// if(objectData!=null) {
+			// objectData.close();
+			// }
+		} catch (IOException e) {
+			LOG.error("Error Reading the File " + e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+
+		}
+
 		return br;
-		
+
 	}
-	
-	
 
 }
