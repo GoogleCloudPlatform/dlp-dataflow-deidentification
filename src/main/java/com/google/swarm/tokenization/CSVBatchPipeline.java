@@ -131,12 +131,16 @@ public class CSVBatchPipeline {
 		public void processElement(ProcessContext c, OffsetRangeTracker tracker)
 				throws IOException, GeneralSecurityException {
 
+		
+			
 			if (this.cSek.isAccessible()) {
 
+				
 				this.customerSuppliedKey = Util.findEncryptionType(
 						this.fileDecryptKeyName.get(),
 						this.fileDecryptKey.get(), this.cSek.get(),
 						this.cSekhash.get());
+	
 			}
 
 			if (customerSuppliedKey)
@@ -149,21 +153,10 @@ public class CSVBatchPipeline {
 
 			objectName = c.element().getMetadata().resourceId().getFilename()
 					.toString();
-			//
-			// LOG.info("Process Element:" + " Bucket Name: " + bucketName
-			// + " File Name: " + objectName + " CSK"
-			// + this.customerSuppliedKey + " csek: " + this.cSek
-			// + " csekhash: " + this.cSekhash + " key ring name: "
-			// + this.fileDecryptKeyName + " Key: " + this.fileDecryptKey
-			// + "Batch Size: " + this.batchSize);
-			//
-			// LOG.info("Analyzing file: "+objectName+" Please wait..");
+	
 			this.br = Util.getReader(this.customerSuppliedKey, this.objectName,
 					this.bucketName, c.element(), this.key, this.cSekhash);
-
-			boolean endOfFile = false;
 			List<FieldId> headers;
-			// List<Table> tables = new ArrayList<>();
 			headers = Util.getHeaders(br);
 			numberofRows = Util.countRecords(br);
 			br.close();
@@ -180,8 +173,7 @@ public class CSVBatchPipeline {
 				String line = this.br.lines().skip(startOfLine).findFirst()
 						.get();
 				lines.add(line);
-				// LOG.info("StartOfLine: "+startOfLine+" End of Line:
-				// "+endOfLine+" Number of Rows: "+numberofRows);
+
 				for (int j = startOfLine + 1; j < endOfLine
 						&& j < numberofRows; j++) {
 
@@ -206,10 +198,35 @@ public class CSVBatchPipeline {
 		}
 
 		@GetInitialRestriction
-		public OffsetRange getInitialRestriction(ReadableFile dataFile) {
+		public OffsetRange getInitialRestriction(ReadableFile dataFile) throws IOException, GeneralSecurityException {
+
+			
+			
+			if (this.cSek.isAccessible()) {
+
+				
+				this.customerSuppliedKey = Util.findEncryptionType(
+						this.fileDecryptKeyName.get(),
+						this.fileDecryptKey.get(), this.cSek.get(),
+						this.cSekhash.get());
+	
+			}
+
+			if (customerSuppliedKey)
+				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
+						this.fileDecryptKeyName.get(),
+						this.fileDecryptKey.get(), this.cSek.get());
+
+			bucketName = Util.parseBucketName(dataFile.getMetadata()
+					.resourceId().getCurrentDirectory().toString());
+
+			objectName = dataFile.getMetadata().resourceId().getFilename()
+					.toString();
 
 			this.br = Util.getReader(this.customerSuppliedKey, this.objectName,
 					this.bucketName, dataFile, this.key, this.cSekhash);
+			
+			
 			numberofRows = Util.countRecords(br);
 			int totalSplit = numberofRows / this.batchSize.get();
 			if ((numberofRows % this.batchSize.get()) > 0) {
