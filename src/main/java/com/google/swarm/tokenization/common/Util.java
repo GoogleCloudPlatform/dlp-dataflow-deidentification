@@ -56,23 +56,8 @@ public class Util {
 
 		return tableRowBuilder.build();
 	}
-	public static List<String> readBatch(BufferedReader reader,
-			Integer batchSize) throws IOException {
-		List<String> result = new ArrayList<>();
-
-		for (int i = 0; i < batchSize.intValue(); i++) {
-			String line = reader.readLine();
-			if (line != null) {
-				result.add(line);
-			}
-
-		}
-		return result;
-	}
 
 	public static int countRecords(BufferedReader reader) {
-
-		// LOG.info("Counting Number of Rows..");
 		return (int) reader.lines().count();
 
 	}
@@ -100,9 +85,7 @@ public class Util {
 	}
 	public static boolean findEncryptionType(String keyRing, String keyName,
 			String csek, String csekhash) {
-		//
-		// LOG.info("findEncryptionType:" + keyRing + " " + keyName + " " + csek
-		// + " " + csekhash);
+
 		return keyRing != null || keyName != null || csek != null
 				|| csekhash != null;
 	}
@@ -114,17 +97,14 @@ public class Util {
 		BufferedReader br = null;
 
 		try {
-
-			InputStream objectData = null;
-
 			if (!customerSuppliedKey) {
-
 				ReadableByteChannel channel = file.openSeekable();
 				br = new BufferedReader(
 						Channels.newReader(channel, Charsets.UTF_8.name()));
 			} else {
 
 				Storage storage = null;
+				InputStream objectData = null;
 				try {
 					storage = StorageFactory.getService();
 				} catch (GeneralSecurityException e) {
@@ -144,9 +124,6 @@ public class Util {
 
 			}
 
-			// if(objectData!=null) {
-			// objectData.close();
-			// }
 		} catch (IOException e) {
 			LOG.error("Error Reading the File " + e.getMessage());
 			e.printStackTrace();

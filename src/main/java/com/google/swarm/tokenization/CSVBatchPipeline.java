@@ -61,7 +61,6 @@ public class CSVBatchPipeline {
 
 	public static final Logger LOG = LoggerFactory
 			.getLogger(CSVBatchPipeline.class);
-	public static int numberofRows = 0;
 	@SuppressWarnings("serial")
 	public static class FormatTableData
 			extends
@@ -107,6 +106,8 @@ public class CSVBatchPipeline {
 		private ValueProvider<String> fileDecryptKey;
 		private ValueProvider<String> fileDecryptKeyName;
 		private BufferedReader br;
+		private int numberOfRows;
+		private List<FieldId> headers;
 
 		public CSVFileReader(String kmsKeyProjectName,
 				ValueProvider<String> fileDecryptKeyRing,
@@ -124,115 +125,100 @@ public class CSVBatchPipeline {
 			this.customerSuppliedKey = false;
 			this.key = null;
 			this.br = null;
+			this.numberOfRows = 0;
+			headers = new ArrayList<>();
 
+		}
+
+		private boolean setProcessingforCurrentRestriction(
+				ReadableFile currentReader)
+				throws IOException, GeneralSecurityException {
+			if (this.cSek.isAccessible()) {
+
+				this.customerSuppliedKey = Util.findEncryptionType(
+						this.fileDecryptKeyName.get(),
+						this.fileDecryptKey.get(), this.cSek.get(),
+						this.cSekhash.get());
+
+			}
+
+			if (customerSuppliedKey)
+				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
+						this.fileDecryptKeyName.get(),
+						this.fileDecryptKey.get(), this.cSek.get());
+
+			this.bucketName = Util.parseBucketName(currentReader.getMetadata()
+					.resourceId().getCurrentDirectory().toString());
+
+			this.objectName = currentReader.getMetadata().resourceId()
+					.getFilename().toString();
+
+			this.br = Util.getReader(this.customerSuppliedKey, this.objectName,
+					this.bucketName, currentReader, this.key, this.cSekhash);
+
+			this.headers = Util.getHeaders(br);
+			this.numberOfRows = Util.countRecords(br);
+			br.close();
+			return true;
 		}
 
 		@ProcessElement
 		public void processElement(ProcessContext c, OffsetRangeTracker tracker)
 				throws IOException, GeneralSecurityException {
 
-		
-			
-			if (this.cSek.isAccessible()) {
+			if (setProcessingforCurrentRestriction(c.element())) {
+				for (long i = tracker.currentRestriction().getFrom(); tracker
+						.tryClaim(i); ++i) {
+					int endOfLine = (int) (i * this.batchSize.get()) + 1;
+					int startOfLine = (endOfLine - this.batchSize.get());
 
-				
-				this.customerSuppliedKey = Util.findEncryptionType(
-						this.fileDecryptKeyName.get(),
-						this.fileDecryptKey.get(), this.cSek.get(),
-						this.cSekhash.get());
-	
-			}
+					List<String> lines = new ArrayList<>();
+					this.br = Util.getReader(this.customerSuppliedKey,
+							this.objectName, this.bucketName, c.element(),
+							this.key, this.cSekhash);
+					String line = this.br.lines().skip(startOfLine).findFirst()
+							.get();
+					lines.add(line);
 
-			if (customerSuppliedKey)
-				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
-						this.fileDecryptKeyName.get(),
-						this.fileDecryptKey.get(), this.cSek.get());
+					for (int j = startOfLine + 1; j < endOfLine
+							&& j < this.numberOfRows; j++) {
 
-			bucketName = Util.parseBucketName(c.element().getMetadata()
-					.resourceId().getCurrentDirectory().toString());
+						lines.add(br.readLine());
 
-			objectName = c.element().getMetadata().resourceId().getFilename()
-					.toString();
-	
-			this.br = Util.getReader(this.customerSuppliedKey, this.objectName,
-					this.bucketName, c.element(), this.key, this.cSekhash);
-			List<FieldId> headers;
-			headers = Util.getHeaders(br);
-			numberofRows = Util.countRecords(br);
-			br.close();
-
-			for (long i = tracker.currentRestriction().getFrom(); tracker
-					.tryClaim(i); ++i) {
-				int endOfLine = (int) (i * this.batchSize.get()) + 1;
-				int startOfLine = (endOfLine - this.batchSize.get());
-
-				List<String> lines = new ArrayList<>();
-				this.br = Util.getReader(this.customerSuppliedKey,
-						this.objectName, this.bucketName, c.element(), this.key,
-						this.cSekhash);
-				String line = this.br.lines().skip(startOfLine).findFirst()
-						.get();
-				lines.add(line);
-
-				for (int j = startOfLine + 1; j < endOfLine
-						&& j < numberofRows; j++) {
-
-					lines.add(br.readLine());
-
+					}
+					Table batchData = Util.createDLPTable(headers, lines);
+					if (batchData.getRowsCount() > 0) {
+						LOG.info("Current Restriction From: "
+								+ tracker.currentRestriction().getFrom()
+								+ " Current Restriction To: "
+								+ tracker.currentRestriction().getTo()
+								+ " StartofLine: " + startOfLine
+								+ " End of Line: " + endOfLine + " Batch Size:"
+								+ batchData.getRowsCount());
+						c.output(batchData);
+						lines.clear();
+					}
+					br.close();
 				}
-				Table batchData = Util.createDLPTable(headers, lines);
-				if (batchData.getRowsCount() > 0) {
-					LOG.info("Current Restriction From: "
-							+ tracker.currentRestriction().getFrom()
-							+ " Current Restriction To: "
-							+ tracker.currentRestriction().getTo()
-							+ " StartofLine: " + startOfLine + " End of Line: "
-							+ endOfLine + " Batch Size:"
-							+ batchData.getRowsCount());
-					c.output(batchData);
-					lines.clear();
-				}
-				br.close();
 			}
 
 		}
 
 		@GetInitialRestriction
-		public OffsetRange getInitialRestriction(ReadableFile dataFile) throws IOException, GeneralSecurityException {
+		public OffsetRange getInitialRestriction(ReadableFile dataFile)
+				throws IOException, GeneralSecurityException {
 
-			
-			
-			if (this.cSek.isAccessible()) {
+			int totalSplit = 1;
 
-				
-				this.customerSuppliedKey = Util.findEncryptionType(
-						this.fileDecryptKeyName.get(),
-						this.fileDecryptKey.get(), this.cSek.get(),
-						this.cSekhash.get());
-	
+			if (setProcessingforCurrentRestriction(dataFile)) {
+				totalSplit = this.numberOfRows / this.batchSize.get();
+				if ((this.numberOfRows % this.batchSize.get()) > 0) {
+					totalSplit = totalSplit + 1;
+				}
+				LOG.info("Initial Restriction range from 1 to: " + totalSplit);
+				br.close();
+
 			}
-
-			if (customerSuppliedKey)
-				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
-						this.fileDecryptKeyName.get(),
-						this.fileDecryptKey.get(), this.cSek.get());
-
-			bucketName = Util.parseBucketName(dataFile.getMetadata()
-					.resourceId().getCurrentDirectory().toString());
-
-			objectName = dataFile.getMetadata().resourceId().getFilename()
-					.toString();
-
-			this.br = Util.getReader(this.customerSuppliedKey, this.objectName,
-					this.bucketName, dataFile, this.key, this.cSekhash);
-			
-			
-			numberofRows = Util.countRecords(br);
-			int totalSplit = numberofRows / this.batchSize.get();
-			if ((numberofRows % this.batchSize.get()) > 0) {
-				totalSplit = totalSplit + 1;
-			}
-			LOG.info("Initial Restriction range from 1 to: " + totalSplit);
 			return new OffsetRange(1, totalSplit + 1);
 
 		}
@@ -240,8 +226,6 @@ public class CSVBatchPipeline {
 		public void splitRestriction(ReadableFile element, OffsetRange range,
 				OutputReceiver<OffsetRange> out) {
 			for (final OffsetRange p : range.split(1, 1)) {
-				// LOG.info("Split Restriction from: "+p.getFrom()+" To:
-				// "+p.getTo());
 				out.output(p);
 
 			}
@@ -249,8 +233,6 @@ public class CSVBatchPipeline {
 
 		@NewTracker
 		public OffsetRangeTracker newTracker(OffsetRange range) {
-			// LOG.info("New Tracker from: "+range.getFrom()+" To:
-			// "+range.getTo());
 			return new OffsetRangeTracker(
 					new OffsetRange(range.getFrom(), range.getTo()));
 
@@ -359,11 +341,9 @@ public class CSVBatchPipeline {
 				.withValidation().as(TokenizePipelineOptions.class);
 
 		Pipeline p = Pipeline.create(options);
-		p.apply(FileIO.match().filepattern(options.getInputFile())
-				// 10 seconds polling
-				.continuously(
-						Duration.standardSeconds(options.getPollingInterval()),
-						Watch.Growth.never()))
+		p.apply(FileIO.match().filepattern(options.getInputFile()).continuously(
+				Duration.standardSeconds(options.getPollingInterval()),
+				Watch.Growth.never()))
 				.apply(FileIO.readMatches()
 						.withCompression(Compression.UNCOMPRESSED))
 				.apply("CSV File Reader",
@@ -373,7 +353,6 @@ public class CSVBatchPipeline {
 								options.getFileDecryptKey(),
 								options.getBatchSize(), options.getCsek(),
 								options.getCsekhash())))
-				// .apply("DLP Table Handler", ParDo.of(new DLPTableHandler()))
 				.apply("Tokenize Data",
 						ParDo.of(new TokenizeData(
 								options.as(GcpOptions.class).getProject(),
@@ -382,9 +361,9 @@ public class CSVBatchPipeline {
 				.apply("Format Table Data", ParDo.of(new FormatTableData()))
 				.apply(Window.<KV<String, String>>into(FixedWindows
 						.of(Duration.standardMinutes(options.getInterval()))))
-
 				.apply(GroupByKey.<String, String>create())
 				.apply("Format Output Data", ParDo.of(new FormatOutputData()))
+				// number of shards 1
 				.apply(new WriteOneFilePerWindow(options.getOutputFile(), 1));
 
 		p.run();
