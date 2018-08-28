@@ -2,18 +2,22 @@
 
 This solution deidentify sensitive data by using data flow and DLP API. Some example use cases:  
 
-Example 1(Fully Structure using DLP Table Object)  A csv file containing columns like 'user_id' , 'password', 'account_number', 'credit_card_number' etc, this program can be used to deidentify all or subset of the columns. 
-Example #2: A CSV file contaiing fields like 'comments' that may contain sensitive information like phone_number ("Please update my phone number to <num>") this program can be used to inspect and deidentify.
-Example #3: A text file containing free text blobs (Chat logs for example)
+Example:1 (Fully Structure using DLP Table Object)  
+A csv file containing columns like 'user_id' , 'password', 'account_number', 'credit_card_number' etc, this program can be used to deidentify all or subset of the columns.  
+Example:2 (Semi Structured Data)  
+A CSV file contaiing fields like 'comments' that may contain sensitive information like phone_number ("Please update my phone number to <num>") this program can be used to inspect and deidentify.  
+Example:3 (Non Structured Data)  
+A text file containing free text blobs (Chat logs for example) 
 
+```
 "hasellus sit amet erat. Nulla tempus. Vivamus in felis eu sapien cursus vestibulum.".LU42 577W U2SJ IRLZ RSOO.Decentralized didactic implementation.0604998391122913.Self-enabling.unleash distributed ROI Gonzalo Homer.802-19-8847."In hac habitasse platea dictumst. Etiam faucibus cursus urna. Ut tellus.".AZ28 RSAD QAWQ RMMQ TRDZ XXKW YJXQ.Advanced systematic time-frame 3542994965622197.Function-based.productize efficient networks Melodi Ferdinand.581-74-6338."Proin eu mi. Nulla ac enim. In tempor, turpis nec euismod scelerisque, quam turpis adipiscing lorem, vitae mattis nibh ligula nec sem."    
-
+```
 You can see there are some sensitive information in the blob. This program will inspect and deidentify for the all 4 info types in the example. This is useful for the use case where chat log or log files may contain sensitive information.        
 
 
-Currently it only supports reading file from GCS bucket and output to another GCS bucket. 
+Currently it only supports reading file from GCS bucket and output to another GCS bucket.  
 
-Input file can use google managed key, customer supplied or customer managed encryption key. Please provide required arguments depends on the use case and encryption type.
+Input file can use google managed key, customer supplied or customer managed encryption key. Please provide required arguments depends on the use case and encryption type.  
 
 ### Getting Started With Dataflow Template
 
@@ -34,9 +38,8 @@ gradle run -DmainClass=com.google.swarm.tokenization.TextStreamingPipeline  -Par
 If the template is created successfully, you should see a meesage "Template is created sucessfully" in the console log. 
 
 Optionally, you can create a metadata file for the template:
-
-```
-There is a metadata file needs to be uploaded in the same location where the template is created. Copy the following JSON file and paste it in a file called dlp-tokenization_metadata (Please don't save as json extension)
+There is a metadata file needs to be uploaded in the same location where the template is created. 
+Copy the following JSON file and paste it in a file called dlp-tokenization_metadata (Please don't save as json extension)
 
 ```
 {
@@ -110,7 +113,8 @@ There is a metadata file needs to be uploaded in the same location where the tem
 
 ```
 
-To run the template from gcloud: (Alternatively you can also execute the teamplate from Dataflow UI- Running Jobs from template- custom template-> Bucket location)
+To run the template from gcloud: 
+(Alternatively you can also execute the teamplate from Dataflow UI- Running Jobs from template- custom template-> Bucket location)
 
 ```
 gcloud dataflow jobs run test-run-1 --gcs-location gs://df-template/dlp-tokenization --parameters inputFile=gs://scotia-customer-encrypted-data/pii-structured-data-4.csv,project=scotia-tokenization,batchSize=4700,deidentifyTemplateName=projects/scotia-tokenization/deidentifyTemplates/8658110966372436613,outputFile=gs://output-tokenization-data/output-structured-data,csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk=,csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE=,fileDecryptKeyName=gcs-bucket-encryption,fileDecryptKey=data-file-key 
@@ -121,6 +125,7 @@ Note: if you are using google managed key for input file, please ignore optional
 ### Local Build & Run
 
 Clone the project 
+
 Import as a gradle project in your IDE and execute gradle build or run. You can also use DirectRunner for small files.
 
 Example 1: Full Structure data
