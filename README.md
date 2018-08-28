@@ -3,9 +3,9 @@
 This solution deidentify sensitive data by using data flow and DLP API. Some example use cases:  
 
 Example:1 (Fully Structure using DLP Table Object)  
-A csv file containing columns like 'user_id' , 'password', 'account_number', 'credit_card_number' etc, this program can be used to deidentify all or subset of the columns.  
+A CSV file containing columns like 'user_id' , 'password', 'account_number', 'credit_card_number' etc, this program can be used to deidentify all or subset of the columns.  
 Example:2 (Semi Structured Data)  
-A CSV file contaiing fields like 'comments' that may contain sensitive information like phone_number ("Please update my phone number to <num>") this program can be used to inspect and deidentify.  
+A CSV file containing fields like 'comments' that may contain sensitive information like phone_number ("Please update my phone number to <num>") this program can be used to inspect and deidentify.  
 Example:3 (Non Structured Data)  
 A text file containing free text blobs (Chat logs for example) 
 
@@ -35,7 +35,7 @@ For non structure data, a template can be created by
 gradle run -DmainClass=com.google.swarm.tokenization.TextStreamingPipeline  -Pargs="--streaming --project=<project_id>--runner=DataflowRunner --templateLocation=gs://<bucket>/<object>
 	 --gcpTempLocation=gs://<bucket>/<object>"
 ```
-If the template is created successfully, you should see a meesage "Template is created sucessfully" in the console log. 
+If the template is created successfully, you should see a "Template is created successfully" in the console log. 
 
 Optionally, you can create a metadata file for the template:
 There is a metadata file needs to be uploaded in the same location where the template is created. 
@@ -114,7 +114,7 @@ Copy the following JSON file and paste it in a file called dlp-tokenization_meta
 ```
 
 To run the template from gcloud: 
-(Alternatively you can also execute the teamplate from Dataflow UI- Running Jobs from template- custom template-> Bucket location)
+(Alternatively you can also execute the template from Dataflow UI- Running Jobs from template- custom template-> Bucket location)
 
 ```
 gcloud dataflow jobs run test-run-1 --gcs-location gs://df-template/dlp-tokenization --parameters inputFile=gs://scotia-customer-encrypted-data/pii-structured-data-4.csv,project=scotia-tokenization,batchSize=4700,deidentifyTemplateName=projects/scotia-tokenization/deidentifyTemplates/8658110966372436613,outputFile=gs://output-tokenization-data/output-structured-data,csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk=,csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE=,fileDecryptKeyName=gcs-bucket-encryption,fileDecryptKey=data-file-key 
@@ -194,12 +194,12 @@ Batch Size by number of rows/ call
 --batchSize=500
 ```
 
-If you notice resource exception error in the log, please redecue the number of workers passed as an argument. Example : --numWorkers=1 
+If you notice resource exception error in the log, please reduce the number of workers passed as an argument. Example : --numWorkers=1 
 
 ### How the Dataflow pipeline works?
-It requires dataflow 2.6 and uses Splitable DoFn feature for both direct and dataflow runner. 
+It requires dataflow 2.6 and uses Splittable DoFn feature for both direct and dataflow runner. 
 
-Dataflow pipeline continously poll for new file based on the -pollingInterval argument and create a unbounded data set. 
+Dataflow pipeline continuously poll for new file based on the -pollingInterval argument and create a unbounded data set. 
 
 ```
 p.apply(FileIO.match().filepattern(options.getInputFile()).continuously(
@@ -211,7 +211,7 @@ Next transformation will try to decrypt the customer supplied encryption key (if
 Please see this link below to understand how initial, split and new tracker restriction work for parallel processing. 
 https://beam.apache.org/blog/2017/08/16/splittable-do-fn.html
 
-For the fully and semi structure use case, initial restriction is set to offset range (1, number of rows). Then the restrction is split based on batch size. For example: if the file has 100 rows 
+For the fully and semi structure use case, initial restriction is set to offset range (1, number of rows). Then the restriction is split based on batch size. For example: if the file has 100 rows 
 and batch size is 10. Initial restriction will be set to (1,100) and total number of restriction will be 10. Then restriction is split using offset of 1. {(1,2),(2,3)...(9,10)}. 
 
 ```
