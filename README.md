@@ -1,7 +1,7 @@
-# Data Tokenization PoC Using Dataflow/Beam 2.6 and DLP API  
+# Data Tokenization PoC Using Dataflow/Beam 2.6 & DLP API  
 
-This solution deidentify sensitive data by using data flow and DLP API. Some example use cases:  
-
+This solution deidentify sensitive PII data by using data flow and DLP API. Solution reads an encrypted CSV or text file from GCS and output to GCS and Big Query Table.   
+Some example use cases:  
 Example:1 (Fully Structure using DLP Table Object)  
 A CSV file containing columns like 'user_id' , 'password', 'account_number', 'credit_card_number' etc, this program can be used to deidentify all or subset of the columns.  
 Example:2 (Semi Structured Data)  
@@ -58,6 +58,12 @@ Copy the following JSON file and paste it in a file called dlp-tokenization_meta
     "help_text": "Path and filename prefix for writing output files. ex: gs://MyBucket/object",
     "regexes": ["^gs:\/\/[^\n\r]+$"],
 	 "is_optional": false
+  },
+   {
+    "name": "BQ Table Spec",
+    "label": "BQ Table Spec ",
+    "help_text": "",
+	"is_optional": false
   },
   {
       "name": "project",
@@ -130,14 +136,14 @@ Import as a gradle project in your IDE and execute gradle build or run. You can 
 
 Example 1: Full Structure data
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2
+gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --tableSpec=<project_id>:<dataset_id>.<table_id>
 
 ```
 
 Example 2: Semi Structure Data
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-semi-structured-data --inspectTemplateName=--inspectTemplateName=projects/<id>/inspectTemplates/<id> --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2
+gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-semi-structured-data --inspectTemplateName=--inspectTemplateName=projects/<id>/inspectTemplates/<id> --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --tableSpec=<project_id>:<dataset_id>.<table_id>
 
 ```
 
@@ -183,6 +189,9 @@ Create a hash of the encryption key:
 ```
 Create DLP template using API explorer. Please look for DLP API how to guide. https://developers.google.com/apis-explorer/#p/dlp/v2/
 Please note there is NO code change required to make this program run. You will have to create your CSV data file and DLP template and pass it on to dataflow pipeline. 
+
+Create BQ dataset for tableSpec param.
+https://cloud.google.com/bigquery/docs/datasets
 
 ### How the Batch Size works?
 DLP API has a limit for payload size of 524KB /api call. That's why dataflow process will need to chunk it.  User will have to decide on how they would like to batch the request depending on number of rows and how big each row is.
@@ -255,10 +264,14 @@ Pipeline calls the KMS api to decrypt the key in memory so that file can be read
 If it's successful, file is successfully open and parsed by the batch size specified  
 It creates a DLP table object as a content item with the chunk data and call DLP api to tokenize  by using the template passed  
 At then end it writes the tokenized data in a GCS bucket. There is a default one minute window setup to output the file.  
-Please note for GMK or customer managed key use cases, there is no call to KMS is made.
-
+Please note for GMK or customer managed key use cases, there is no call to KMS is made.  
+Data is also written in Big Query. Table schema is created dynamiclly based on header. Table name is passed as an argument and will be created as part of the pipeline.
+Screen shot from dataflow pipeline. 
+<img width="308" alt="screen shot 2018-09-26 at 11 43 55 am" src="https://user-images.githubusercontent.com/27572451/46094922-40676b80-c189-11e8-814e-106850c00890.png">
+<img width="835" alt="screen shot 2018-09-26 at 11 44 11 am" src="https://user-images.githubusercontent.com/27572451/46094921-40676b80-c189-11e8-824b-1213fcbc8c2c.png">
 ### Known Issue
 Also there is a known issue regarding GRPC version conflict with other google cloud products. That's why in gradle build file uses shaded jar concept to build and compile. Once the issue is resolved, build file can be updated to take out shading part. (This only impacts Beam 2.0+) 
+
 
 ### How to generate KMS wrapped key
 By using KMS API and pass a encryption key, you can generate a KMS wrapped key.
@@ -491,4 +504,3 @@ DLP Inspect template:
 ### To Do
 
 - Unit Test and Code Coverage 
-- Big Query Support
