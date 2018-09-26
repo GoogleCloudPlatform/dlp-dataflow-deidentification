@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.beam.sdk.Pipeline;
@@ -29,21 +30,28 @@ import org.apache.beam.sdk.extensions.gcp.options.GcpOptions;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
+import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionView;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.api.services.bigquery.model.TableRow;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.dlp.v2.DlpServiceClient;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.DeidentifyContentRequest;
@@ -61,37 +69,6 @@ public class CSVBatchPipeline {
 
 	public static final Logger LOG = LoggerFactory
 			.getLogger(CSVBatchPipeline.class);
-	@SuppressWarnings("serial")
-	public static class FormatTableData
-			extends
-				DoFn<Table, KV<String, String>> {
-
-		@ProcessElement
-		public void processElement(ProcessContext c) {
-			Table encryptedData = c.element();
-			StringBuffer bufferedWriter = new StringBuffer();
-			List<FieldId> outputHeaderFields = encryptedData.getHeadersList();
-			List<Table.Row> outputRows = encryptedData.getRowsList();
-
-			List<String> outputHeaders = outputHeaderFields.stream()
-					.map(FieldId::getName).collect(Collectors.toList());
-
-			bufferedWriter.append(String.join(",", outputHeaders) + "\n");
-
-			String headerValue = bufferedWriter.toString().trim();
-
-			bufferedWriter = new StringBuffer();
-			for (Table.Row outputRow : outputRows) {
-				String row = outputRow.getValuesList().stream()
-						.map(value -> value.getStringValue())
-						.collect(Collectors.joining(","));
-				bufferedWriter.append(row + "\n");
-			}
-
-			String dataValues = bufferedWriter.toString().trim();
-			c.output(KV.of(headerValue, dataValues));
-		}
-	}
 
 	@SuppressWarnings("serial")
 	public static class CSVFileReader extends DoFn<ReadableFile, Table> {
@@ -158,6 +135,7 @@ public class CSVBatchPipeline {
 
 			this.headers = Util.getHeaders(br);
 			this.numberOfRows = Util.countRecords(br);
+			// System.out.println("Rows: "+numberOfRows);
 			br.close();
 			return true;
 		}
@@ -241,20 +219,27 @@ public class CSVBatchPipeline {
 	}
 
 	@SuppressWarnings("serial")
-	public static class FormatOutputData
+	public static class FormatGCSOutputData
 			extends
-				DoFn<KV<String, Iterable<String>>, String> {
+				DoFn<KV<String, Iterable<Table>>, String> {
 		@ProcessElement
 		public void processElement(ProcessContext c) {
 
-			KV<String, Iterable<String>> outputData = c.element();
+			KV<String, Iterable<Table>> outputData = c.element();
 			StringBuffer bufferedWriter = new StringBuffer();
 
-			bufferedWriter.append(outputData.getKey() + "\n");
+			bufferedWriter.append(outputData.getKey());
 
-			outputData.getValue().forEach(value -> {
+			outputData.getValue().forEach(encryptedData -> {
 
-				bufferedWriter.append(value + "\n");
+				List<Table.Row> outputRows = encryptedData.getRowsList();
+
+				for (Table.Row outputRow : outputRows) {
+					String row = outputRow.getValuesList().stream()
+							.map(value -> value.getStringValue())
+							.collect(Collectors.joining(","));
+					bufferedWriter.append(row + "\n");
+				}
 
 			});
 
@@ -263,7 +248,7 @@ public class CSVBatchPipeline {
 		}
 	}
 	@SuppressWarnings("serial")
-	public static class TokenizeData extends DoFn<Table, Table> {
+	public static class TokenizeData extends DoFn<Table, KV<String, Table>> {
 
 		private String projectId;
 		private ValueProvider<String> deIdentifyTemplateName;
@@ -316,13 +301,15 @@ public class CSVBatchPipeline {
 							.setItem(tableItem).build();
 
 				}
+
 				response = dlpServiceClient.deidentifyContent(request);
 				encryptedData = response.getItem().getTable();
 				LOG.info("Request Size Successfully Tokenized: "
 						+ request.toByteString().size() + " bytes."
 						+ " Number of rows tokenized: "
 						+ response.getItem().getTable().getRowsCount());
-				c.output(encryptedData);
+				c.output(KV.of(Util.extractTableHeader(encryptedData),
+						encryptedData));
 			} catch (IOException e) {
 
 				e.printStackTrace();
@@ -334,6 +321,78 @@ public class CSVBatchPipeline {
 		}
 	}
 
+	@SuppressWarnings("serial")
+	public static class BQSchemaGenerator
+			extends
+				DoFn<KV<String, Iterable<Table>>, KV<String, String>> {
+
+		private ValueProvider<String> tableSpec;
+
+		public BQSchemaGenerator(ValueProvider<String> tableSpec) {
+			this.tableSpec = tableSpec;
+
+		}
+
+		@ProcessElement
+		public void processElement(ProcessContext c) {
+			Table encryptedData = c.element().getValue().iterator().next();
+			List<FieldId> outputHeaderFields = encryptedData.getHeadersList();
+			List<String> outputHeaders = outputHeaderFields.stream()
+					.map(FieldId::getName).collect(Collectors.toList());
+
+			String schema = Util.toJsonString((Util.getSchema(outputHeaders)));
+
+			if (this.tableSpec.isAccessible()) {
+
+				TableDestination destination = new TableDestination(
+						this.tableSpec.get(),
+						"pii-tokenized output data from dataflow");
+				c.output(KV.of(destination.getTableSpec(), schema));
+			}
+
+		}
+
+	}
+
+	@SuppressWarnings("serial")
+	public static class FormatBQOutputData
+			extends
+				DoFn<KV<String, Iterable<Table>>, TableRow> {
+
+		@ProcessElement
+		public void processElement(ProcessContext c) {
+
+			Iterable<Table> dataTables = c.element().getValue();
+			dataTables.forEach(encryptedData -> {
+				List<FieldId> outputHeaderFields = encryptedData
+						.getHeadersList();
+				List<String> outputHeaders = outputHeaderFields.stream()
+						.map(FieldId::getName).collect(Collectors.toList());
+				TableSchema schema = Util.getSchema(outputHeaders);
+				List<Table.Row> outputRows = encryptedData.getRowsList();
+				for (Table.Row outputRow : outputRows) {
+
+					String row = outputRow.getValuesList().stream()
+							.map(value -> value.getStringValue())
+							.collect(Collectors.joining(","));
+					String[] values = row.split(",");
+					TableRow bqRow = new TableRow();
+					int numberOfFields = values.length;
+					int i = 0;
+					while (i < numberOfFields) {
+						bqRow.set(schema.getFields().get(i).getName(),
+								values[i]);
+						i = i + 1;
+					}
+					// System.out.println("row: "+bqRow.toString());
+					c.output(bqRow);
+				}
+
+			});
+
+		}
+	}
+
 	public static void main(String[] args)
 			throws IOException, GeneralSecurityException {
 
@@ -341,9 +400,13 @@ public class CSVBatchPipeline {
 				.withValidation().as(TokenizePipelineOptions.class);
 
 		Pipeline p = Pipeline.create(options);
-		p.apply(FileIO.match().filepattern(options.getInputFile()).continuously(
-				Duration.standardSeconds(options.getPollingInterval()),
-				Watch.Growth.never()))
+
+		PCollection<KV<String, Iterable<Table>>> outputData = p
+				.apply(FileIO.match().filepattern(options.getInputFile())
+						.continuously(
+								Duration.standardSeconds(
+										options.getPollingInterval()),
+								Watch.Growth.never()))
 				.apply(FileIO.readMatches()
 						.withCompression(Compression.UNCOMPRESSED))
 				.apply("CSV File Reader",
@@ -358,13 +421,32 @@ public class CSVBatchPipeline {
 								options.as(GcpOptions.class).getProject(),
 								options.getDeidentifyTemplateName(),
 								options.getInspectTemplateName())))
-				.apply("Format Table Data", ParDo.of(new FormatTableData()))
-				.apply(Window.<KV<String, String>>into(FixedWindows
+
+				.apply(Window.<KV<String, Table>>into(FixedWindows
 						.of(Duration.standardMinutes(options.getInterval()))))
-				.apply(GroupByKey.<String, String>create())
-				.apply("Format Output Data", ParDo.of(new FormatOutputData()))
-				// number of shards 1
-				.apply(new WriteOneFilePerWindow(options.getOutputFile(), 1));
+
+				.apply(GroupByKey.<String, Table>create());
+
+		outputData
+				.apply("Format GCS Output Data",
+						ParDo.of(new FormatGCSOutputData()))
+				.apply("Write to GCS",
+						new WriteOneFilePerWindow(options.getOutputFile(), 1));
+
+		PCollectionView<Map<String, String>> schemasView = outputData
+				.apply("CreateSchemaMap",
+						ParDo.of(new BQSchemaGenerator(options.getTableSpec())))
+				.apply("ViewSchemaAsMap", View.asMap());
+
+		outputData
+				.apply("Format BQ Output Data",
+						ParDo.of(new FormatBQOutputData()))
+				.apply(BigQueryIO.writeTableRows().to(options.getTableSpec())
+						.withSchemaFromView(schemasView)
+						.withCreateDisposition(
+								BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
+						.withWriteDisposition(
+								BigQueryIO.Write.WriteDisposition.WRITE_APPEND));
 
 		p.run();
 	}

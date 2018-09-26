@@ -66,8 +66,11 @@ public interface TokenizePipelineOptions extends PipelineOptions {
 	void setFileDecryptKey(ValueProvider<String> value);
 
 	@Description("GCS File Decryption Key Ring Name")
-
 	ValueProvider<String> getFileDecryptKeyName();
 	void setFileDecryptKeyName(ValueProvider<String> value);
+
+	@Description("Table Spec")
+	ValueProvider<String> getTableSpec();
+	void setTableSpec(ValueProvider<String> value);
 
 }

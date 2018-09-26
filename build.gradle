@@ -75,8 +75,9 @@ dependencies {
         force = true
     }
 
-	testCompile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion, changing: true
+	testCompile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
 	testCompile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
+	testCompile 'junit:junit:4.12'
 	
 }
 //configurations.all {

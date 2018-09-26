@@ -30,10 +30,14 @@ import java.util.stream.Collectors;
 
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.options.ValueProvider;
+import org.apache.beam.sdk.util.Transport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.api.client.json.JsonFactory;
 import com.google.api.client.util.Charsets;
+import com.google.api.services.bigquery.model.TableFieldSchema;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.api.services.storage.Storage;
 import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.Table;
@@ -42,6 +46,8 @@ import com.google.privacy.dlp.v2.Value;
 public class Util {
 
 	public static final Logger LOG = LoggerFactory.getLogger(Util.class);
+	static final JsonFactory JSON_FACTORY = Transport.getJsonFactory();
+
 	public static String parseBucketName(String value) {
 		// gs://name/ -> name
 		return value.substring(5, value.length() - 1);
@@ -135,4 +141,44 @@ public class Util {
 
 	}
 
+	@SuppressWarnings("serial")
+	public static TableSchema getSchema(List<String> outputHeaders) {
+		return new TableSchema().setFields(new ArrayList<TableFieldSchema>() {
+
+			{
+
+				outputHeaders.forEach(header -> {
+					add(new TableFieldSchema().setName(header)
+							.setType("STRING"));
+
+				});
+
+			}
+
+		});
+	}
+	public static String toJsonString(Object item) {
+		if (item == null) {
+			return null;
+		}
+		try {
+			return JSON_FACTORY.toString(item);
+		} catch (IOException e) {
+			throw new RuntimeException(
+					String.format("Cannot serialize %s to a JSON string.",
+							item.getClass().getSimpleName()),
+					e);
+		}
+	}
+
+	public static String extractTableHeader(Table encryptedData) {
+
+		StringBuffer bufferedWriter = new StringBuffer();
+		List<FieldId> outputHeaderFields = encryptedData.getHeadersList();
+
+		List<String> outputHeaders = outputHeaderFields.stream()
+				.map(FieldId::getName).collect(Collectors.toList());
+		bufferedWriter.append(String.join(",", outputHeaders) + "\n");
+		return bufferedWriter.toString();
+	}
 }
