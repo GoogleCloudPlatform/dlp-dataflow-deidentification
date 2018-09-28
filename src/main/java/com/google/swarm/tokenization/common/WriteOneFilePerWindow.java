@@ -65,12 +65,12 @@ public class WriteOneFilePerWindow
 		TextIO.Write write = TextIO.write().to(new PerWindowFiles(resource))
 				.withTempDirectory(resource.getCurrentDirectory())
 				.withWindowedWrites();
-		// .withoutSharding();
 
 		if (numShards != null) {
 			write = write.withNumShards(numShards);
 
 		}
+
 		return input.apply(write);
 	}
 
