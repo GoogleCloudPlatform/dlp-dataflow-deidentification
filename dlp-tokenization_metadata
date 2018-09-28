@@ -16,11 +16,11 @@
 	 "is_optional": false
   },
    {
-    "name": "BQ Table Spec",
-    "label": "BQ Table Spec ",
-    "help_text": "",
-	"is_optional": false
-  },
+     "name": "tableSpec",
+     "label": "BQ Table Spec ",
+     "help_text": "<project_id>:<dataset_id>.<table_id>",
+ 	"is_optional": false
+   },
   {
       "name": "project",
       "label": "Name of the Host Project",

@@ -59,12 +59,12 @@ Copy the following JSON file and paste it in a file called dlp-tokenization_meta
     "regexes": ["^gs:\/\/[^\n\r]+$"],
 	 "is_optional": false
   },
-   {
-    "name": "BQ Table Spec",
-    "label": "BQ Table Spec ",
-    "help_text": "",
-	"is_optional": false
-  },
+    {
+     "name": "tableSpec",
+     "label": "BQ Table Spec ",
+     "help_text": "<project_id>:<dataset_id>.<table_id>",
+ 	"is_optional": false
+   },
   {
       "name": "project",
       "label": "Name of the Host Project",
@@ -123,7 +123,7 @@ To run the template from gcloud:
 (Alternatively you can also execute the template from Dataflow UI- Running Jobs from template- custom template-> Bucket location)
 
 ```
-gcloud dataflow jobs run test-run-1 --gcs-location gs://df-template/dlp-tokenization --parameters inputFile=gs://scotia-customer-encrypted-data/pii-structured-data-4.csv,project=scotia-tokenization,batchSize=4700,deidentifyTemplateName=projects/scotia-tokenization/deidentifyTemplates/8658110966372436613,outputFile=gs://output-tokenization-data/output-structured-data,csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk=,csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE=,fileDecryptKeyName=gcs-bucket-encryption,fileDecryptKey=data-file-key 
+gcloud dataflow jobs run test-run-1 --gcs-location gs://df-template/dlp-tokenization --parameters inputFile=gs://<path>/.csv,project=<id>,batchSize=4700,deidentifyTemplateName=projects/<id>/deidentifyTemplates/8658110966372436613,outputFile=gs://<path>,csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk=,csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE=,fileDecryptKeyName=gcs-bucket-encryption,fileDecryptKey=data-file-key 
 
 ```
 Note: if you are using google managed key for input file, please ignore optional arguments like csek, csekhash, fileDecryptKeyName, fileDecryptKey
