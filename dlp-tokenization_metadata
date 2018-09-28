@@ -25,12 +25,18 @@
       "name": "project",
       "label": "Name of the Host Project",
       "help_text": "project_id",
-      "is_optional": false
+      "is_optional": true
     },
     {
       "name": "batchSize",
       "label": "batch size in number of rows",
       "help_text": "4700, 200",
+		"is_optional": false
+	},
+    {
+      "name": "pollingInterval",
+      "label": "batch size in number of rows",
+      "help_text": "in seconds: 10, 60",
 		"is_optional": false
 	},
    {
@@ -67,6 +73,18 @@
      "name": "fileDecryptKey",
      "label": "Key Name For Input File Encryption",
      "help_text": "data-file-key",
+     "is_optional": true
+ 	},
+   {
+     "name": "workerMachineType",
+     "label": "Machine Type",
+     "help_text": "n1-highmem-4",
+     "is_optional": true
+ 	},
+   {
+     "name": "numWorkers",
+     "label": "Number of Workers",
+     "help_text": "number 1",
      "is_optional": true
  	}
   

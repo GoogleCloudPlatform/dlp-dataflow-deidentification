@@ -71,7 +71,13 @@ Copy the following JSON file and paste it in a file called dlp-tokenization_meta
       "help_text": "project_id",
       "is_optional": false
     },
-    {
+     {
+       "name": "pollingInterval",
+       "label": "batch size in number of rows",
+       "help_text": "in seconds: 10, 60",
+ 		"is_optional": false
+ 	},
+	 {
       "name": "batchSize",
       "label": "batch size in number of rows",
       "help_text": "4700, 200",
