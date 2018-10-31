@@ -38,8 +38,8 @@ apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'com.github.johnrengelman.shadow'
 
-//mainClassName = System.getProperty("mainClass")
-mainClassName = 'com.google.swarm.tokenization.CSVBatchPipeline'
+mainClassName = System.getProperty("mainClass")
+//mainClassName = 'com.google.swarm.tokenization.CSVBatchPipeline'
 group 'com.google.swarm'
 version '0.1.0'
 

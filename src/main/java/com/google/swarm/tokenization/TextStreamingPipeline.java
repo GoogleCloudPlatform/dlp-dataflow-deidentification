@@ -64,7 +64,7 @@ public class TextStreamingPipeline {
 
 		Pipeline p = Pipeline.create(options);
 		p.apply(FileIO.match().filepattern(options.getInputFile()).continuously(
-				Duration.standardSeconds(10), Watch.Growth.never()))
+				Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
 				.apply(FileIO.readMatches()
 						.withCompression(Compression.UNCOMPRESSED))
 				.apply("Text File Reader",
@@ -80,7 +80,7 @@ public class TextStreamingPipeline {
 								options.getDeidentifyTemplateName(),
 								options.getInspectTemplateName())))
 				.apply(Window.<String>into(
-						FixedWindows.of(Duration.standardMinutes(1))))
+						FixedWindows.of(Duration.standardMinutes(options.getInterval()))))
 				.apply(new WriteOneFilePerWindow(options.getOutputFile(), 1));
 
 		p.run();
@@ -97,6 +97,7 @@ public class TextStreamingPipeline {
 				ValueProvider<String> deIdentifyTemplateName,
 				ValueProvider<String> inspectTemplateName) {
 			this.projectId = projectId;
+			System.out.println("Project Id: "+projectId);
 			this.deIdentifyTemplateName = deIdentifyTemplateName;
 			this.inspectTemplateName = inspectTemplateName;
 		}
@@ -164,10 +165,13 @@ public class TextStreamingPipeline {
 		public void processElement(ProcessContext c)
 				throws IOException, GeneralSecurityException {
 
+			
+			if (this.cSek.isAccessible()) {
+
 			this.customerSuppliedKey = Util.findEncryptionType(
 					this.fileDecryptKeyName.get(), this.fileDecryptKey.get(),
 					this.cSek.get(), this.cSekhash.get());
-
+			}
 			if (customerSuppliedKey)
 				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
 						this.fileDecryptKeyName.get(),
@@ -190,7 +194,7 @@ public class TextStreamingPipeline {
 						bf.flip();
 						byte[] data = bf.array();
 						bf.clear();
-						c.output(new String(data, StandardCharsets.UTF_8));
+						c.output(new String(data, StandardCharsets.UTF_8).trim());
 
 					}
 				} catch (IOException e) {

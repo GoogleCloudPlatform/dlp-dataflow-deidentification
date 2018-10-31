@@ -433,7 +433,7 @@ public class CSVBatchPipeline {
 				.apply("Write to GCS",
 						new WriteOneFilePerWindow(options.getOutputFile(), 1));
 
-		PCollectionView<Map<String, String>> schemasView = outputData
+		final PCollectionView<Map<String, String>> schemasView = outputData
 				.apply("CreateSchemaMap",
 						ParDo.of(new BQSchemaGenerator(options.getTableSpec())))
 				.apply("ViewSchemaAsMap", View.asMap());
