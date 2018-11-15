@@ -1,4 +1,4 @@
-# Data Tokenization PoC Using Dataflow/Beam 2.6 & DLP API  
+# Data Tokenization PoC Using Dataflow/Beam 2.7 & DLP API  
 
 This solution deidentify sensitive PII data by using data flow and DLP API. Solution reads an encrypted CSV or text file from GCS and output to GCS and Big Query Table.   
 Some example use cases:  
