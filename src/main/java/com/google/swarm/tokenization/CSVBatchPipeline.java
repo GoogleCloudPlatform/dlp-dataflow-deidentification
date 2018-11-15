@@ -67,8 +67,7 @@ import com.google.swarm.tokenization.common.WriteOneFilePerWindow;
 
 public class CSVBatchPipeline {
 
-	public static final Logger LOG = LoggerFactory
-			.getLogger(CSVBatchPipeline.class);
+	public static final Logger LOG = LoggerFactory.getLogger(CSVBatchPipeline.class);
 
 	@SuppressWarnings("serial")
 	public static class CSVFileReader extends DoFn<ReadableFile, Table> {
@@ -86,12 +85,9 @@ public class CSVBatchPipeline {
 		private int numberOfRows;
 		private List<FieldId> headers;
 
-		public CSVFileReader(String kmsKeyProjectName,
-				ValueProvider<String> fileDecryptKeyRing,
-				ValueProvider<String> fileDecryptKey,
-				ValueProvider<Integer> batchSize, ValueProvider<String> cSek,
-				ValueProvider<String> cSekhash)
-				throws IOException, GeneralSecurityException {
+		public CSVFileReader(String kmsKeyProjectName, ValueProvider<String> fileDecryptKeyRing,
+				ValueProvider<String> fileDecryptKey, ValueProvider<Integer> batchSize, ValueProvider<String> cSek,
+				ValueProvider<String> cSekhash) throws IOException, GeneralSecurityException {
 
 			this.batchSize = batchSize;
 			this.kmsKeyProjectName = kmsKeyProjectName;
@@ -107,31 +103,26 @@ public class CSVBatchPipeline {
 
 		}
 
-		private boolean setProcessingforCurrentRestriction(
-				ReadableFile currentReader)
+		private boolean setProcessingforCurrentRestriction(ReadableFile currentReader)
 				throws IOException, GeneralSecurityException {
 			if (this.cSek.isAccessible()) {
 
-				this.customerSuppliedKey = Util.findEncryptionType(
-						this.fileDecryptKeyName.get(),
-						this.fileDecryptKey.get(), this.cSek.get(),
-						this.cSekhash.get());
+				this.customerSuppliedKey = Util.findEncryptionType(this.fileDecryptKeyName.get(),
+						this.fileDecryptKey.get(), this.cSek.get(), this.cSekhash.get());
 
 			}
 
 			if (customerSuppliedKey)
-				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
-						this.fileDecryptKeyName.get(),
+				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global", this.fileDecryptKeyName.get(),
 						this.fileDecryptKey.get(), this.cSek.get());
 
-			this.bucketName = Util.parseBucketName(currentReader.getMetadata()
-					.resourceId().getCurrentDirectory().toString());
+			this.bucketName = Util
+					.parseBucketName(currentReader.getMetadata().resourceId().getCurrentDirectory().toString());
 
-			this.objectName = currentReader.getMetadata().resourceId()
-					.getFilename().toString();
+			this.objectName = currentReader.getMetadata().resourceId().getFilename().toString();
 
-			this.br = Util.getReader(this.customerSuppliedKey, this.objectName,
-					this.bucketName, currentReader, this.key, this.cSekhash);
+			this.br = Util.getReader(this.customerSuppliedKey, this.objectName, this.bucketName, currentReader,
+					this.key, this.cSekhash);
 
 			this.headers = Util.getHeaders(br);
 			this.numberOfRows = Util.countRecords(br);
@@ -145,33 +136,26 @@ public class CSVBatchPipeline {
 				throws IOException, GeneralSecurityException {
 
 			if (setProcessingforCurrentRestriction(c.element())) {
-				for (long i = tracker.currentRestriction().getFrom(); tracker
-						.tryClaim(i); ++i) {
+				for (long i = tracker.currentRestriction().getFrom(); tracker.tryClaim(i); ++i) {
 					int endOfLine = (int) (i * this.batchSize.get()) + 1;
 					int startOfLine = (endOfLine - this.batchSize.get());
 
 					List<String> lines = new ArrayList<>();
-					this.br = Util.getReader(this.customerSuppliedKey,
-							this.objectName, this.bucketName, c.element(),
+					this.br = Util.getReader(this.customerSuppliedKey, this.objectName, this.bucketName, c.element(),
 							this.key, this.cSekhash);
-					String line = this.br.lines().skip(startOfLine).findFirst()
-							.get();
+					String line = this.br.lines().skip(startOfLine).findFirst().get();
 					lines.add(line);
 
-					for (int j = startOfLine + 1; j < endOfLine
-							&& j < this.numberOfRows; j++) {
+					for (int j = startOfLine + 1; j < endOfLine && j < this.numberOfRows; j++) {
 
 						lines.add(br.readLine());
 
 					}
 					Table batchData = Util.createDLPTable(headers, lines);
 					if (batchData.getRowsCount() > 0) {
-						LOG.info("Current Restriction From: "
-								+ tracker.currentRestriction().getFrom()
-								+ " Current Restriction To: "
-								+ tracker.currentRestriction().getTo()
-								+ " StartofLine: " + startOfLine
-								+ " End of Line: " + endOfLine + " Batch Size:"
+						LOG.info("Current Restriction From: " + tracker.currentRestriction().getFrom()
+								+ " Current Restriction To: " + tracker.currentRestriction().getTo() + " StartofLine: "
+								+ startOfLine + " End of Line: " + endOfLine + " Batch Size:"
 								+ batchData.getRowsCount());
 						c.output(batchData);
 						lines.clear();
@@ -183,8 +167,7 @@ public class CSVBatchPipeline {
 		}
 
 		@GetInitialRestriction
-		public OffsetRange getInitialRestriction(ReadableFile dataFile)
-				throws IOException, GeneralSecurityException {
+		public OffsetRange getInitialRestriction(ReadableFile dataFile) throws IOException, GeneralSecurityException {
 
 			int totalSplit = 1;
 
@@ -200,9 +183,9 @@ public class CSVBatchPipeline {
 			return new OffsetRange(1, totalSplit + 1);
 
 		}
+
 		@SplitRestriction
-		public void splitRestriction(ReadableFile element, OffsetRange range,
-				OutputReceiver<OffsetRange> out) {
+		public void splitRestriction(ReadableFile element, OffsetRange range, OutputReceiver<OffsetRange> out) {
 			for (final OffsetRange p : range.split(1, 1)) {
 				out.output(p);
 
@@ -211,17 +194,14 @@ public class CSVBatchPipeline {
 
 		@NewTracker
 		public OffsetRangeTracker newTracker(OffsetRange range) {
-			return new OffsetRangeTracker(
-					new OffsetRange(range.getFrom(), range.getTo()));
+			return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
 
 		}
 
 	}
 
 	@SuppressWarnings("serial")
-	public static class FormatGCSOutputData
-			extends
-				DoFn<KV<String, Iterable<Table>>, String> {
+	public static class FormatGCSOutputData extends DoFn<KV<String, Iterable<Table>>, String> {
 		@ProcessElement
 		public void processElement(ProcessContext c) {
 
@@ -235,8 +215,7 @@ public class CSVBatchPipeline {
 				List<Table.Row> outputRows = encryptedData.getRowsList();
 
 				for (Table.Row outputRow : outputRows) {
-					String row = outputRow.getValuesList().stream()
-							.map(value -> value.getStringValue())
+					String row = outputRow.getValuesList().stream().map(value -> value.getStringValue())
 							.collect(Collectors.joining(","));
 					bufferedWriter.append(row + "\n");
 				}
@@ -247,6 +226,7 @@ public class CSVBatchPipeline {
 
 		}
 	}
+
 	@SuppressWarnings("serial")
 	public static class TokenizeData extends DoFn<Table, KV<String, Table>> {
 
@@ -255,8 +235,7 @@ public class CSVBatchPipeline {
 		private ValueProvider<String> inspectTemplateName;
 		private boolean inspectTemplateExist;
 
-		public TokenizeData(String projectId,
-				ValueProvider<String> deIdentifyTemplateName,
+		public TokenizeData(String projectId, ValueProvider<String> deIdentifyTemplateName,
 				ValueProvider<String> inspectTemplateName) {
 
 			this.projectId = projectId;
@@ -277,39 +256,25 @@ public class CSVBatchPipeline {
 			}
 
 			try {
-				DlpServiceClient dlpServiceClient = DLPServiceFactory
-						.getService();
-				ContentItem tableItem = ContentItem.newBuilder()
-						.setTable(nonEncryptedData).build();
+				DlpServiceClient dlpServiceClient = DLPServiceFactory.getService();
+				ContentItem tableItem = ContentItem.newBuilder().setTable(nonEncryptedData).build();
 				DeidentifyContentRequest request;
 				DeidentifyContentResponse response;
 				if (this.inspectTemplateExist) {
-					request = DeidentifyContentRequest.newBuilder()
-							.setParent(
-									ProjectName.of(this.projectId).toString())
-							.setDeidentifyTemplateName(
-									this.deIdentifyTemplateName.get())
-							.setInspectTemplateName(
-									this.inspectTemplateName.get())
-							.setItem(tableItem).build();
+					request = DeidentifyContentRequest.newBuilder().setParent(ProjectName.of(this.projectId).toString())
+							.setDeidentifyTemplateName(this.deIdentifyTemplateName.get())
+							.setInspectTemplateName(this.inspectTemplateName.get()).setItem(tableItem).build();
 				} else {
-					request = DeidentifyContentRequest.newBuilder()
-							.setParent(
-									ProjectName.of(this.projectId).toString())
-							.setDeidentifyTemplateName(
-									this.deIdentifyTemplateName.get())
-							.setItem(tableItem).build();
+					request = DeidentifyContentRequest.newBuilder().setParent(ProjectName.of(this.projectId).toString())
+							.setDeidentifyTemplateName(this.deIdentifyTemplateName.get()).setItem(tableItem).build();
 
 				}
 
 				response = dlpServiceClient.deidentifyContent(request);
 				encryptedData = response.getItem().getTable();
-				LOG.info("Request Size Successfully Tokenized: "
-						+ request.toByteString().size() + " bytes."
-						+ " Number of rows tokenized: "
-						+ response.getItem().getTable().getRowsCount());
-				c.output(KV.of(Util.extractTableHeader(encryptedData),
-						encryptedData));
+				LOG.info("Request Size Successfully Tokenized: " + request.toByteString().size() + " bytes."
+						+ " Number of rows tokenized: " + response.getItem().getTable().getRowsCount());
+				c.output(KV.of(Util.extractTableHeader(encryptedData), encryptedData));
 			} catch (IOException e) {
 
 				e.printStackTrace();
@@ -322,9 +287,7 @@ public class CSVBatchPipeline {
 	}
 
 	@SuppressWarnings("serial")
-	public static class BQSchemaGenerator
-			extends
-				DoFn<KV<String, Iterable<Table>>, KV<String, String>> {
+	public static class BQSchemaGenerator extends DoFn<KV<String, Iterable<Table>>, KV<String, String>> {
 
 		private ValueProvider<String> tableSpec;
 
@@ -337,15 +300,13 @@ public class CSVBatchPipeline {
 		public void processElement(ProcessContext c) {
 			Table encryptedData = c.element().getValue().iterator().next();
 			List<FieldId> outputHeaderFields = encryptedData.getHeadersList();
-			List<String> outputHeaders = outputHeaderFields.stream()
-					.map(FieldId::getName).collect(Collectors.toList());
+			List<String> outputHeaders = outputHeaderFields.stream().map(FieldId::getName).collect(Collectors.toList());
 
 			String schema = Util.toJsonString((Util.getSchema(outputHeaders)));
 
 			if (this.tableSpec.isAccessible()) {
 
-				TableDestination destination = new TableDestination(
-						this.tableSpec.get(),
+				TableDestination destination = new TableDestination(this.tableSpec.get(),
 						"pii-tokenized output data from dataflow");
 				c.output(KV.of(destination.getTableSpec(), schema));
 			}
@@ -355,33 +316,28 @@ public class CSVBatchPipeline {
 	}
 
 	@SuppressWarnings("serial")
-	public static class FormatBQOutputData
-			extends
-				DoFn<KV<String, Iterable<Table>>, TableRow> {
+	public static class FormatBQOutputData extends DoFn<KV<String, Iterable<Table>>, TableRow> {
 
 		@ProcessElement
 		public void processElement(ProcessContext c) {
 
 			Iterable<Table> dataTables = c.element().getValue();
 			dataTables.forEach(encryptedData -> {
-				List<FieldId> outputHeaderFields = encryptedData
-						.getHeadersList();
-				List<String> outputHeaders = outputHeaderFields.stream()
-						.map(FieldId::getName).collect(Collectors.toList());
+				List<FieldId> outputHeaderFields = encryptedData.getHeadersList();
+				List<String> outputHeaders = outputHeaderFields.stream().map(FieldId::getName)
+						.collect(Collectors.toList());
 				TableSchema schema = Util.getSchema(outputHeaders);
 				List<Table.Row> outputRows = encryptedData.getRowsList();
 				for (Table.Row outputRow : outputRows) {
 
-					String row = outputRow.getValuesList().stream()
-							.map(value -> value.getStringValue())
+					String row = outputRow.getValuesList().stream().map(value -> value.getStringValue())
 							.collect(Collectors.joining(","));
 					String[] values = row.split(",");
 					TableRow bqRow = new TableRow();
 					int numberOfFields = values.length;
 					int i = 0;
 					while (i < numberOfFields) {
-						bqRow.set(schema.getFields().get(i).getName(),
-								values[i]);
+						bqRow.set(schema.getFields().get(i).getName(), values[i]);
 						i = i + 1;
 					}
 					// System.out.println("row: "+bqRow.toString());
@@ -393,60 +349,40 @@ public class CSVBatchPipeline {
 		}
 	}
 
-	public static void main(String[] args)
-			throws IOException, GeneralSecurityException {
+	public static void main(String[] args) throws IOException, GeneralSecurityException {
 
-		TokenizePipelineOptions options = PipelineOptionsFactory.fromArgs(args)
-				.withValidation().as(TokenizePipelineOptions.class);
+		TokenizePipelineOptions options = PipelineOptionsFactory.fromArgs(args).withValidation()
+				.as(TokenizePipelineOptions.class);
 
 		Pipeline p = Pipeline.create(options);
 
 		PCollection<KV<String, Iterable<Table>>> outputData = p
 				.apply(FileIO.match().filepattern(options.getInputFile())
-						.continuously(
-								Duration.standardSeconds(
-										options.getPollingInterval()),
-								Watch.Growth.never()))
-				.apply(FileIO.readMatches()
-						.withCompression(Compression.UNCOMPRESSED))
+						.continuously(Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
+				.apply(FileIO.readMatches().withCompression(Compression.UNCOMPRESSED))
 				.apply("CSV File Reader",
-						ParDo.of(new CSVFileReader(
-								options.as(GcpOptions.class).getProject(),
-								options.getFileDecryptKeyName(),
-								options.getFileDecryptKey(),
-								options.getBatchSize(), options.getCsek(),
-								options.getCsekhash())))
+						ParDo.of(new CSVFileReader(options.as(GcpOptions.class).getProject(),
+								options.getFileDecryptKeyName(), options.getFileDecryptKey(), options.getBatchSize(),
+								options.getCsek(), options.getCsekhash())))
 				.apply("Tokenize Data",
-						ParDo.of(new TokenizeData(
-								options.as(GcpOptions.class).getProject(),
-								options.getDeidentifyTemplateName(),
-								options.getInspectTemplateName())))
+						ParDo.of(new TokenizeData(options.as(GcpOptions.class).getProject(),
+								options.getDeidentifyTemplateName(), options.getInspectTemplateName())))
 
-				.apply(Window.<KV<String, Table>>into(FixedWindows
-						.of(Duration.standardMinutes(options.getInterval()))))
+				.apply(Window.<KV<String, Table>>into(FixedWindows.of(Duration.standardMinutes(options.getInterval()))))
 
 				.apply(GroupByKey.<String, Table>create());
 
-		outputData
-				.apply("Format GCS Output Data",
-						ParDo.of(new FormatGCSOutputData()))
-				.apply("Write to GCS",
-						new WriteOneFilePerWindow(options.getOutputFile(), 1));
+		outputData.apply("Format GCS Output Data", ParDo.of(new FormatGCSOutputData())).apply("Write to GCS",
+				new WriteOneFilePerWindow(options.getOutputFile(), 1));
 
 		final PCollectionView<Map<String, String>> schemasView = outputData
-				.apply("CreateSchemaMap",
-						ParDo.of(new BQSchemaGenerator(options.getTableSpec())))
+				.apply("CreateSchemaMap", ParDo.of(new BQSchemaGenerator(options.getTableSpec())))
 				.apply("ViewSchemaAsMap", View.asMap());
 
-		outputData
-				.apply("Format BQ Output Data",
-						ParDo.of(new FormatBQOutputData()))
-				.apply(BigQueryIO.writeTableRows().to(options.getTableSpec())
-						.withSchemaFromView(schemasView)
-						.withCreateDisposition(
-								BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
-						.withWriteDisposition(
-								BigQueryIO.Write.WriteDisposition.WRITE_APPEND));
+		outputData.apply("Format BQ Output Data", ParDo.of(new FormatBQOutputData()))
+				.apply(BigQueryIO.writeTableRows().to(options.getTableSpec()).withSchemaFromView(schemasView)
+						.withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
+						.withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND));
 
 		p.run();
 	}

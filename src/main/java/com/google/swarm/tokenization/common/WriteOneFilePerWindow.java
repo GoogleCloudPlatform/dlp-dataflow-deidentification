@@ -37,19 +37,15 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
 @SuppressWarnings("serial")
-public class WriteOneFilePerWindow
-		extends
-			PTransform<PCollection<String>, PDone> {
+public class WriteOneFilePerWindow extends PTransform<PCollection<String>, PDone> {
 
-	private static final DateTimeFormatter FORMATTER = ISODateTimeFormat
-			.hourMinute();
+	private static final DateTimeFormatter FORMATTER = ISODateTimeFormat.hourMinute();
 
 	private String filenamePrefix;
 	@Nullable
 	private Integer numShards;
 
-	public WriteOneFilePerWindow(ValueProvider<String> filenamePrefix,
-			Integer numShards) {
+	public WriteOneFilePerWindow(ValueProvider<String> filenamePrefix, Integer numShards) {
 		if (filenamePrefix.isAccessible())
 			this.filenamePrefix = filenamePrefix.get();
 		else
@@ -60,11 +56,9 @@ public class WriteOneFilePerWindow
 	@Override
 	public PDone expand(PCollection<String> input) {
 
-		ResourceId resource = FileBasedSink
-				.convertToFileResourceIfPossible(filenamePrefix);
+		ResourceId resource = FileBasedSink.convertToFileResourceIfPossible(filenamePrefix);
 		TextIO.Write write = TextIO.write().to(new PerWindowFiles(resource))
-				.withTempDirectory(resource.getCurrentDirectory())
-				.withWindowedWrites();
+				.withTempDirectory(resource.getCurrentDirectory()).withWindowedWrites();
 
 		if (numShards != null) {
 			write = write.withNumShards(numShards);
@@ -76,10 +70,9 @@ public class WriteOneFilePerWindow
 
 	/**
 	 * A {@link FilenamePolicy} produces a base file name for a write based on
-	 * metadata about the data being written. This always includes the shard
-	 * number and the total number of shards. For windowed writes, it also
-	 * includes the window and pane index (a sequence number assigned to each
-	 * trigger firing).
+	 * metadata about the data being written. This always includes the shard number
+	 * and the total number of shards. For windowed writes, it also includes the
+	 * window and pane index (a sequence number assigned to each trigger firing).
 	 */
 	public static class PerWindowFiles extends FilenamePolicy {
 
@@ -90,29 +83,21 @@ public class WriteOneFilePerWindow
 		}
 
 		public String filenamePrefixForWindow(IntervalWindow window) {
-			String prefix = baseFilename.isDirectory()
-					? ""
-					: firstNonNull(baseFilename.getFilename(), "");
-			return String.format("%s-%s-%s", prefix,
-					FORMATTER.print(window.start()),
-					FORMATTER.print(window.end()));
+			String prefix = baseFilename.isDirectory() ? "" : firstNonNull(baseFilename.getFilename(), "");
+			return String.format("%s-%s-%s", prefix, FORMATTER.print(window.start()), FORMATTER.print(window.end()));
 		}
 
 		@Override
-		public ResourceId windowedFilename(int shardNumber, int numShards,
-				BoundedWindow window, PaneInfo paneInfo,
+		public ResourceId windowedFilename(int shardNumber, int numShards, BoundedWindow window, PaneInfo paneInfo,
 				OutputFileHints outputFileHints) {
 			IntervalWindow intervalWindow = (IntervalWindow) window;
-			String filename = String.format("%s-%s-of-%s%s",
-					filenamePrefixForWindow(intervalWindow), shardNumber,
+			String filename = String.format("%s-%s-of-%s%s", filenamePrefixForWindow(intervalWindow), shardNumber,
 					numShards, outputFileHints.getSuggestedFilenameSuffix());
-			return baseFilename.getCurrentDirectory().resolve(filename,
-					StandardResolveOptions.RESOLVE_FILE);
+			return baseFilename.getCurrentDirectory().resolve(filename, StandardResolveOptions.RESOLVE_FILE);
 		}
 
 		@Override
-		public ResourceId unwindowedFilename(int shardNumber, int numShards,
-				OutputFileHints outputFileHints) {
+		public ResourceId unwindowedFilename(int shardNumber, int numShards, OutputFileHints outputFileHints) {
 			throw new UnsupportedOperationException("Unsupported.");
 		}
 	}

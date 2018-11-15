@@ -52,12 +52,12 @@ public class Util {
 		// gs://name/ -> name
 		return value.substring(5, value.length() - 1);
 	}
+
 	public static Table.Row convertCsvRowToTableRow(String row) {
 		String[] values = row.split(",");
 		Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
 		for (String value : values) {
-			tableRowBuilder.addValues(
-					Value.newBuilder().setStringValue(value).build());
+			tableRowBuilder.addValues(Value.newBuilder().setStringValue(value).build());
 		}
 
 		return tableRowBuilder.build();
@@ -68,45 +68,39 @@ public class Util {
 
 	}
 
-	public static List<FieldId> getHeaders(BufferedReader reader)
-			throws IOException {
+	public static List<FieldId> getHeaders(BufferedReader reader) throws IOException {
 
 		List<FieldId> headers = Arrays.stream(reader.readLine().split(","))
-				.map(header -> FieldId.newBuilder().setName(header).build())
-				.collect(Collectors.toList());
+				.map(header -> FieldId.newBuilder().setName(header).build()).collect(Collectors.toList());
 		return headers;
 	}
-	public static Table createDLPTable(List<FieldId> headers,
-			List<String> lines) {
+
+	public static Table createDLPTable(List<FieldId> headers, List<String> lines) {
 
 		List<Table.Row> rows = new ArrayList<>();
 		lines.forEach(line -> {
 			rows.add(convertCsvRowToTableRow(line));
 		});
-		Table table = Table.newBuilder().addAllHeaders(headers).addAllRows(rows)
-				.build();
+		Table table = Table.newBuilder().addAllHeaders(headers).addAllRows(rows).build();
 
 		return table;
 
 	}
-	public static boolean findEncryptionType(String keyRing, String keyName,
-			String csek, String csekhash) {
 
-		return keyRing != null || keyName != null || csek != null
-				|| csekhash != null;
+	public static boolean findEncryptionType(String keyRing, String keyName, String csek, String csekhash) {
+
+		return keyRing != null || keyName != null || csek != null || csekhash != null;
 	}
 
-	public static BufferedReader getReader(boolean customerSuppliedKey,
-			String objectName, String bucketName, ReadableFile file, String key,
-			ValueProvider<String> csekhash) {
+	public static BufferedReader getReader(boolean customerSuppliedKey, String objectName, String bucketName,
+			ReadableFile file, String key, ValueProvider<String> csekhash) {
 
 		BufferedReader br = null;
 
 		try {
 			if (!customerSuppliedKey) {
 				ReadableByteChannel channel = file.openSeekable();
-				br = new BufferedReader(
-						Channels.newReader(channel, Charsets.UTF_8.name()));
+				br = new BufferedReader(Channels.newReader(channel, Charsets.UTF_8.name()));
 			} else {
 
 				Storage storage = null;
@@ -118,11 +112,9 @@ public class Util {
 					e.printStackTrace();
 				}
 				try {
-					objectData = StorageFactory.downloadObject(storage,
-							bucketName, objectName, key, csekhash.get());
+					objectData = StorageFactory.downloadObject(storage, bucketName, objectName, key, csekhash.get());
 				} catch (Exception e) {
-					LOG.error(
-							"Error Reading the Encrypted File in GCS- Customer Supplied Key");
+					LOG.error("Error Reading the Encrypted File in GCS- Customer Supplied Key");
 					e.printStackTrace();
 				}
 
@@ -148,8 +140,7 @@ public class Util {
 			{
 
 				outputHeaders.forEach(header -> {
-					add(new TableFieldSchema().setName(header)
-							.setType("STRING"));
+					add(new TableFieldSchema().setName(header).setType("STRING"));
 
 				});
 
@@ -157,6 +148,7 @@ public class Util {
 
 		});
 	}
+
 	public static String toJsonString(Object item) {
 		if (item == null) {
 			return null;
@@ -165,9 +157,7 @@ public class Util {
 			return JSON_FACTORY.toString(item);
 		} catch (IOException e) {
 			throw new RuntimeException(
-					String.format("Cannot serialize %s to a JSON string.",
-							item.getClass().getSimpleName()),
-					e);
+					String.format("Cannot serialize %s to a JSON string.", item.getClass().getSimpleName()), e);
 		}
 	}
 
@@ -176,8 +166,7 @@ public class Util {
 		StringBuffer bufferedWriter = new StringBuffer();
 		List<FieldId> outputHeaderFields = encryptedData.getHeadersList();
 
-		List<String> outputHeaders = outputHeaderFields.stream()
-				.map(FieldId::getName).collect(Collectors.toList());
+		List<String> outputHeaders = outputHeaderFields.stream().map(FieldId::getName).collect(Collectors.toList());
 		bufferedWriter.append(String.join(",", outputHeaders) + "\n");
 		return bufferedWriter.toString();
 	}

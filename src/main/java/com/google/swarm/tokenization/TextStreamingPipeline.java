@@ -53,34 +53,25 @@ import com.google.swarm.tokenization.common.WriteOneFilePerWindow;
 
 public class TextStreamingPipeline {
 
-	public static final Logger LOG = LoggerFactory
-			.getLogger(TextStreamingPipeline.class);
+	public static final Logger LOG = LoggerFactory.getLogger(TextStreamingPipeline.class);
 
-	public static void main(String[] args)
-			throws IOException, GeneralSecurityException {
+	public static void main(String[] args) throws IOException, GeneralSecurityException {
 
-		TokenizePipelineOptions options = PipelineOptionsFactory.fromArgs(args)
-				.withValidation().as(TokenizePipelineOptions.class);
+		TokenizePipelineOptions options = PipelineOptionsFactory.fromArgs(args).withValidation()
+				.as(TokenizePipelineOptions.class);
 
 		Pipeline p = Pipeline.create(options);
-		p.apply(FileIO.match().filepattern(options.getInputFile()).continuously(
-				Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
-				.apply(FileIO.readMatches()
-						.withCompression(Compression.UNCOMPRESSED))
+		p.apply(FileIO.match().filepattern(options.getInputFile())
+				.continuously(Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
+				.apply(FileIO.readMatches().withCompression(Compression.UNCOMPRESSED))
 				.apply("Text File Reader",
-						ParDo.of(new TextFileReader(
-								options.as(GcpOptions.class).getProject(),
-								options.getFileDecryptKeyName(),
-								options.getFileDecryptKey(),
-								options.getBatchSize(), options.getCsek(),
-								options.getCsekhash())))
+						ParDo.of(new TextFileReader(options.as(GcpOptions.class).getProject(),
+								options.getFileDecryptKeyName(), options.getFileDecryptKey(), options.getBatchSize(),
+								options.getCsek(), options.getCsekhash())))
 				.apply("Tokenize Data",
-						ParDo.of(new TokenizeData(
-								options.as(GcpOptions.class).getProject(),
-								options.getDeidentifyTemplateName(),
-								options.getInspectTemplateName())))
-				.apply(Window.<String>into(
-						FixedWindows.of(Duration.standardMinutes(options.getInterval()))))
+						ParDo.of(new TokenizeData(options.as(GcpOptions.class).getProject(),
+								options.getDeidentifyTemplateName(), options.getInspectTemplateName())))
+				.apply(Window.<String>into(FixedWindows.of(Duration.standardMinutes(options.getInterval()))))
 				.apply(new WriteOneFilePerWindow(options.getOutputFile(), 1));
 
 		p.run();
@@ -93,11 +84,10 @@ public class TextStreamingPipeline {
 		private ValueProvider<String> deIdentifyTemplateName;
 		private ValueProvider<String> inspectTemplateName;
 
-		public TokenizeData(String projectId,
-				ValueProvider<String> deIdentifyTemplateName,
+		public TokenizeData(String projectId, ValueProvider<String> deIdentifyTemplateName,
 				ValueProvider<String> inspectTemplateName) {
 			this.projectId = projectId;
-			System.out.println("Project Id: "+projectId);
+			System.out.println("Project Id: " + projectId);
 			this.deIdentifyTemplateName = deIdentifyTemplateName;
 			this.inspectTemplateName = inspectTemplateName;
 		}
@@ -105,26 +95,19 @@ public class TextStreamingPipeline {
 		@ProcessElement
 		public void processElement(ProcessContext c) throws IOException {
 
-			try (DlpServiceClient dlpServiceClient = DlpServiceClient
-					.create()) {
+			try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
 
-				ContentItem contentItem = ContentItem.newBuilder()
-						.setValue(c.element()).build();
+				ContentItem contentItem = ContentItem.newBuilder().setValue(c.element()).build();
 
-				DeidentifyContentRequest request = DeidentifyContentRequest
-						.newBuilder()
+				DeidentifyContentRequest request = DeidentifyContentRequest.newBuilder()
 						.setParent(ProjectName.of(this.projectId).toString())
-						.setDeidentifyTemplateName(
-								this.deIdentifyTemplateName.get())
-						.setInspectTemplateName(this.inspectTemplateName.get())
-						.setItem(contentItem).build();
+						.setDeidentifyTemplateName(this.deIdentifyTemplateName.get())
+						.setInspectTemplateName(this.inspectTemplateName.get()).setItem(contentItem).build();
 
-				DeidentifyContentResponse response = dlpServiceClient
-						.deidentifyContent(request);
+				DeidentifyContentResponse response = dlpServiceClient.deidentifyContent(request);
 
 				String encryptedData = response.getItem().getValue();
-				LOG.info("Successfully tokenized request size: "
-						+ request.toByteString().size() + " bytes");
+				LOG.info("Successfully tokenized request size: " + request.toByteString().size() + " bytes");
 				c.output(encryptedData);
 
 			}
@@ -145,12 +128,9 @@ public class TextStreamingPipeline {
 		private ValueProvider<String> fileDecryptKey;
 		private ValueProvider<String> fileDecryptKeyName;
 
-		public TextFileReader(String kmsKeyProjectName,
-				ValueProvider<String> fileDecryptKeyRing,
-				ValueProvider<String> fileDecryptKey,
-				ValueProvider<Integer> batchSize, ValueProvider<String> cSek,
-				ValueProvider<String> cSekhash)
-				throws IOException, GeneralSecurityException {
+		public TextFileReader(String kmsKeyProjectName, ValueProvider<String> fileDecryptKeyRing,
+				ValueProvider<String> fileDecryptKey, ValueProvider<Integer> batchSize, ValueProvider<String> cSek,
+				ValueProvider<String> cSekhash) throws IOException, GeneralSecurityException {
 			this.batchSize = batchSize;
 			this.kmsKeyProjectName = kmsKeyProjectName;
 			this.fileDecryptKey = fileDecryptKey;
@@ -162,34 +142,26 @@ public class TextStreamingPipeline {
 		}
 
 		@ProcessElement
-		public void processElement(ProcessContext c)
-				throws IOException, GeneralSecurityException {
+		public void processElement(ProcessContext c) throws IOException, GeneralSecurityException {
 
-			
 			if (this.cSek.isAccessible()) {
 
-			this.customerSuppliedKey = Util.findEncryptionType(
-					this.fileDecryptKeyName.get(), this.fileDecryptKey.get(),
-					this.cSek.get(), this.cSekhash.get());
+				this.customerSuppliedKey = Util.findEncryptionType(this.fileDecryptKeyName.get(),
+						this.fileDecryptKey.get(), this.cSek.get(), this.cSekhash.get());
 			}
 			if (customerSuppliedKey)
-				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global",
-						this.fileDecryptKeyName.get(),
+				this.key = KMSFactory.decrypt(this.kmsKeyProjectName, "global", this.fileDecryptKeyName.get(),
 						this.fileDecryptKey.get(), this.cSek.get());
-			objectName = c.element().getMetadata().resourceId().getFilename()
-					.toString();
-			bucketName = Util.parseBucketName(c.element().getMetadata()
-					.resourceId().getCurrentDirectory().toString());
-			LOG.info(
-					"Bucket Name: " + bucketName + " File Name: " + objectName);
+			objectName = c.element().getMetadata().resourceId().getFilename().toString();
+			bucketName = Util.parseBucketName(c.element().getMetadata().resourceId().getCurrentDirectory().toString());
+			LOG.info("Bucket Name: " + bucketName + " File Name: " + objectName);
 
 			if (!this.customerSuppliedKey) {
 
 				try {
 
 					SeekableByteChannel channel = c.element().openSeekable();
-					ByteBuffer bf = ByteBuffer
-							.allocate(batchSize.get().intValue());
+					ByteBuffer bf = ByteBuffer.allocate(batchSize.get().intValue());
 					while ((channel.read(bf)) > 0) {
 						bf.flip();
 						byte[] data = bf.array();
@@ -209,20 +181,17 @@ public class TextStreamingPipeline {
 				try {
 
 					Storage storage = StorageFactory.getService();
-					InputStream objectData = StorageFactory.downloadObject(
-							storage, bucketName, objectName, key,
+					InputStream objectData = StorageFactory.downloadObject(storage, bucketName, objectName, key,
 							cSekhash.get());
 
 					byte[] data = new byte[this.batchSize.get().intValue()];
 					int bytesRead = 0;
 					int offset = 0;
-					while ((bytesRead = objectData.read(data, offset,
-							data.length - offset)) != -1) {
+					while ((bytesRead = objectData.read(data, offset, data.length - offset)) != -1) {
 						offset += bytesRead;
 						if (offset >= data.length) {
 
-							String encryptedData = new String(data, 0, offset,
-									"UTF-8");
+							String encryptedData = new String(data, 0, offset, "UTF-8");
 							c.output(encryptedData);
 							offset = 0;
 

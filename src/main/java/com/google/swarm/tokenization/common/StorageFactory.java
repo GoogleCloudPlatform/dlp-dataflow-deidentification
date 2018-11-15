@@ -36,44 +36,38 @@ import com.google.api.services.storage.StorageScopes;
 
 public class StorageFactory {
 
-	public static final Logger LOG = LoggerFactory
-			.getLogger(StorageFactory.class);
+	public static final Logger LOG = LoggerFactory.getLogger(StorageFactory.class);
 	private static Storage instance = null;
 
-	public static synchronized Storage getService()
-			throws IOException, GeneralSecurityException {
+	public static synchronized Storage getService() throws IOException, GeneralSecurityException {
 		if (instance == null) {
 			instance = buildService();
 		}
 		return instance;
 	}
 
-	private static Storage buildService()
-			throws IOException, GeneralSecurityException {
+	private static Storage buildService() throws IOException, GeneralSecurityException {
 		HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
 		JsonFactory jsonFactory = new JacksonFactory();
-		GoogleCredential credential = GoogleCredential
-				.getApplicationDefault(transport, jsonFactory);
+		GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
 
 		if (credential.createScopedRequired()) {
 			Collection<String> scopes = StorageScopes.all();
 			credential = credential.createScoped(scopes);
 		}
 
-		return new Storage.Builder(transport, jsonFactory, credential)
-				.setApplicationName("GCS").build();
+		return new Storage.Builder(transport, jsonFactory, credential).setApplicationName("GCS").build();
 	}
-	public static InputStream downloadObject(Storage storage, String bucketName,
-			String objectName, String base64CseKey, String base64CseKeyHash)
-			throws Exception {
+
+	public static InputStream downloadObject(Storage storage, String bucketName, String objectName, String base64CseKey,
+			String base64CseKeyHash) throws Exception {
 
 		// Set the CSEK headers
 		final HttpHeaders httpHeaders = new HttpHeaders();
 		httpHeaders.set("x-goog-encryption-algorithm", "AES256");
 		httpHeaders.set("x-goog-encryption-key", base64CseKey);
 		httpHeaders.set("x-goog-encryption-key-sha256", base64CseKeyHash);
-		Storage.Objects.Get getObject = storage.objects().get(bucketName,
-				objectName);
+		Storage.Objects.Get getObject = storage.objects().get(bucketName, objectName);
 		getObject.setRequestHeaders(httpHeaders);
 
 		try {

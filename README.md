@@ -192,7 +192,8 @@ Screen shot from dataflow pipeline.
 <img width="308" alt="screen shot 2018-09-26 at 11 43 55 am" src="https://user-images.githubusercontent.com/27572451/46094922-40676b80-c189-11e8-814e-106850c00890.png">
 <img width="835" alt="screen shot 2018-09-26 at 11 44 11 am" src="https://user-images.githubusercontent.com/27572451/46094921-40676b80-c189-11e8-824b-1213fcbc8c2c.png">
 ### Known Issue
-Also there is a known issue regarding GRPC version conflict with other google cloud products. That's why in gradle build file uses shaded jar concept to build and compile. Once the issue is resolved, build file can be updated to take out shading part. (This only impacts Beam 2.0+) 
+Also there is a known issue regarding GRPC version conflict with other google cloud products. That's why in gradle build file uses shaded jar concept to build and compile. Once the issue is resolved, build file can be updated to take out shading part. (This only impacts Beam 2.0+).
+***Update: This issue is resolved at beam 2.7.  
 
 
 ### How to generate KMS wrapped key
