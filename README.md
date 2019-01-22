@@ -258,7 +258,7 @@ There is a bug relate to File.IO watch termination condition https://issues.apac
 
 ###Has it been performance tested
 
-It has not been properly performance tested but has successfully processed 150M rows less than a minute for a use case relate to credit card data for de-identification only. Screenshot below shows the execution patterns. 
+It has not been properly performance tested but has successfully processed 145 MB csv file with 150M rows less than a minute for a use case relate to credit card data for de-identification only. It uses 500 DLP API quotas/minute. Please know there is a soft limit for 600 for project but can be increased if required. Screenshot below shows the execution patterns. 
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://customer-encrypted-data/1500000CCRecords_1.csv --batchSize=3000 --deidentifyTemplateName=projects/<id>/deidentifyTemplates/31224989062215255  --outputFile=gs://output-tokenization-data/1500000_CC_Records --numWorkers=5 --workerMachineType=n1-highmem-8 --maxNumWorkers=10 --dataset=pii_dataset"
