@@ -30,6 +30,8 @@ import java.util.stream.Collectors;
 
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.options.ValueProvider;
+import org.apache.beam.sdk.schemas.Schema;
+import org.apache.beam.sdk.schemas.Schema.Builder;
 import org.apache.beam.sdk.util.Transport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +51,6 @@ public class Util {
 	static final JsonFactory JSON_FACTORY = Transport.getJsonFactory();
 
 	public static String parseBucketName(String value) {
-		// gs://name/ -> name
 		return value.substring(5, value.length() - 1);
 	}
 
@@ -100,7 +101,8 @@ public class Util {
 		try {
 			if (!customerSuppliedKey) {
 				ReadableByteChannel channel = file.openSeekable();
-				br = new BufferedReader(Channels.newReader(channel, Charsets.UTF_8.name()));
+				// Charsets.ISO_8859_1.name()
+				br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
 			} else {
 
 				Storage storage = null;
@@ -133,6 +135,13 @@ public class Util {
 
 	}
 
+	public static String checkHeaderName(String name) {
+		String checkedHeader = name.replaceAll("\\s", "");
+		checkedHeader = checkedHeader.replaceAll("'", "");
+		checkedHeader = checkedHeader.replaceAll("/", "");
+		return checkedHeader;
+	}
+
 	@SuppressWarnings("serial")
 	public static TableSchema getSchema(List<String> outputHeaders) {
 		return new TableSchema().setFields(new ArrayList<TableFieldSchema>() {
@@ -140,7 +149,8 @@ public class Util {
 			{
 
 				outputHeaders.forEach(header -> {
-					add(new TableFieldSchema().setName(header).setType("STRING"));
+
+					add(new TableFieldSchema().setName(checkHeaderName(header.trim())).setType("STRING"));
 
 				});
 
@@ -169,5 +179,17 @@ public class Util {
 		List<String> outputHeaders = outputHeaderFields.stream().map(FieldId::getName).collect(Collectors.toList());
 		bufferedWriter.append(String.join(",", outputHeaders) + "\n");
 		return bufferedWriter.toString();
+	}
+
+	public static Schema getRowSchema(List<String> headers) {
+
+		Builder ROW_TYPE = new Builder();
+		headers.forEach(header -> {
+			ROW_TYPE.addNullableField(header, Schema.FieldType.STRING);
+
+		});
+
+		return ROW_TYPE.build();
+
 	}
 }
