@@ -34,9 +34,11 @@ public class BQDestination extends DynamicDestinations<Row, KV<String, List<Stri
 	private static final Logger LOG = LoggerFactory.getLogger(BQDestination.class);
 
 	private ValueProvider<String> datasetName;
+	private String projectId;
 
-	public BQDestination(ValueProvider<String> datasetName) {
+	public BQDestination(ValueProvider<String> datasetName, String projectId) {
 		this.datasetName = datasetName;
+		this.projectId=projectId;
 
 	}
 
@@ -45,7 +47,7 @@ public class BQDestination extends DynamicDestinations<Row, KV<String, List<Stri
 
 		String key = element.getValue().getTableId();
 		String[] headers = element.getValue().getHeader();
-		String table_name = String.format("%s.%s", this.datasetName, key);
+		String table_name = String.format("%s:%s.%s",this.projectId, this.datasetName, key);
 		LOG.debug("Table Destination {}, {}", table_name, headers.length);
 		return KV.of(table_name, Arrays.asList(headers));
 	}

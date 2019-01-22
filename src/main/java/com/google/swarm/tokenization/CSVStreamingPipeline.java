@@ -80,7 +80,8 @@ public class CSVStreamingPipeline {
 						.discardingFiredPanes().withAllowedLateness(Duration.standardMinutes(1)));
 
 		dlpRows.apply("WriteToBQ",
-				BigQueryIO.<Row>write().to(new BQDestination(options.getDataset()))
+				BigQueryIO.<Row>write().to(new BQDestination(options.getDataset(),
+						options.as(GcpOptions.class).getProject()))
 						.withFormatFunction(new BQTableRowSF())
 						.withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
 						.withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED));
@@ -97,7 +98,7 @@ public class CSVStreamingPipeline {
 						}).via(new CSVSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
 						.withNumShards(1).withNaming(key -> FileIO.Write.defaultNaming(key, ".csv")));
 
-		p.run().waitUntilFinish();
+		p.run();
 	}
 
 	public static void main(String[] args) throws IOException, GeneralSecurityException {

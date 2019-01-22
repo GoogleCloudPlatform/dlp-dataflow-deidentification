@@ -16,18 +16,13 @@
 	 "is_optional": false
   },
    {
-     "name": "tableSpec",
-     "label": "BQ Table Spec ",
-     "help_text": "<project_id>:<dataset_id>.<table_id>",
+     "name": "dataset",
+     "label": "BQ DatasetId e.g pii_dataset ",
+     "help_text": "<dataset_id>",
  	"is_optional": false
    },
-  {
-      "name": "project",
-      "label": "Name of the Host Project",
-      "help_text": "project_id",
-      "is_optional": true
-    },
-    {
+ 
+   {
       "name": "batchSize",
       "label": "batch size in number of rows",
       "help_text": "4700, 200",
@@ -35,9 +30,9 @@
 	},
     {
       "name": "pollingInterval",
-      "label": "batch size in number of rows",
+      "label": "Polling interval to GCS- Default is to 5 mins (300 seconds)",
       "help_text": "in seconds: 10, 60",
-		"is_optional": false
+	  "is_optional": true
 	},
    {
       "name": "inspectTemplateName",
@@ -74,19 +69,7 @@
      "label": "Key Name For Input File Encryption",
      "help_text": "data-file-key",
      "is_optional": true
- 	},
-   {
-     "name": "workerMachineType",
-     "label": "Machine Type",
-     "help_text": "n1-highmem-4",
-     "is_optional": true
- 	},
-   {
-     "name": "numWorkers",
-     "label": "Number of Workers",
-     "help_text": "number 1",
-     "is_optional": true
  	}
-  
+   
   ]
 }
