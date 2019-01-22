@@ -96,7 +96,6 @@ public class CSVStreamingPipeline {
 							return row.getKey();
 						}).via(new CSVSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
 						.withNumShards(1).withNaming(key -> FileIO.Write.defaultNaming(key, ".csv")));
-		
 
 		p.run().waitUntilFinish();
 	}

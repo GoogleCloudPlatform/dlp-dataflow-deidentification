@@ -35,7 +35,7 @@ import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
 
 public class DLPTokenizationDoFn extends DoFn<KV<String, Table>, Row> {
-	
+
 	/**
 	 * 
 	 */
