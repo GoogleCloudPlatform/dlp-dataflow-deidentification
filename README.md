@@ -256,7 +256,7 @@ dlpRows.apply("WriteToBQ",
 There is a bug relate to File.IO watch termination condition https://issues.apache.org/jira/browse/BEAM-6352.  After it's resolved in 2.10, pipeline can be upgraded to latest version and implement dynamic big query dataset creation. 
 
 
-###Has it been performance tested
+#### Has it been performance tested
 
 It has not been properly performance tested but has successfully processed 145 MB csv file with 150M rows less than a minute for a use case relate to credit card data for de-identification only. It uses 500 DLP API quotas/minute. Please know there is a soft limit for 600 for project but can be increased if required. Screenshot below shows the execution patterns. 
 
@@ -264,7 +264,7 @@ It has not been properly performance tested but has successfully processed 145 M
 gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://customer-encrypted-data/1500000CCRecords_1.csv --batchSize=3000 --deidentifyTemplateName=projects/<id>/deidentifyTemplates/31224989062215255  --outputFile=gs://output-tokenization-data/1500000_CC_Records --numWorkers=5 --workerMachineType=n1-highmem-8 --maxNumWorkers=10 --dataset=pii_dataset"
 
 ```
-####Processing 150M credit card records from a single CSV file to BigQuery
+#### Processing 150M credit card records from a single CSV file to BigQuery
 
 <img width="800" alt="screen shot 2019-01-22 at 10 42 30 am" src="https://user-images.githubusercontent.com/27572451/51546714-c4c5b480-1e32-11e9-9125-64f9d2cbe5e4.png"> 
 
@@ -274,7 +274,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline -Pargs
 
 <img width="462" alt="screen shot 2019-01-22 at 10 43 36 am" src="https://user-images.githubusercontent.com/27572451/51546717-c4c5b480-1e32-11e9-9b35-9396f4604548.png"> 
 
-####DLP APIs reaching quotas. Please reduce the number of workers if this happens. Next version, there will be an implementation of rate limiter.
+#### DLP APIs reaching default maximum quotas. Please reduce the number of workers if this happens. Next version, there will be an implementation of rate limiter.
 <img width="906" alt="screen shot 2018-08-11 at 12 08 03 am" src="https://user-images.githubusercontent.com/27572451/51545096-40256700-1e2f-11e9-851e-15e3968ca94e.png">
 
 
@@ -510,6 +510,6 @@ DLP Inspect template:
 ### To Do
 
 - Unit Test and Code Coverage 
-- Rate Limitor
+- Rate Limiter
 - Dynamic bigquery dataset creation
 - Upgrade to 2.10 beam
