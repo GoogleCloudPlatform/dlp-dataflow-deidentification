@@ -135,11 +135,11 @@ If you notice resource exception error in the log, please reduce the number of w
 
 ### How the Dataflow pipeline works?
 
-1. Dataflow pipeline continuously poll for new file based on the -pollingInterval argument and create a unbounded data set. For each file, it executes a pardo to split the file in chunks based on batch size provided (3 times the batch size). For example: a CSV file containing 100 rows will be split into three sub lists (45, 45 10) for batch Size =15. If customer supplied key is used, transformation process will try to decrypt the customer supplied encryption key by calling KMS API to decrypt the file and create a buffered reader for processsing.
+1. Dataflow pipeline continuously poll for new file based on the -pollingInterval argument and create a unbounded data set. For each file, it executes a pardo to split the file in chunks based on batch size provided (3 times the batch size). For example: a CSV file containing 100 rows will be split into three sub lists (45, 45 10) for batch Size =15. If customer supplied key is used, transformation process will try to decrypt the customer supplied encryption key by calling KMS API to decrypt the file and create a buffered reader for processing.
 
 ```
 		PCollection<KV<String, List<String>>> filesAndContents = p
-				.apply(FileIO.match().filepattern(options.getInputFile())
+				.apply(FileIO.match().file pattern(options.getInputFile())
 						.continuously(Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
 				.apply(FileIO.readMatches().withCompression(Compression.UNCOMPRESSED)).apply("FileHandler",
 						ParDo.of(new CSVReader(options.getCsek(), options.getCsekhash(),
@@ -147,7 +147,7 @@ If you notice resource exception error in the log, please reduce the number of w
 								options.as(GcpOptions.class).getProject(), options.getBatchSize())));
 ```
 
-2. Next transformation will use Split DoFn based on each of sublist size and batch size provided. For example, list of 45 rows now further will be splitted into three lists each containing 15 elements. Split restriction will be like this: {[1,2],[2,3][3,4]}. This is how restrictions can call DLP API in parallel using split do FN. This only works for fully structured data. (CSVStreamingPipeline.java)
+2. Next transformation will use Split DoFn based on each of sublist size and batch size provided. For example, list of 45 rows now further will be spilt into three lists each containing 15 elements. Split restriction will be like this: {[1,2],[2,3][3,4]}. This is how restrictions can call DLP API in parallel using split do FN. This only works for fully structured data. (CSVStreamingPipeline.java)
 Please see this link below to understand how initial, split and new tracker restriction work for parallel processing. 
 https://beam.apache.org/blog/2017/08/16/splittable-do-fn.html
 
@@ -242,7 +242,7 @@ dlpRows.apply("WriteToBQ",
 ```
 
 
-###PoC Sample Architecture
+### PoC Sample Architecture
 
 <img width="990" alt="screen shot 2019-01-22 at 10 07 02 am" src="https://user-images.githubusercontent.com/27572451/51544259-837ed600-1e2d-11e9-8f75-58a4c41976ac.png"> . 
 
@@ -258,14 +258,23 @@ There is a bug relate to File.IO watch termination condition https://issues.apac
 
 ###Has it been performance tested
 
-It has not been properly performance tested but has successfully processed 150M rows less than a minute. Screenshot below shows the execution patterns. 
+It has not been properly performance tested but has successfully processed 150M rows less than a minute for a use case relate to credit card data for de-identification only. Screenshot below shows the execution patterns. 
 
-Processing 150M credit card records from a single CSV file to BigQuery
+```
+gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://customer-encrypted-data/1500000CCRecords_1.csv --batchSize=3000 --deidentifyTemplateName=projects/<id>/deidentifyTemplates/31224989062215255  --outputFile=gs://output-tokenization-data/1500000_CC_Records --numWorkers=5 --workerMachineType=n1-highmem-8 --maxNumWorkers=10 --dataset=pii_dataset"
 
-<img width="1246" alt="screen shot 2019-01-22 at 10 16 33 am" src="https://user-images.githubusercontent.com/27572451/51545168-63501680-1e2f-11e9-8c06-03d3b0248f57.png">
+```
+####Processing 150M credit card records from a single CSV file to BigQuery
 
+<img width="800" alt="screen shot 2019-01-22 at 10 42 30 am" src="https://user-images.githubusercontent.com/27572451/51546714-c4c5b480-1e32-11e9-9125-64f9d2cbe5e4.png"> 
 
-DLP APIs reaching quotas. Please reduce the number of workers if this happens. Next version, there will be an implementation of rate limitor.
+<img width="592" alt="screen shot 2019-01-22 at 10 42 37 am" src="https://user-images.githubusercontent.com/27572451/51546715-c4c5b480-1e32-11e9-9ecf-e5ef5ee475a4.png"> 
+
+<img width="1316" alt="screen shot 2019-01-22 at 10 43 15 am" src="https://user-images.githubusercontent.com/27572451/51546716-c4c5b480-1e32-11e9-8e1b-a34a82943592.png"> 
+
+<img width="462" alt="screen shot 2019-01-22 at 10 43 36 am" src="https://user-images.githubusercontent.com/27572451/51546717-c4c5b480-1e32-11e9-9b35-9396f4604548.png"> 
+
+####DLP APIs reaching quotas. Please reduce the number of workers if this happens. Next version, there will be an implementation of rate limiter.
 <img width="906" alt="screen shot 2018-08-11 at 12 08 03 am" src="https://user-images.githubusercontent.com/27572451/51545096-40256700-1e2f-11e9-851e-15e3968ca94e.png">
 
 
