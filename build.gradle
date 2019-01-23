@@ -35,7 +35,7 @@ apply plugin: 'idea'
 
 mainClassName = System.getProperty("mainClass")
 // local build to test
-//mainClassName = 'com.google.swarm.tokenization.CSVBatchPipeline'
+mainClassName = 'com.google.swarm.tokenization.CSVBatchPipeline'
 group 'com.google.swarm'
 version '0.1.0'
 
@@ -67,15 +67,11 @@ dependencies {
 	testCompile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
 	testCompile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
 	testCompile 'junit:junit:4.12'
+    testCompile group: 'org.mockito', name: 'mockito-core', version: '2.7.2'
 	
 }
 
-jar {
-    manifest {
-        attributes ('Main-Class': mainClassName)
-    }
-    
-}
+
 
 compileJava {
     // Add additional jvm argument
