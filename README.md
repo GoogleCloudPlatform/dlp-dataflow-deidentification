@@ -64,7 +64,7 @@ Import as a gradle project in your IDE and execute gradle build or run. You can 
 
 Example 1: Full Structure data
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --dataser=<dataset_id>
+gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --dataset=<dataset_id>
 
 ```
 
@@ -139,7 +139,7 @@ If you notice resource exception error in the log, please reduce the number of w
 
 ```
 		PCollection<KV<String, List<String>>> filesAndContents = p
-				.apply(FileIO.match().file pattern(options.getInputFile())
+				.apply(FileIO.match().filepattern(options.getInputFile())
 						.continuously(Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
 				.apply(FileIO.readMatches().withCompression(Compression.UNCOMPRESSED)).apply("FileHandler",
 						ParDo.of(new CSVReader(options.getCsek(), options.getCsekhash(),
@@ -256,7 +256,7 @@ dlpRows.apply("WriteToBQ",
 There is a bug relate to File.IO watch termination condition https://issues.apache.org/jira/browse/BEAM-6352.  After it's resolved in 2.10, pipeline can be upgraded to latest version and implement dynamic big query dataset creation. 
 
 
-#### Has it been performance tested
+### Has it been performance tested?
 
 It has not been properly performance tested but has successfully processed 145 MB csv file with 150M rows less than a minute for a use case relate to credit card data for de-identification only. It uses 500 DLP API quotas/minute. Please know there is a soft limit for 600 for project but can be increased if required. Screenshot below shows the execution patterns. 
 

@@ -116,7 +116,7 @@ public class Util {
 	}
 
 	public static String checkHeaderName(String name) {
-		String checkedHeader = name.replaceAll("\\s", "");
+		String checkedHeader = name.replaceAll("\\s", "_");
 		checkedHeader = checkedHeader.replaceAll("'", "");
 		checkedHeader = checkedHeader.replaceAll("/", "");
 		return checkedHeader;
