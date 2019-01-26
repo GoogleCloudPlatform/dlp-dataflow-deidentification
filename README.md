@@ -139,7 +139,7 @@ If you notice resource exception error in the log, please reduce the number of w
 
 ```
 		PCollection<KV<String, List<String>>> filesAndContents = p
-				.apply(FileIO.match().file pattern(options.getInputFile())
+				.apply(FileIO.match().filepattern(options.getInputFile())
 						.continuously(Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
 				.apply(FileIO.readMatches().withCompression(Compression.UNCOMPRESSED)).apply("FileHandler",
 						ParDo.of(new CSVReader(options.getCsek(), options.getCsekhash(),
