@@ -256,7 +256,7 @@ dlpRows.apply("WriteToBQ",
 There is a bug relate to File.IO watch termination condition https://issues.apache.org/jira/browse/BEAM-6352.  After it's resolved in 2.10, pipeline can be upgraded to latest version and implement dynamic big query dataset creation. 
 
 
-#### Has it been performance tested
+### Has it been performance tested?
 
 It has not been properly performance tested but has successfully processed 145 MB csv file with 150M rows less than a minute for a use case relate to credit card data for de-identification only. It uses 500 DLP API quotas/minute. Please know there is a soft limit for 600 for project but can be increased if required. Screenshot below shows the execution patterns. 
 
