@@ -25,13 +25,13 @@ import org.apache.beam.sdk.options.ValueProvider;
 public interface TokenizePipelineOptions extends PipelineOptions {
 
 	@Description("Windowed interval")
-	@Default.Integer(10)
+	@Default.Integer(1)
 	Integer getInterval();
 
-	void setInterval(Integer seconds);
+	void setInterval(Integer minute);
 
 	@Description("Pollinginterval")
-	@Default.Integer(300)
+	@Default.Integer(60)
 	Integer getPollingInterval();
 
 	void setPollingInterval(Integer seconds);
@@ -81,9 +81,9 @@ public interface TokenizePipelineOptions extends PipelineOptions {
 
 	void setFileDecryptKeyName(ValueProvider<String> value);
 
-	@Description("DataSet Spec")
-	ValueProvider<String> getDataset();
+	@Description("Table Spec")
+	ValueProvider<String> getTableSpec();
 
-	void setDataset(ValueProvider<String> value);
+	void setTableSpec(ValueProvider<String> value);
 
 }
