@@ -1,4 +1,4 @@
-# Data Tokenization PoC Using Dataflow/Beam 2.6 & DLP API  
+# Data Tokenization PoC Using Dataflow/Beam & DLP API  
 
 This solution deidentify sensitive PII data by using data flow and DLP API. Solution reads an encrypted CSV or text file from GCS and output to GCS and Big Query Table.   
 Some example use cases:  
@@ -58,7 +58,11 @@ Import as a gradle project in your IDE and execute gradle build or run. You can 
 
 Example 1: Full Structure data
 ```
+<<<<<<< HEAD
 gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --tableSpec=<project_id>:<dataset_id>.<table_id>
+=======
+gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --dataset=<dataset_id>
+>>>>>>> 06ea8318fded484f385d1666fb04a1609c17c61b
 
 ```
 
@@ -133,9 +137,19 @@ It requires dataflow 2.6 and uses Splittable DoFn feature for both direct and da
 Dataflow pipeline continuously poll for new file based on the -pollingInterval argument and create a unbounded data set. 
 
 ```
+<<<<<<< HEAD
 p.apply(FileIO.match().filepattern(options.getInputFile()).continuously(
 				Duration.standardSeconds(options.getPollingInterval()),
 				Watch.Growth.never()))
+=======
+		PCollection<KV<String, List<String>>> filesAndContents = p
+				.apply(FileIO.match().filepattern(options.getInputFile())
+						.continuously(Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
+				.apply(FileIO.readMatches().withCompression(Compression.UNCOMPRESSED)).apply("FileHandler",
+						ParDo.of(new CSVReader(options.getCsek(), options.getCsekhash(),
+								options.getFileDecryptKeyName(), options.getFileDecryptKey(),
+								options.as(GcpOptions.class).getProject(), options.getBatchSize())));
+>>>>>>> 06ea8318fded484f385d1666fb04a1609c17c61b
 ```
 
 Next transformation will try to decrypt the customer supplied encryption key (if used) to read the file and create a buffered reader. 
@@ -192,8 +206,36 @@ Screen shot from dataflow pipeline.
 <img width="308" alt="screen shot 2018-09-26 at 11 43 55 am" src="https://user-images.githubusercontent.com/27572451/46094922-40676b80-c189-11e8-814e-106850c00890.png">
 <img width="835" alt="screen shot 2018-09-26 at 11 44 11 am" src="https://user-images.githubusercontent.com/27572451/46094921-40676b80-c189-11e8-824b-1213fcbc8c2c.png">
 ### Known Issue
+<<<<<<< HEAD
 Also there is a known issue regarding GRPC version conflict with other google cloud products. That's why in gradle build file uses shaded jar concept to build and compile. Once the issue is resolved, build file can be updated to take out shading part. (This only impacts Beam 2.0+).
 ***Update: This issue is resolved at beam 2.7.  
+=======
+
+There is a bug relate to File.IO watch termination condition https://issues.apache.org/jira/browse/BEAM-6352.  After it's resolved in 2.10, pipeline can be upgraded to latest version and implement dynamic big query dataset creation. 
+
+
+### Has it been performance tested?
+
+It has not been properly performance tested but has successfully processed 145 MB csv file with 150M rows less than a minute for a use case relate to credit card data for de-identification only. It uses 500 DLP API quotas/minute. Please know there is a soft limit for 600 for project but can be increased if required. Screenshot below shows the execution patterns. 
+
+```
+gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://customer-encrypted-data/1500000CCRecords_1.csv --batchSize=3000 --deidentifyTemplateName=projects/<id>/deidentifyTemplates/31224989062215255  --outputFile=gs://output-tokenization-data/1500000_CC_Records --numWorkers=5 --workerMachineType=n1-highmem-8 --maxNumWorkers=10 --dataset=pii_dataset"
+
+```
+#### Processing 150M credit card records from a single CSV file to BigQuery
+
+<img width="800" alt="screen shot 2019-01-22 at 10 42 30 am" src="https://user-images.githubusercontent.com/27572451/51546714-c4c5b480-1e32-11e9-9125-64f9d2cbe5e4.png"> 
+
+<img width="592" alt="screen shot 2019-01-22 at 10 42 37 am" src="https://user-images.githubusercontent.com/27572451/51546715-c4c5b480-1e32-11e9-9ecf-e5ef5ee475a4.png"> 
+
+<img width="1316" alt="screen shot 2019-01-22 at 10 43 15 am" src="https://user-images.githubusercontent.com/27572451/51546716-c4c5b480-1e32-11e9-8e1b-a34a82943592.png"> 
+
+<img width="462" alt="screen shot 2019-01-22 at 10 43 36 am" src="https://user-images.githubusercontent.com/27572451/51546717-c4c5b480-1e32-11e9-9b35-9396f4604548.png"> 
+
+#### DLP APIs reaching default maximum quotas. Please reduce the number of workers if this happens. Next version, there will be an implementation of rate limiter.
+<img width="906" alt="screen shot 2018-08-11 at 12 08 03 am" src="https://user-images.githubusercontent.com/27572451/51545096-40256700-1e2f-11e9-851e-15e3968ca94e.png">
+
+>>>>>>> 06ea8318fded484f385d1666fb04a1609c17c61b
 
 
 ### How to generate KMS wrapped key

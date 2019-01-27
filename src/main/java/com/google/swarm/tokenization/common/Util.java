@@ -133,6 +133,16 @@ public class Util {
 
 	}
 
+<<<<<<< HEAD
+=======
+	public static String checkHeaderName(String name) {
+		String checkedHeader = name.replaceAll("\\s", "_");
+		checkedHeader = checkedHeader.replaceAll("'", "");
+		checkedHeader = checkedHeader.replaceAll("/", "");
+		return checkedHeader;
+	}
+
+>>>>>>> 06ea8318fded484f385d1666fb04a1609c17c61b
 	@SuppressWarnings("serial")
 	public static TableSchema getSchema(List<String> outputHeaders) {
 		return new TableSchema().setFields(new ArrayList<TableFieldSchema>() {
