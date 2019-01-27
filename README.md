@@ -1,4 +1,4 @@
-# Data Tokenization PoC Using Dataflow/Beam & DLP API  
+# Data Tokenization PoC Using Dataflow/Beam 2.8 & DLP API  
 
 This solution deidentify sensitive PII data by using data flow and DLP API. Solution reads an encrypted CSV or text file from GCS and output to GCS and Big Query Table.   
 Some example use cases:  
@@ -15,8 +15,6 @@ A text file containing free text blobs (Chat logs for example)
 You can see there are some sensitive information in the blob. This program will inspect and deidentify for the all 4 info types in the example. This is useful for the use case where chat log or log files may contain sensitive information.        
 
 
-Currently it only supports reading file from GCS bucket and output to another GCS bucket.  
-
 Input file can use google managed key, customer supplied or customer managed encryption key. Please provide required arguments depends on the use case and encryption type.  
 
 ### Getting Started With Dataflow Template
@@ -27,7 +25,7 @@ Clone the repo locally.
 
 For fully or semi structure data, a template can be created by 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<project_id>--runner=DataflowRunner --templateLocation=gs://<bucket>/<object>
+gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline  -Pargs="--streaming --project=<project_id>--runner=DataflowRunner --templateLocation=gs://<bucket>/<object>
 	 --gcpTempLocation=gs://<bucket>/<object>"
 ```
 For non structure data, a template can be created by 
@@ -37,6 +35,14 @@ gradle run -DmainClass=com.google.swarm.tokenization.TextStreamingPipeline  -Par
 ```
 If the template is created successfully, you should see a "Template is created successfully" in the console log. 
 
+```
+Dataflow SDK version: 2.8.0
+Jan 22, 2019 9:20:11 AM org.apache.beam.runners.dataflow.DataflowRunner run
+INFO: Printed job specification to gs://df-template/dlp-tokenization
+Jan 22, 2019 9:20:12 AM org.apache.beam.runners.dataflow.DataflowRunner run
+INFO: Template successfully created.
+
+```
 Optionally, you can create a metadata file for the template:
 There is a metadata file needs to be uploaded in the same location where the template is created. Please see the metadata file (dlp-tokenization-metadata) as part of repo.
 
@@ -45,10 +51,10 @@ To run the template from gcloud:
 (Alternatively you can also execute the template from Dataflow UI- Running Jobs from template- custom template-> Bucket location)
 
 ```
-gcloud dataflow jobs run test-run-1 --gcs-location gs://df-template/dlp-tokenization --parameters inputFile=gs://<path>/.csv,project=<id>,batchSize=4700,deidentifyTemplateName=projects/<id>/deidentifyTemplates/8658110966372436613,outputFile=gs://<path>,csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk=,csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE=,fileDecryptKeyName=gcs-bucket-encryption,fileDecryptKey=data-file-key 
+gcloud dataflow jobs run test-run-1 --gcs-location gs://df-template/dlp-tokenization --parameters inputFile=gs://<path>/.csv,project=<id>,batchSize=4700,deidentifyTemplateName=projects/<id>/deidentifyTemplates/8658110966372436613,outputFile=gs://<path>,outputFile=gs://output-tokenization-data/<folder_name>>,dataset=<dataset_name>, pollingInterval=10,numWorkers=5,maxNumWorkers=10,workerMachineType=n1-highmem-8
 
 ```
-Note: if you are using google managed key for input file, please ignore optional arguments like csek, csekhash, fileDecryptKeyName, fileDecryptKey
+Note: if you are using customer supplied key for input file, please also pass optional arguments like csek, csekhash, fileDecryptKeyName, fileDecryptKey
 
 ### Local Build & Run
 
@@ -59,7 +65,11 @@ Import as a gradle project in your IDE and execute gradle build or run. You can 
 Example 1: Full Structure data
 ```
 <<<<<<< HEAD
+<<<<<<< HEAD
 gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --tableSpec=<project_id>:<dataset_id>.<table_id>
+=======
+gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --dataset=<dataset_id>
+>>>>>>> 06ea8318fded484f385d1666fb04a1609c17c61b
 =======
 gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --dataset=<dataset_id>
 >>>>>>> 06ea8318fded484f385d1666fb04a1609c17c61b
@@ -69,7 +79,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline  -Parg
 Example 2: Semi Structure Data
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-semi-structured-data --inspectTemplateName=--inspectTemplateName=projects/<id>/inspectTemplates/<id> --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --tableSpec=<project_id>:<dataset_id>.<table_id>
+gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-semi-structured-data --inspectTemplateName=--inspectTemplateName=projects/<id>/inspectTemplates/<id> --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --dataset=<dataset_id>
 
 ```
 
@@ -110,13 +120,13 @@ Create a hash of the encryption key:
 ```
  openssl base64 -d <<< encryption_key | openssl dgst -sha256 -binary | openssl base64
  
- After you run this command above by replacing with your own encription key created in the previous step, you will have to use this in the dataflow pipeline argument like:
+ After you run this command above by replacing with your own encryptions key created in the previous step, you will have to use this in the dataflow pipeline argument like:
  --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE=
 ```
 Create DLP template using API explorer. Please look for DLP API how to guide. https://developers.google.com/apis-explorer/#p/dlp/v2/
 Please note there is NO code change required to make this program run. You will have to create your CSV data file and DLP template and pass it on to dataflow pipeline. 
 
-Create BQ dataset for tableSpec param.
+Create BQ dataset for tableSpec param. (Next release using Beam 2.9, this step will be automated. Currently this is on hold because of a known issue in beam 2.9 and File IO watch termination)
 https://cloud.google.com/bigquery/docs/datasets
 
 ### How the Batch Size works?
@@ -132,16 +142,11 @@ Batch Size by number of rows/ call
 If you notice resource exception error in the log, please reduce the number of workers passed as an argument. Example : --numWorkers=1 
 
 ### How the Dataflow pipeline works?
-It requires dataflow 2.6 and uses Splittable DoFn feature for both direct and dataflow runner. 
 
-Dataflow pipeline continuously poll for new file based on the -pollingInterval argument and create a unbounded data set. 
+1. Dataflow pipeline continuously poll for new file based on the -pollingInterval argument and create a unbounded data set. For each file, it executes a pardo to split the file in chunks based on batch size provided (3 times the batch size). For example: a CSV file containing 100 rows will be split into three sub lists (45, 45 10) for batch Size =15. If customer supplied key is used, transformation process will try to decrypt the customer supplied encryption key by calling KMS API to decrypt the file and create a buffered reader for processing.
 
 ```
-<<<<<<< HEAD
-p.apply(FileIO.match().filepattern(options.getInputFile()).continuously(
-				Duration.standardSeconds(options.getPollingInterval()),
-				Watch.Growth.never()))
-=======
+
 		PCollection<KV<String, List<String>>> filesAndContents = p
 				.apply(FileIO.match().filepattern(options.getInputFile())
 						.continuously(Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
@@ -149,69 +154,118 @@ p.apply(FileIO.match().filepattern(options.getInputFile()).continuously(
 						ParDo.of(new CSVReader(options.getCsek(), options.getCsekhash(),
 								options.getFileDecryptKeyName(), options.getFileDecryptKey(),
 								options.as(GcpOptions.class).getProject(), options.getBatchSize())));
->>>>>>> 06ea8318fded484f385d1666fb04a1609c17c61b
+
 ```
 
-Next transformation will try to decrypt the customer supplied encryption key (if used) to read the file and create a buffered reader. 
+2. Next transformation will use Split DoFn based on each of sublist size and batch size provided. For example, list of 45 rows now further will be spilt into three lists each containing 15 elements. Split restriction will be like this: {[1,2],[2,3][3,4]}. This is how restrictions can call DLP API in parallel using split do FN. This only works for fully structured data. (CSVStreamingPipeline.java)
 Please see this link below to understand how initial, split and new tracker restriction work for parallel processing. 
 https://beam.apache.org/blog/2017/08/16/splittable-do-fn.html
 
-For the fully and semi structure use case, initial restriction is set to offset range (1, number of rows). Then the restriction is split based on batch size. For example: if the file has 100 rows 
-and batch size is 10. Initial restriction will be set to (1,100) and total number of restriction will be 10. Then restriction is split using offset of 1. {(1,2),(2,3)...(9,10)}. 
-
 ```
 @GetInitialRestriction
-		public OffsetRange getInitialRestriction(ReadableFile dataFile)
-				throws IOException, GeneralSecurityException {
+	public OffsetRange getInitialRestriction(KV<String, List<String>> contents) {
 
-			int totalSplit = 1;
+		this.numberOfRows = contents.getValue().size() - 1;
+		int totalSplit = 0;
+		totalSplit = this.numberOfRows / this.batchSize.get().intValue();
+		int remaining = this.numberOfRows % this.batchSize.get().intValue();
 
-			if (setProcessingforCurrentRestriction(dataFile)) {
-				totalSplit = this.numberOfRows / this.batchSize.get();
-				if ((this.numberOfRows % this.batchSize.get()) > 0) {
-					totalSplit = totalSplit + 1;
-				}
-				LOG.info("Initial Restriction range from 1 to: " + totalSplit);
-				br.close();
+		if (remaining > 0) {
+			totalSplit = totalSplit + 2;
 
-			}
-			return new OffsetRange(1, totalSplit + 1);
+		} else {
+			totalSplit = totalSplit + 1;
+		}
+		LOG.info("Initial Restriction range from 1 to: {}", totalSplit);
+		return new OffsetRange(1, totalSplit);
+
+	}
+
+	@SplitRestriction
+	public void splitRestriction(KV<String, List<String>> contents, OffsetRange range,
+			OutputReceiver<OffsetRange> out) {
+		for (final OffsetRange p : range.split(1, 1)) {
+			out.output(p);
 
 		}
-		@SplitRestriction
-		public void splitRestriction(ReadableFile element, OffsetRange range,
-				OutputReceiver<OffsetRange> out) {
-			for (final OffsetRange p : range.split(1, 1)) {
-				out.output(p);
+	}
 
-			}
-		}
+	@NewTracker
+	public OffsetRangeTracker newTracker(OffsetRange range) {
+		return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
 
-		@NewTracker
-		public OffsetRangeTracker newTracker(OffsetRange range) {
-			return new OffsetRangeTracker(
-					new OffsetRange(range.getFrom(), range.getTo()));
+	}
 
-		}
 ```
 
-For each split, 10 rows (--BatchSize=10) will be processed in parallel. 
-Pipeline calls the KMS api to decrypt the key in memory so that file can be read   
-If it's successful, file is successfully open and parsed by the batch size specified  
-It creates a DLP table object as a content item with the chunk data and call DLP api to tokenize  by using the template passed  
-At then end it writes the tokenized data in a GCS bucket. There is a default one minute window setup to output the file.  
-Please note for GMK or customer managed key use cases, there is no call to KMS is made.  
-Data is also written in Big Query. Table schema is created dynamiclly based on header. Table name is passed as an argument and will be created as part of the pipeline.
-Screen shot from dataflow pipeline. 
-<img width="308" alt="screen shot 2018-09-26 at 11 43 55 am" src="https://user-images.githubusercontent.com/27572451/46094922-40676b80-c189-11e8-814e-106850c00890.png">
-<img width="835" alt="screen shot 2018-09-26 at 11 44 11 am" src="https://user-images.githubusercontent.com/27572451/46094921-40676b80-c189-11e8-824b-1213fcbc8c2c.png">
-### Known Issue
-<<<<<<< HEAD
-Also there is a known issue regarding GRPC version conflict with other google cloud products. That's why in gradle build file uses shaded jar concept to build and compile. Once the issue is resolved, build file can be updated to take out shading part. (This only impacts Beam 2.0+).
-***Update: This issue is resolved at beam 2.7.  
-=======
+3. Next step is to create custom Row object from tokenized DLP table object and create a windowing for the given interval. By default it's 30 seconds.
 
-There is a bug relate to File.IO watch termination condition https://issues.apache.org/jira/browse/BEAM-6352.  After it's resolved in 2.10, pipeline can be upgraded to latest version and implement dynamic big query dataset creation. 
+
+```
+PCollection<Row> dlpRows = dlpTables
+				.apply("DoDLPTokenization",
+						ParDo.of(new DLPTokenizationDoFn(options.as(GcpOptions.class).getProject(),
+								options.getDeidentifyTemplateName(), options.getInspectTemplateName())))
+				.apply(Window.<Row>into(FixedWindows.of(Duration.standardSeconds(options.getInterval())))
+						.triggering(
+								AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.standardMinutes(1)))
+						.discardingFiredPanes().withAllowedLateness(Duration.standardMinutes(1)));
+
+
+```
+
+
+4. For each window, pipeline will use Big Query Dynamic Destination class to create a table for the given dataset and the project. 
+
+<img width="262" alt="screen shot 2019-01-22 at 9 49 13 am" src="https://user-images.githubusercontent.com/27572451/51543244-22560300-1e2b-11e9-9aed-fa6457e65666.png">
+
+
+```
+dlpRows.apply("WriteToBQ",
+				BigQueryIO.<Row>write().to(new BQDestination(options.getDataset(),
+						options.as(GcpOptions.class).getProject()))
+						.withFormatFunction(new BQTableRowSF())
+						.withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
+						.withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED));					
+
+```
+
+5. For each window, pipeline will use FileIO.writeDynamic() with FileIO Sink to create csv files in GCS location provided.
+
+<img width="1533" alt="screen shot 2019-01-22 at 9 53 28 am" src="https://user-images.githubusercontent.com/27572451/51543453-98f30080-1e2b-11e9-95ee-ad6ce2eaa518.png">
+
+```
+
+		dlpRows.apply(MapElements.via(new SimpleFunction<Row, KV<String, Row>>() {
+			@Override
+			public KV<String, Row> apply(Row row) {
+				return KV.of(row.getTableId(), row);
+			}
+		})).apply(GroupByKey.<String, Row>create()).apply("WriteToGCS",
+				FileIO.<String, KV<String, Iterable<Row>>>writeDynamic()
+						.by((SerializableFunction<KV<String, Iterable<Row>>, String>) row -> {
+							return row.getKey();
+						}).via(new CSVSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
+						.withNumShards(1).withNaming(key -> FileIO.Write.defaultNaming(key, ".csv")));
+
+
+```
+
+
+### PoC Sample Architecture
+
+<img width="990" alt="screen shot 2019-01-22 at 10 07 02 am" src="https://user-images.githubusercontent.com/27572451/51544259-837ed600-1e2d-11e9-8f75-58a4c41976ac.png"> . 
+
+<img width="1008" alt="screen shot 2019-01-22 at 10 08 11 am" src="https://user-images.githubusercontent.com/27572451/51544330-ac06d000-1e2d-11e9-9fec-11488459e400.png"> . 
+
+
+
+
+### Known Issue
+
+There is a bug relate to File.IO watch termination condition 
+https://issues.apache.org/jira/browse/BEAM-6352. 
+After it's resolved in 2.10, pipeline can be upgraded to latest version and implement dynamic big query dataset creation. 
 
 
 ### Has it been performance tested?
@@ -235,7 +289,6 @@ gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline -Pargs
 #### DLP APIs reaching default maximum quotas. Please reduce the number of workers if this happens. Next version, there will be an implementation of rate limiter.
 <img width="906" alt="screen shot 2018-08-11 at 12 08 03 am" src="https://user-images.githubusercontent.com/27572451/51545096-40256700-1e2f-11e9-851e-15e3968ca94e.png">
 
->>>>>>> 06ea8318fded484f385d1666fb04a1609c17c61b
 
 
 ### How to generate KMS wrapped key
@@ -469,3 +522,6 @@ DLP Inspect template:
 ### To Do
 
 - Unit Test and Code Coverage 
+- Rate Limiter
+- Dynamic bigquery dataset creation
+- Upgrade to 2.10 beam
