@@ -2,28 +2,28 @@ package com.google.swarm.tokenization.common;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.bigquery.model.TableSchema;
-import com.google.api.services.storage.Storage;
 import com.google.privacy.dlp.v2.Value;
+import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.options.ValueProvider;
+import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.values.PCollection;
+import org.junit.Rule;
 import org.junit.Test;
 import com.google.privacy.dlp.v2.Table;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.Reader;
-import java.io.StringReader;
-import java.nio.channels.ReadableByteChannel;
+import java.io.*;
 import java.util.*;
 
 import com.google.privacy.dlp.v2.FieldId;
-
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-public class UtilTest {
+public class UtilTest implements Serializable{
+
+    @Rule
+    public final transient TestPipeline p = TestPipeline.create();
 
     @Test
     public void testParseBucketName() {
@@ -49,27 +49,19 @@ public class UtilTest {
 
     }
 
-    @Test
-    public void countRecords() {
-        String test_string = "Hello \n World \n How are you?";
-        Reader inputString = new StringReader(test_string);
-        BufferedReader reader = new BufferedReader(inputString);
-        Integer result = Util.countRecords(reader);
 
 
-        assertEquals(result.intValue(),3);
-    }
 
     @Test
-    public void getHeaders() throws IOException {
-        String header_input = "Column1,Column2,Column3";
-        Reader inputString = new StringReader(header_input);
-        BufferedReader reader = new BufferedReader(inputString);
-        List<FieldId> result = Util.getHeaders(reader);
+    public void testCheckHeader() {
+        String header_input1 = "Column 1";
+        String header_input2 = "bucket/object";
+        String header_input3 = "@twitter_handle"
 
-        assertEquals(result.get(0).getName(), "Column1");
-        assertEquals(result.get(1).getName(), "Column2");
-        assertEquals(result.get(2).getName(), "Column3");
+
+        assertEquals(Util.checkHeaderName(header_input1), "Column1");
+        assertEquals(Util.checkHeaderName(header_input2), "bucketobject");
+        assertEquals(Util.checkHeaderName, "twitterhandle");
     }
 
     @Test
@@ -110,21 +102,29 @@ public class UtilTest {
         assertEquals(Util.findEncryptionType(null, "Test", "Test", "Test"),true);
         assertEquals(Util.findEncryptionType(null, null, null, null),false);
     }
-/*
+
     @Test
-        public void testGetReader() throws IOException {
-        FileIO.ReadableFile f = mock(FileIO.ReadableFile.class);
-        ValueProvider<String> testValueProvider = mock(ValueProvider.class);
-        ReadableByteChannel b = mock(ReadableByteChannel.class);
-
-
-        BufferedReader test1 = Util.getReader(false, "object_name",
-                        "bucket_name", f, "key_name", testValueProvider);
-
-
-        assertNotNull(test1);
+        public void testGetReader(){
+        String testFilePath = "~/Documents/dlp-dataflow-deidentification/src/test/" +
+                              "resources/Unittest.csv";
+        testFilePath = testFilePath.replaceFirst("^~", System.getProperty("user.home"));
+        ValueProvider<String> testValueProvider = null;
+        PCollection<String> br =
+                p.apply(FileIO.match().filepattern(testFilePath))
+                        .apply(FileIO.readMatches().withCompression(Compression.UNCOMPRESSED))
+                        .apply(ParDo.of(new DoFn<FileIO.ReadableFile, String>() {
+                                    @ProcessElement
+                                    public void processElement(@Element FileIO.ReadableFile f,
+                                                               OutputReceiver<String> out) throws IOException {
+                                        out.output(Util.getReader(false, "object_name",
+                                                "bucket_name", f, "key_name", testValueProvider).readLine());
+                                    }
+                                }
+                    ));
+        p.run();
+        assertNotNull(br);
         }
-*/
+
 
     @Test
     public void testGetSchema() {
@@ -140,36 +140,5 @@ public class UtilTest {
         assertEquals(result.getFields().get(1).getType(), "STRING");
 
     }
-
-    @Test
-    public void testToJsonString() throws IOException {
-        Map<String, String> input = new HashMap<String, String>();
-        input.put("key1","value1");
-        input.put("key2","value2");
-
-        String output_string = Util.toJsonString(input);
-
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String,Object> map = mapper.readValue(output_string, Map.class);
-
-        assertEquals(map.get("key1"),"value1");
-        assertEquals(map.get("key2"),"value2");
-
-    }
-
-    @Test
-    public void testExtractTableHeader() {
-        List <FieldId> output = new ArrayList<FieldId>();
-        output.add(FieldId.newBuilder().setName("First").build());
-        output.add(FieldId.newBuilder().setName("Second").build());
-
-        Table inputTable = Table.newBuilder().addAllHeaders(output).build();
-        String result = Util.extractTableHeader(inputTable);
-
-        assertEquals(result,"First,Second\n");
-
-
-
-
-    }
+    
 }
