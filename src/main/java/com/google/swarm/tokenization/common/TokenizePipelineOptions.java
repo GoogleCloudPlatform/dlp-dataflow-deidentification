@@ -25,52 +25,65 @@ import org.apache.beam.sdk.options.ValueProvider;
 public interface TokenizePipelineOptions extends PipelineOptions {
 
 	@Description("Windowed interval")
-	@Default.Integer(1)
+	@Default.Integer(10)
 	Integer getInterval();
-	void setInterval(Integer minute);
+
+	void setInterval(Integer seconds);
 
 	@Description("Pollinginterval")
-	@Default.Integer(60)
+	@Default.Integer(300)
 	Integer getPollingInterval();
+
 	void setPollingInterval(Integer seconds);
 
 	@Description("Path of the file to read from")
 	ValueProvider<String> getInputFile();
+
 	void setInputFile(ValueProvider<String> value);
 
 	@Description("Path of the file to write to")
 	ValueProvider<String> getOutputFile();
+
 	void setOutputFile(ValueProvider<String> value);
 
 	@Description("Template to DeIdentiy")
 	ValueProvider<String> getDeidentifyTemplateName();
+
 	void setDeidentifyTemplateName(ValueProvider<String> value);
 
 	@Description("Template to Inspect")
 	ValueProvider<String> getInspectTemplateName();
+
 	void setInspectTemplateName(ValueProvider<String> value);
 
 	@Description("batch Size")
 	ValueProvider<Integer> getBatchSize();
+
 	void setBatchSize(ValueProvider<Integer> value);
+
 	@Description("encryption_key (CSEK) to decrypt the bucket")
 	ValueProvider<String> getCsek();
+
 	void setCsek(ValueProvider<String> value);
 
 	@Description("CSEK hash to decrypt the bucket")
 	ValueProvider<String> getCsekhash();
+
 	void setCsekhash(ValueProvider<String> value);
 
 	@Description("GCS File Decryption Key Name")
 	ValueProvider<String> getFileDecryptKey();
+
 	void setFileDecryptKey(ValueProvider<String> value);
 
 	@Description("GCS File Decryption Key Ring Name")
 	ValueProvider<String> getFileDecryptKeyName();
+
 	void setFileDecryptKeyName(ValueProvider<String> value);
 
-	@Description("Table Spec")
-	ValueProvider<String> getTableSpec();
-	void setTableSpec(ValueProvider<String> value);
+	@Description("DataSet Spec")
+	ValueProvider<String> getDataset();
+
+	void setDataset(ValueProvider<String> value);
 
 }

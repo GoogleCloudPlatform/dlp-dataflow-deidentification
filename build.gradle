@@ -15,7 +15,7 @@
  */
 buildscript {
     ext {
-        dataflowBeamVersion = '2.6.0'
+        dataflowBeamVersion = '2.8.0'
     }
     repositories {
         mavenCentral()
@@ -23,23 +23,25 @@ buildscript {
         maven {
      		 url "https://plugins.gradle.org/m2/"
     	}
+    	dependencies {
+        classpath "net.ltgt.gradle:gradle-apt-plugin:0.19"
+        
+        
+    }
     	
     }
-    dependencies {
-        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
-        
-        
-    }
+    
 }
 
 apply plugin: 'java'
 apply plugin: 'application'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: "net.ltgt.apt"
 
-mainClassName = System.getProperty("mainClass")
-//mainClassName = 'com.google.swarm.tokenization.CSVBatchPipeline'
+//mainClassName = System.getProperty("mainClass")
+// local build to test
+mainClassName = 'com.google.swarm.tokenization.CSVStreamingPipeline'
 group 'com.google.swarm'
 version '0.1.0'
 
@@ -54,9 +56,7 @@ tasks.withType(JavaCompile) {
 
 repositories {
    mavenCentral()
-   //maven {
-     		 //url "https://repository.apache.org/content/repositories/snapshots/"
-    	//}
+    
 
 }
 
@@ -65,42 +65,25 @@ dependencies {
     compile group: 'org.apache.beam', name: 'beam-runners-google-cloud-dataflow-java', version: dataflowBeamVersion
     compile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
 	compile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
-	compile 'com.google.apis:google-api-services-cloudkms:v1-rev53-1.23.0'    
-    compile('com.google.cloud:google-cloud-dlp:0.45.0-beta')           
-    compile('com.google.guava:guava:21.0'){
-        force = true
-    }
-    
-    compile ('com.google.api-client:google-api-client:1.23.0') {
-        force = true
-    }
-
+	compile 'com.google.cloud:google-cloud-kms:0.70.0-beta'   
+    compile 'com.google.cloud:google-cloud-dlp:0.74.0-beta'
+    compile 'com.google.guava:guava:27.0-jre'
+    compile 'com.google.api-client:google-api-client:1.27.0'
+    compile group: 'com.google.apis', name: 'google-api-services-cloudkms', version: 'v1-rev53-1.23.0'
+	compile "com.google.auto.value:auto-value-annotations:1.6.2"
+    annotationProcessor "com.google.auto.value:auto-value:1.6.2"
 	testCompile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
 	testCompile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
 	testCompile 'junit:junit:4.12'
 	
 }
-//configurations.all {
-    // check for updates every build
-    //resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
-//}
+
 jar {
     manifest {
-       // attributes ('Main-Class': mainClassName)
+        attributes ('Main-Class': mainClassName)
     }
-    enabled = false
-    doLast { shadowJar.execute() }
+    
 }
-
-shadowJar {
-    zip64 = true
-    def jarVersion = project.hasProperty('artifactVersion') ? artifactVersion: version
-    mergeServiceFiles()
-    exclude 'META-INF/*.DSA'
-    exclude 'META-INF/*.RSA'
-    archiveName = "${rootProject.name}-${jarVersion}.jar"
-}
-
 
 compileJava {
     // Add additional jvm argument
@@ -122,5 +105,4 @@ run {
 }
 
 run.mustRunAfter 'resources'
-
 

@@ -24,18 +24,17 @@ import org.slf4j.LoggerFactory;
 import com.google.cloud.dlp.v2.DlpServiceClient;
 
 public class DLPServiceFactory {
-	public static final Logger LOG = LoggerFactory
-			.getLogger(DLPServiceFactory.class);
+	public static final Logger LOG = LoggerFactory.getLogger(DLPServiceFactory.class);
 	private static DlpServiceClient instance = null;
-	public static synchronized DlpServiceClient getService()
-			throws IOException, GeneralSecurityException {
+
+	public static synchronized DlpServiceClient getService() throws IOException, GeneralSecurityException {
 		if (instance == null) {
 			instance = buildService();
 		}
 		return instance;
 	}
-	private static DlpServiceClient buildService()
-			throws IOException, GeneralSecurityException {
+
+	private static DlpServiceClient buildService() throws IOException, GeneralSecurityException {
 
 		return DlpServiceClient.create();
 	}

@@ -38,45 +38,38 @@ public class KMSFactory {
 	public static final Logger LOG = LoggerFactory.getLogger(KMSFactory.class);
 	private static CloudKMS instance = null;
 
-	public static synchronized CloudKMS getService()
-			throws IOException, GeneralSecurityException {
+	public static synchronized CloudKMS getService() throws IOException, GeneralSecurityException {
 		if (instance == null) {
 			instance = buildService();
 		}
 		return instance;
 	}
 
-	private static CloudKMS buildService()
-			throws IOException, GeneralSecurityException {
+	private static CloudKMS buildService() throws IOException, GeneralSecurityException {
 		HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
 		JsonFactory jsonFactory = new JacksonFactory();
-		GoogleCredential credential = GoogleCredential
-				.getApplicationDefault(transport, jsonFactory);
+		GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
 
 		if (credential.createScopedRequired()) {
 			Collection<String> scopes = CloudKMSScopes.all();
 			credential = credential.createScoped(scopes);
 		}
 
-		return new CloudKMS.Builder(transport, jsonFactory, credential)
-				.setApplicationName("Cloud KMS ").build();
+		return new CloudKMS.Builder(transport, jsonFactory, credential).setApplicationName("Cloud KMS ").build();
 	}
-	public static String decrypt(String projectId, String locationId,
-			String keyRingId, String cryptoKeyId, String ciphertext)
-			throws IOException, GeneralSecurityException {
+
+	public static String decrypt(String projectId, String locationId, String keyRingId, String cryptoKeyId,
+			String ciphertext) throws IOException, GeneralSecurityException {
 		// Create the Cloud KMS client.
-		if (projectId != null || keyRingId != null || cryptoKeyId != null
-				|| ciphertext != null) {
+		if (projectId != null || keyRingId != null || cryptoKeyId != null || ciphertext != null) {
 			CloudKMS kms = KMSFactory.getService();
 			// The resource name of the cryptoKey
-			String cryptoKeyName = String.format(
-					"projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s",
-					projectId, locationId, keyRingId, cryptoKeyId);
+			String cryptoKeyName = String.format("projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s", projectId,
+					locationId, keyRingId, cryptoKeyId);
 
-			DecryptRequest request = new DecryptRequest()
-					.setCiphertext(ciphertext);
-			DecryptResponse response = kms.projects().locations().keyRings()
-					.cryptoKeys().decrypt(cryptoKeyName, request).execute();
+			DecryptRequest request = new DecryptRequest().setCiphertext(ciphertext);
+			DecryptResponse response = kms.projects().locations().keyRings().cryptoKeys()
+					.decrypt(cryptoKeyName, request).execute();
 
 			return response.getPlaintext().toString();
 
