@@ -32,6 +32,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.api.client.util.Charsets;
+import com.google.api.services.bigquery.model.TableFieldSchema;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.api.services.storage.Storage;
 import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.Table;
@@ -121,6 +123,21 @@ public class Util {
 		checkedHeader = checkedHeader.replaceAll("/", "");
 		return checkedHeader;
 	}
+	@SuppressWarnings("serial")
+	public static TableSchema getSchema(List<String> outputHeaders) {
+		return new TableSchema().setFields(new ArrayList<TableFieldSchema>() {
+
+			{
+
+				outputHeaders.forEach(header -> {
+
+					add(new TableFieldSchema().setName(checkHeaderName(header.trim())).setType("STRING"));
+
+				});
+
+			}
+
+		});
 
 
 }
