@@ -1,4 +1,4 @@
-# Data Tokenization PoC Using Dataflow/Beam & DLP API  
+# Data Tokenization PoC Using Dataflow/Beam 2.8 & DLP API  
 
 This solution deidentify sensitive PII data by using data flow and DLP API. Solution reads an encrypted CSV or text file from GCS and output to GCS and Big Query Table.   
 Some example use cases:  
@@ -64,6 +64,7 @@ Import as a gradle project in your IDE and execute gradle build or run. You can 
 
 Example 1: Full Structure data
 ```
+
 gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-structured-data --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --dataset=<dataset_id>
 
 ```
@@ -71,7 +72,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline  -Parg
 Example 2: Semi Structure Data
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.CSVBatchPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-semi-structured-data --inspectTemplateName=--inspectTemplateName=projects/<id>/inspectTemplates/<id> --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --dataset=<dataset_id>
+gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline  -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://<bucket>/<object>.csv --batchSize=<n> --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --outputFile=gs://output-tokenization-data/output-semi-structured-data --inspectTemplateName=--inspectTemplateName=projects/<id>/inspectTemplates/<id> --csek=CiQAbkxly/0bahEV7baFtLUmYF5pSx0+qdeleHOZmIPBVc7cnRISSQD7JBqXna11NmNa9NzAQuYBnUNnYZ81xAoUYtBFWqzHGklPMRlDgSxGxgzhqQB4zesAboXaHuTBEZM/4VD/C8HsicP6Boh6XXk= --csekhash=lzjD1iV85ZqaF/C+uGrVWsLq2bdN7nGIruTjT/mgNIE= --fileDecryptKeyName=gcs-bucket-encryption --fileDecryptKey=data-file-key --pollingInterval=10 --numWorkers=5 --workerMachineType=n1-highmem-2 --dataset=<dataset_id>
 
 ```
 
@@ -138,6 +139,7 @@ If you notice resource exception error in the log, please reduce the number of w
 1. Dataflow pipeline continuously poll for new file based on the -pollingInterval argument and create a unbounded data set. For each file, it executes a pardo to split the file in chunks based on batch size provided (3 times the batch size). For example: a CSV file containing 100 rows will be split into three sub lists (45, 45 10) for batch Size =15. If customer supplied key is used, transformation process will try to decrypt the customer supplied encryption key by calling KMS API to decrypt the file and create a buffered reader for processing.
 
 ```
+
 		PCollection<KV<String, List<String>>> filesAndContents = p
 				.apply(FileIO.match().filepattern(options.getInputFile())
 						.continuously(Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
@@ -145,6 +147,7 @@ If you notice resource exception error in the log, please reduce the number of w
 						ParDo.of(new CSVReader(options.getCsek(), options.getCsekhash(),
 								options.getFileDecryptKeyName(), options.getFileDecryptKey(),
 								options.as(GcpOptions.class).getProject(), options.getBatchSize())));
+
 ```
 
 2. Next transformation will use Split DoFn based on each of sublist size and batch size provided. For example, list of 45 rows now further will be spilt into three lists each containing 15 elements. Split restriction will be like this: {[1,2],[2,3][3,4]}. This is how restrictions can call DLP API in parallel using split do FN. This only works for fully structured data. (CSVStreamingPipeline.java)
@@ -253,7 +256,9 @@ dlpRows.apply("WriteToBQ",
 
 ### Known Issue
 
-There is a bug relate to File.IO watch termination condition https://issues.apache.org/jira/browse/BEAM-6352.  After it's resolved in 2.10, pipeline can be upgraded to latest version and implement dynamic big query dataset creation. 
+There is a bug relate to File.IO watch termination condition 
+https://issues.apache.org/jira/browse/BEAM-6352. 
+After it's resolved in 2.10, pipeline can be upgraded to latest version and implement dynamic big query dataset creation. 
 
 
 ### Has it been performance tested?

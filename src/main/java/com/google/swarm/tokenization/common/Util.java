@@ -25,6 +25,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
+
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.slf4j.Logger;
@@ -115,13 +116,13 @@ public class Util {
 
 	}
 
+
 	public static String checkHeaderName(String name) {
 		String checkedHeader = name.replaceAll("\\s", "_");
 		checkedHeader = checkedHeader.replaceAll("'", "");
 		checkedHeader = checkedHeader.replaceAll("/", "");
 		return checkedHeader;
 	}
-
 	@SuppressWarnings("serial")
 	public static TableSchema getSchema(List<String> outputHeaders) {
 		return new TableSchema().setFields(new ArrayList<TableFieldSchema>() {
@@ -137,6 +138,6 @@ public class Util {
 			}
 
 		});
-	}
 
+	}
 }
