@@ -15,15 +15,22 @@ import org.junit.Test;
 import com.google.privacy.dlp.v2.Table;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 import com.google.privacy.dlp.v2.FieldId;
+import org.junit.rules.TemporaryFolder;
+
 import static org.junit.Assert.*;
 
 public class UtilTest implements Serializable{
 
     @Rule
     public final transient TestPipeline p = TestPipeline.create();
+
+    @Rule
+    public transient TemporaryFolder tmpFolder = new TemporaryFolder();
 
     @Test
     public void testParseBucketName() {
@@ -51,15 +58,14 @@ public class UtilTest implements Serializable{
 
 
 
-
     @Test
     public void testCheckHeader() {
         String header_input1 = "Column 1";
         String header_input2 = "bucket/object";
-        String header_input3 = "@twitter_handle"
+        String header_input3 = "'@twitterhandle'";
 
 
-        assertEquals(Util.checkHeaderName(header_input1), "Column1");
+        assertEquals(Util.checkHeaderName(header_input1), "Column_1");
         assertEquals(Util.checkHeaderName(header_input2), "bucketobject");
         assertEquals(Util.checkHeaderName(header_input3), "twitterhandle");
     }
@@ -104,14 +110,21 @@ public class UtilTest implements Serializable{
     }
 
     @Test
-        public void testGetReader(){
-        //Create dummy csv file to be read at the correct location
-        String testFilePath = "~/Documents/dlp-dataflow-deidentification/src/test/" +
-                              "resources/Unittest.csv";
-        testFilePath = testFilePath.replaceFirst("^~", System.getProperty("user.home"));
+    public void testGetStorage(){
+        
+
+
+    }
+
+    @Test
+        public void testGetReader() throws IOException {
+        Path firstPath = tmpFolder.newFile("first").toPath();
+        int firstSize = 37;
+        Files.write(firstPath, new byte[firstSize]);
+
         ValueProvider<String> testValueProvider = null;
         PCollection<String> br =
-                p.apply(FileIO.match().filepattern(testFilePath))
+                p.apply(FileIO.match().filepattern(tmpFolder.getRoot().getAbsolutePath() + "/*"))
                         .apply(FileIO.readMatches().withCompression(Compression.UNCOMPRESSED))
                         .apply(ParDo.of(new DoFn<FileIO.ReadableFile, String>() {
                                     @ProcessElement
