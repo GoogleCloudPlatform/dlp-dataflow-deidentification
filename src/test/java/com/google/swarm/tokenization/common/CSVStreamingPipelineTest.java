@@ -1,24 +1,25 @@
 package com.google.swarm.tokenization.common;
 
+import com.google.privacy.dlp.v2.Table;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.testing.PAssert;
-import org.apache.beam.sdk.transforms.Create;
-import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.Keys;
-import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+
 import org.junit.Rule;
 import org.junit.Test;
 
 import org.apache.beam.sdk.testing.TestPipeline;
+
 import org.junit.rules.ExpectedException;
+
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
+
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.any;
@@ -28,7 +29,7 @@ import static org.junit.Assert.*;
 
 
 public class CSVStreamingPipelineTest {
-    /*
+
     @Rule
     public final transient TestPipeline pipeline = TestPipeline.create();
 
@@ -45,21 +46,17 @@ public class CSVStreamingPipelineTest {
         sampleStringList.add("D,c");
 
         PCollection<KV<String, List<String>>> input  = pipeline.apply(Create.of(
-                KV.of("Test1", sampleStringList.subList(0,1)),
-                KV.of("Test2", sampleStringList.subList(1,2)),
-                KV.of("Test3", sampleStringList.subList(2,3))
+                KV.of("test", sampleStringList)
         ));
 
         PCollection<KV<String, Table>> outputTables= input.apply("ContentHandler",
-                ParDo.of(new CSVContentProcessorDoFn(ValueProvider.StaticValueProvider.of(100))));
+                ParDo.of(new CSVContentProcessorDoFn(ValueProvider.StaticValueProvider.of(1))));
 
         PCollection<String> outputKeys = outputTables.apply(Keys.create());
-        //assertNotNull(outputKeys);
-        //PAssert.that(outputKeys).empty();
-        PAssert.that(outputKeys).containsInAnyOrder("Test1_1");
+        PAssert.that(outputKeys).containsInAnyOrder("test_1","test_2","test_3");
         pipeline.run();
 
-    }*/
+    }
 
     @Test
     public void testCSVStreamingInitialRestriction(){
@@ -90,8 +87,11 @@ public class CSVStreamingPipelineTest {
         OffsetRange off = new OffsetRange(2,5);
         DoFn.OutputReceiver out = mock(DoFn.OutputReceiver.class);
 
+        String[] lines2 = {"line1", "line2", "line3", "line4", "line5", "line6"};
+        KV<String, List<String>> input1 = KV.of("FileName", Arrays.asList(lines2));
 
-        csv.splitRestriction(off, out);
+
+        csv.splitRestriction(input1, off, out);
         verify(out, times(3)).output(any(OffsetRange.class));
 
     }

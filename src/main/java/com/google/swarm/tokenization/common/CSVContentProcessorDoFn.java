@@ -83,6 +83,7 @@ public class CSVContentProcessorDoFn extends DoFn<KV<String, List<String>>, KV<S
 						"Current Restriction From: {}, Current Restriction To: {}, StartofLine: {}, End Of Line {}, BatchData {}",
 						tracker.currentRestriction().getFrom(), tracker.currentRestriction().getTo(), startOfLine,
 						endOfLine, batchData.getRowsCount());
+				System.out.println(key);
 				c.output(KV.of(key, batchData));
 				lines.clear();
 			}
@@ -110,7 +111,7 @@ public class CSVContentProcessorDoFn extends DoFn<KV<String, List<String>>, KV<S
 	}
 
 	@SplitRestriction
-	public void splitRestriction(OffsetRange range,
+	public void splitRestriction(KV<String, List<String>> contents, OffsetRange range,
 			OutputReceiver<OffsetRange> out) {
 		for (final OffsetRange p : range.split(1, 1)) {
 			out.output(p);
