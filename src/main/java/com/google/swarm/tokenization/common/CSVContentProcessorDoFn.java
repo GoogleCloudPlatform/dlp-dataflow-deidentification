@@ -110,7 +110,7 @@ public class CSVContentProcessorDoFn extends DoFn<KV<String, List<String>>, KV<S
 	}
 
 	@SplitRestriction
-	public void splitRestriction(KV<String, List<String>> contents, OffsetRange range,
+	public void splitRestriction(OffsetRange range,
 			OutputReceiver<OffsetRange> out) {
 		for (final OffsetRange p : range.split(1, 1)) {
 			out.output(p);

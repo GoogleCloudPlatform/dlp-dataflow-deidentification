@@ -1,6 +1,5 @@
 package com.google.swarm.tokenization.common;
 
-import com.google.privacy.dlp.v2.*;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.testing.PAssert;
@@ -91,10 +90,8 @@ public class CSVStreamingPipelineTest {
         OffsetRange off = new OffsetRange(2,5);
         DoFn.OutputReceiver out = mock(DoFn.OutputReceiver.class);
 
-        String[] lines2 = {"line1", "line2", "line3", "line4", "line5", "line6"};
-        KV<String, List<String>> input1 = KV.of("FileName", Arrays.asList(lines2));
 
-        csv.splitRestriction(input1, off, out);
+        csv.splitRestriction(off, out);
         verify(out, times(3)).output(any(OffsetRange.class));
 
     }
