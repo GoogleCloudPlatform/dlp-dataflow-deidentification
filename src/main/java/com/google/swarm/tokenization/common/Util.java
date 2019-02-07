@@ -121,6 +121,7 @@ public class Util {
 		String checkedHeader = name.replaceAll("\\s", "_");
 		checkedHeader = checkedHeader.replaceAll("'", "");
 		checkedHeader = checkedHeader.replaceAll("/", "");
+		LOG.debug("Name {} checkedHeader {}", name, checkedHeader);
 		return checkedHeader;
 	}
 	@SuppressWarnings("serial")
@@ -131,7 +132,7 @@ public class Util {
 
 				outputHeaders.forEach(header -> {
 
-					add(new TableFieldSchema().setName(checkHeaderName(header.trim())).setType("STRING"));
+					add(new TableFieldSchema().setName(header).setType("STRING"));
 
 				});
 

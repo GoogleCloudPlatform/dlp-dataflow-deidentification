@@ -39,9 +39,9 @@ apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: "net.ltgt.apt"
 
-mainClassName = System.getProperty("mainClass")
-// local build to test
-//mainClassName = 'com.google.swarm.tokenization.CSVStreamingPipeline'
+//mainClassName = System.getProperty("mainClass")
+mainClassName = 'com.google.swarm.tokenization.FileIOToBigQueryStreaming' 
+
 group 'com.google.swarm'
 version '0.1.0'
 

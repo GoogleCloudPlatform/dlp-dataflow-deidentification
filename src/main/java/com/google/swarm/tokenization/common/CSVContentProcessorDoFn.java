@@ -15,6 +15,7 @@
  */
 package com.google.swarm.tokenization.common;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.DoFn.StartBundle;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.values.KV;
 import org.slf4j.Logger;
@@ -42,6 +44,10 @@ public class CSVContentProcessorDoFn extends DoFn<KV<String, List<String>>, KV<S
 	public CSVContentProcessorDoFn(ValueProvider<Integer> batchSize) {
 
 		this.batchSize = batchSize;
+	}
+	@StartBundle
+	public void startBundle() throws SQLException {
+		LOG.info("In start Bundle");
 	}
 
 	@ProcessElement
