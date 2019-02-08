@@ -148,15 +148,11 @@ public class FileIOToBigQueryStreaming {
 		Pipeline p = Pipeline.create(options);
 		/*
 		 * Steps: 
-		 * 	1) Continuously read from the file source in a given interval. Default
-		 *     interval is set to 300 seconds. Please use --pollingInterval option to
-		 *     configure desire value. 
-		 *  2) Create DLP Table objects by splitting the file contents based on --batchSize 
-		 *     option provided. 
+		 * 	1) Continuously read from the file source in a given interval. 
+		 *  2) Create DLP Table objects by splitting the file contents by batch size
 		 *  3) Call DLP API with the templates provided for data tokenization.
 		 *  4) Process tokenized data by converting DL Table Rows to BQ Table Rows.
 		 *  5) Use BQ Dynamic destination to create table and schema and insert data.
-		 * 
 		 */
 
 		PCollection<ReadableFile> csvFile = p
