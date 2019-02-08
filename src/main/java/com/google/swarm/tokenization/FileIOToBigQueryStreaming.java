@@ -148,11 +148,11 @@ public class FileIOToBigQueryStreaming {
 		Pipeline p = Pipeline.create(options);
 		/*
 		 * Steps: 
-		 * 	1) Continuously read from the file source in a given interval. 
-		 *  2) Create DLP Table objects by splitting the file contents by batch size
-		 *  3) Call DLP API with the templates provided for data tokenization.
-		 *  4) Process tokenized data by converting DL Table Rows to BQ Table Rows.
-		 *  5) Use BQ Dynamic destination to create table and schema and insert data.
+		 * 1) Continuously read from the file source in a given interval. 
+		 * 2) Create DLP Table objects by splitting the file contents by batch size.
+		 * 3) Call DLP API with the templates provided for data tokenization.
+		 * 4) Process tokenized data by converting DL Table Rows to BQ Table Rows.
+		 * 5) Use BQ Dynamic destination to create table and schema and insert data.
 		 */
 
 		PCollection<ReadableFile> csvFile = p
