@@ -41,7 +41,7 @@ apply plugin: "net.ltgt.apt"
 
 mainClassName = System.getProperty("mainClass")
 // local build to test
-mainClassName = 'com.google.swarm.tokenization.CSVStreamingPipeline'
+//mainClassName = 'com.google.swarm.tokenization.CSVStreamingPipeline'
 group 'com.google.swarm'
 version '0.1.0'
 
@@ -82,7 +82,14 @@ dependencies {
 
 }
 
+jar {
+    manifest {
+        attributes ('Main-Class': mainClassName)
+    }
 
+
+
+}
 
 compileJava {
     // Add additional jvm argument
