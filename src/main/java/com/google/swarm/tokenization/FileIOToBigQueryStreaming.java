@@ -1,5 +1,6 @@
 package com.google.swarm.tokenization;
 
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.channels.Channels;
@@ -26,14 +27,12 @@ import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.options.Validation.Required;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
-import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
-import org.apache.beam.sdk.transforms.windowing.FixedWindows;
-import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.ValueInSingleWindow;
@@ -54,10 +53,30 @@ import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
+import com.google.swarm.tokenization.common.Util;
 
 /**
- * A template that copies data from a relational database using JDBC to an
- * existing BigQuery table.
+ * The {@link FileIOToBigQueryStreaming} is a streaming pipeline that reads CSV
+ * files from a storage location (e.g. GCS), uses DLP API to tokenize sensitive
+ * information (e.g. PII Data like passport or SIN number) and at the end stores
+ * tokenized data in Big Query to be used for various purposes.
+ * <p>
+ * Example Usage:
+ *
+ * <pre>
+ * {@code mvn compile exec:java \
+ * -Dexec.mainClass=com.google.cloud.teleport.templates.FileIOToBigQueryStreaming \
+ * -Dexec.args="\
+ * --project=${PROJECT_ID} \
+ * --stagingLocation=gs://${STAGING_BUCKET}/staging \
+ * --tempLocation=gs://${STAGING_BUCKET}/tmp \
+ * --runner=DataflowRunner \
+ * --inputFilePattern=gs://path/to/input* \
+ * --batchSize=<any positive number> \
+ * --dataset=<BQ dataset id> \
+ * --deidentifyTemplateName=projects/${PROJECT_ID}/deidentifyTemplates/<deidTemplateId>"
+ * }
+ * </pre>
  */
 
 public class FileIOToBigQueryStreaming {
@@ -65,107 +84,297 @@ public class FileIOToBigQueryStreaming {
 	public static final Logger LOG = LoggerFactory.getLogger(FileIOToBigQueryStreaming.class);
 
 	/**
-	 * A template that copies data from a relational database using JDBC to an
-	 * existing BigQuery table.
+	 * Main entry point for executing the pipeline. This will run the pipeline
+	 * asynchronously. If blocking execution is required, use the
+	 * {@link FileIOToBigQueryStreaming#run(TokenizePipelineOptions)} method to
+	 * start the pipeline and invoke {@code result.waitUntilFinish()} on the
+	 * {@link PipelineResult}
+	 *
+	 * @param args The command-line arguments to the pipeline.
+	 */
+
+	public static void main(String[] args) {
+
+		TokenizePipelineOptions options = PipelineOptionsFactory.fromArgs(args).withValidation()
+				.as(TokenizePipelineOptions.class);
+		run(options);
+
+	}
+
+	/**
+	 * Runs the pipeline with the supplied options.
+	 *
+	 * @param options The execution parameters to the pipeline.
+	 * @return The result of the pipeline execution.
+	 */
+
+	public static PipelineResult run(TokenizePipelineOptions options) {
+		// Create the pipeline
+		Pipeline p = Pipeline.create(options);
+		/*
+		 * Steps: 1) Continuously read from the file source in a given interval. Default
+		 * interval is set to 300 seconds. Please use --pollingInterval option to
+		 * configure desire value. 2) Create DLP Table objects by splitting the file
+		 * contents based on --batchSize option provided. 3) Convert response from DLP
+		 * API to a BigQuery Table Row 4) Apply a 30 seconds fixed window to unbounded
+		 * data. Please use --interval option to configure windowed interval 5) Create
+		 * dynamic table and insert successfully converted records into BigQuery.
+		 */
+
+		PCollection<ReadableFile> csvFile = p
+				// 1) Continuously read from the file source in a given interval
+				.apply(FileIO.match().filepattern(options.getInputFilePattern())
+						.continuously(Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
+				.apply(FileIO.readMatches().withCompression(Compression.UNCOMPRESSED));
+
+		PCollection<KV<String, TableRow>> bqDataMap = csvFile
+				// 2) Create DLP Table objects by splitting the file contents based on
+				// --batchSize
+				.apply("Create DLP Table", ParDo.of(new CSVReader(options.getBatchSize())))
+				// 3) Convert response from DLP API to a BigQuery Table Row
+				.apply("DoDLPTokenization",
+						ParDo.of(new DLPTokenizationDoFn(options.as(GcpOptions.class).getProject(),
+								options.getDeidentifyTemplateName(), options.getInspectTemplateName())))
+				// 4) Convert DLP Table Rows to BQ Table Row
+				.apply("ProcessaTokenizedData", ParDo.of(new TableRowProcessorDoFn()));
+
+		bqDataMap.apply("WriteToBQ",
+				// 5) Create dynamic table and insert successfully converted records into
+				// BigQuery.
+				BigQueryIO.<KV<String, TableRow>>write()
+						.to(new BQDestination(options.getDatasetName(), options.as(GcpOptions.class).getProject()))
+						.withFormatFunction(element -> {
+							LOG.debug("BQ Row {}", element.getValue().getF());
+							return element.getValue();
+						}).withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
+						.withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED));
+
+		return p.run();
+	}
+
+	/**
+	 * The {@link TokenizePipelineOptions} interface provides the custom execution
+	 * options passed by the executor at the command-line.
 	 */
 	public interface TokenizePipelineOptions extends PipelineOptions {
 
-		@Description("Windowed interval")
-		@Default.Integer(10)
-		Integer getInterval();
+//		@Description("Default windowed interval is set to 10 seconds")
+//		@Default.Integer(10)
+//		Integer getWindowedInterval();
+//
+//		void setWindowednterval(Integer seconds);
 
-		void setInterval(Integer seconds);
-
-		@Description("Pollinginterval")
+		@Description("Polling interval used to look for new files. " + "Default is set to 300 seconds")
 		@Default.Integer(300)
 		Integer getPollingInterval();
 
 		void setPollingInterval(Integer seconds);
 
-		@Description("Path of the file to read from")
-		ValueProvider<String> getInputFile();
+		@Description("The file pattern to read records from (e.g. gs://bucket/file-*.csv)")
+		@Required
+		ValueProvider<String> getInputFilePattern();
 
-		void setInputFile(ValueProvider<String> value);
+		void setInputFilePattern(ValueProvider<String> value);
 
-		@Description("Template to DeIdentiy")
+		@Description("DLP Deidentify Template to be used for API request "
+				+ "(e.g.projects/{project_id}/deidentifyTemplates/{deIdTemplateId}")
+		@Required
 		ValueProvider<String> getDeidentifyTemplateName();
 
 		void setDeidentifyTemplateName(ValueProvider<String> value);
 
-		@Description("Template to Inspect")
+		@Description("DLP Inspect Template to be used for API request "
+				+ "(e.g.projects/{project_id}/inspectTemplates/{inspectTemplateId}")
 		ValueProvider<String> getInspectTemplateName();
 
 		void setInspectTemplateName(ValueProvider<String> value);
 
-		@Description("batch Size")
+		@Description("DLP API has a limit for payload size of 524KB /api call. "
+				+ "That's why dataflow process will need to chunk it. User will have to decide "
+				+ "on how they would like to batch the request depending on number of rows "
+				+ "and how big each row is.")
+		@Required
 		ValueProvider<Integer> getBatchSize();
 
 		void setBatchSize(ValueProvider<Integer> value);
 
-		@Description("DataSet Spec")
-		ValueProvider<String> getDataset();
+		@Description("Big Query data set must exist before the pipeline runs (e.g. pii-dataset")
+		ValueProvider<String> getDatasetName();
 
-		void setDataset(ValueProvider<String> value);
+		void setDatasetName(ValueProvider<String> value);
 	}
 
-	@SuppressWarnings("serial")
-	public static class BQDestination extends DynamicDestinations<KV<String, TableRow>, KV<String, TableRow>> {
+	/**
+	 * The {@link CSVReader} class uses experimental Split DoFn to split each csv
+	 * file in chunks and process it in non-monolithic fashion. For example: if a
+	 * CSV file has 100 rows and batch size is set to 15, then initial restrictions
+	 * for the SDF will be 1 to 7 and split restriction will be {{1-2},{2-3}..{7-8}}
+	 * for parallel executions.
+	 * 
+	 * @param ReadableFile
+	 *
+	 * @return KV<String, Table> where key is the file name, Table is DLP table
+	 *         object
+	 */
+	public static class CSVReader extends DoFn<ReadableFile, KV<String, Table>> {
 
-		private ValueProvider<String> datasetName;
-		private String projectId;
+		private static final long serialVersionUID = 1L;
+		private ValueProvider<Integer> batchSize;
+		private Integer lineCount;
 
-		public BQDestination(ValueProvider<String> datasetName, String projectId) {
-			this.datasetName = datasetName;
-			this.projectId = projectId;
+		public CSVReader(ValueProvider<Integer> batchSize) {
+			this.batchSize = batchSize;
+			lineCount = 1;
 
 		}
 
-		@Override
-		public KV<String, TableRow> getDestination(ValueInSingleWindow<KV<String, TableRow>> element) {
-			String key = element.getValue().getKey();
-			String tableName = String.format("%s:%s.%s", projectId, datasetName.get(), key);
-			LOG.debug("tableName {}", tableName);
-			return KV.of(tableName, element.getValue().getValue());
-		}
+		@ProcessElement
+		public void processElement(ProcessContext c, OffsetRangeTracker tracker) throws IOException {
+			for (long i = tracker.currentRestriction().getFrom(); tracker.tryClaim(i); ++i) {
+				String fileName = c.element().getMetadata().resourceId().getFilename().toString();
+				// taking out .csv extension from file name e.g fileName.csv->fileName
+				String[] fileKey = fileName.split("\\.", 2);
+				BufferedReader br = getReader(c.element());
+				List<FieldId> headers = getHeaders(br);
+				List<Table.Row> rows = new ArrayList<>();
+				Table dlpTable = null;
+				// finding out end of line for this restriction so that we know where to start
+				// reading from
+				int endOfLine = (int) (i * batchSize.get().intValue());
+				int startOfLine = (endOfLine - batchSize.get().intValue());
+				// skipping all the rows that's not part of this restriction
+				Iterator<String> csvRows = br.lines().skip(startOfLine).iterator();
+				// looping through buffered reader and creating DLP Table Rows equals to batch
+				// size or less
+				while (csvRows.hasNext() && lineCount <= batchSize.get().intValue()) {
 
-		@Override
-		public TableDestination getTable(KV<String, TableRow> destination) {
-			TableDestination dest = new TableDestination(destination.getKey(),
-					"pii-tokenized output data from dataflow");
-			LOG.debug("Table Dest {}", dest.getTableSpec());
-			return dest;
-		}
+					String csvRow = csvRows.next();
+					rows.add(convertCsvRowToTableRow(csvRow));
+					lineCount += 1;
+				}
+				// creating DLP table and output for next transformation
+				dlpTable = Table.newBuilder().addAllHeaders(headers).addAllRows(rows).build();
+				c.output(KV.of(fileKey[0], dlpTable));
 
-		@Override
-		public TableSchema getSchema(KV<String, TableRow> destination) {
-
-			TableRow bqRow = destination.getValue();
-			TableSchema schema = new TableSchema();
-			List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
-
-			List<TableCell> cells = bqRow.getF();
-
-			for (int i = 0; i < cells.size(); i++) {
-
-				Map<String, Object> object = cells.get(i);
-				String header = object.keySet().iterator().next();
-				fields.add(new TableFieldSchema().setName(header).setType("STRING"));
+				LOG.debug(
+						"Current Restriction From: {}, Current Restriction To: {},"
+								+ " StartofLine: {}, End Of Line {}, BatchData {}",
+						tracker.currentRestriction().getFrom(), tracker.currentRestriction().getTo(), startOfLine,
+						endOfLine, dlpTable.getRowsCount());
 
 			}
 
-			schema.setFields(fields);
-			return schema;
+		}
+
+		@GetInitialRestriction
+		public OffsetRange getInitialRestriction(ReadableFile csvFile) {
+
+			int rowCount = 0;
+			int totalSplit = 0;
+			BufferedReader br = getReader(csvFile);
+
+			if (br != null) {
+				// assume first row is header
+				int checkRowCount = (int) br.lines().count() - 1;
+				rowCount = (checkRowCount < 1) ? 1 : checkRowCount;
+				totalSplit = rowCount / batchSize.get().intValue();
+				int remaining = rowCount % batchSize.get().intValue();
+				if (remaining > 0) {
+					totalSplit = totalSplit + 2;
+
+				} else {
+					totalSplit = totalSplit + 1;
+				}
+
+			}
+
+			LOG.debug("Initial Restriction range from 1 to: {}", totalSplit);
+			return new OffsetRange(1, totalSplit);
+
+		}
+
+		@SplitRestriction
+		public void splitRestriction(ReadableFile csvFile, OffsetRange range, OutputReceiver<OffsetRange> out) {
+			// split the initial restriction by 1
+			for (final OffsetRange p : range.split(1, 1)) {
+				out.output(p);
+
+			}
+		}
+
+		@NewTracker
+		public OffsetRangeTracker newTracker(OffsetRange range) {
+			return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
+
+		}
+
+		private BufferedReader getReader(ReadableFile csvFile) {
+			BufferedReader br = null;
+			ReadableByteChannel channel = null;
+			// read the file and create buffered reader
+
+			try {
+				channel = csvFile.openSeekable();
+
+			} catch (IOException e) {
+				LOG.error("Failed to Read File {}", e.getMessage());
+				e.printStackTrace();
+			}
+
+			if (channel != null) {
+
+				br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
+
+			}
+
+			return br;
+		}
+
+		private List<FieldId> getHeaders(BufferedReader reader) throws IOException {
+
+			// First line in the CSV file as a header and converting to DLP Field Id
+			List<FieldId> headers = Arrays.stream(reader.readLine().split(","))
+					.map(header -> FieldId.newBuilder().setName(header).build())
+					.collect(Collectors.toList());
+			return headers;
+		}
+
+		
+
+		private Table.Row convertCsvRowToTableRow(String row) {
+			// convert from CSV row to DLP Table Row
+			String[] values = row.split(",");
+			Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
+			for (String value : values) {
+				if (value != null) {
+					tableRowBuilder.addValues(Value.newBuilder().setStringValue(value).build());
+				} else {
+					tableRowBuilder.addValues(Value.newBuilder().setStringValue("").build());
+
+				}
+			}
+
+			return tableRowBuilder.build();
 		}
 
 	}
 
 	/**
-	 * A template that copies data from a relational database using JDBC to an
-	 * existing BigQuery table.
+	 * The {@link DLPTokenizationDoFn} class executes tokenization request by
+	 * calling DLP api. It uses DLP table as a content item as CSV file contains
+	 * fully structured data DLP templates (e.g. de-identify, inspect) need to exist
+	 * before this pipeline runs. As response from the API is received, this DoFn
+	 * loops through the output DLP table and convert DLP Table Row to BQ Table Row.
+	 * 
+	 * @param KV<String, TableRow> where key is used as table id and table cells
+	 *        used to find header values
+	 *
+	 * @return TableSchema and TableDestination
 	 */
-	@SuppressWarnings("serial")
-	public static class DLPTokenizationDoFn extends DoFn<KV<String, Table>, KV<String, TableRow>> {
 
+	public static class DLPTokenizationDoFn extends DoFn<KV<String, Table>, KV<String, Table>> {
+
+		private static final long serialVersionUID = 1L;
 		private String projectId;
 		private DlpServiceClient dlpServiceClient;
 		private ValueProvider<String> deIdentifyTemplateName;
@@ -175,10 +384,10 @@ public class FileIOToBigQueryStreaming {
 		public DLPTokenizationDoFn(String projectId, ValueProvider<String> deIdentifyTemplateName,
 				ValueProvider<String> inspectTemplateName) {
 			this.projectId = projectId;
-			dlpServiceClient = null;
+			this.dlpServiceClient = null;
 			this.deIdentifyTemplateName = deIdentifyTemplateName;
 			this.inspectTemplateName = inspectTemplateName;
-			inspectTemplateExist = false;
+			this.inspectTemplateExist = false;
 
 		}
 
@@ -224,213 +433,140 @@ public class FileIOToBigQueryStreaming {
 			}
 
 			response = dlpServiceClient.deidentifyContent(request);
-			Table encryptedData = response.getItem().getTable();
-			LOG.info("Request Size Successfully Tokenized:{} rows {} bytes ", encryptedData.getRowsList().size(),
+			Table tokenizedData = response.getItem().getTable();
+			LOG.info("Request Size Successfully Tokenized:{} rows {} bytes ", tokenizedData.getRowsList().size(),
 					request.toByteString().size());
-
-			String outputHeader = encryptedData.getHeadersList().stream().map(FieldId::getName)
-					.collect(Collectors.joining(","));
-			String[] headers = outputHeader.split(",");
-			List<Table.Row> outputRows = encryptedData.getRowsList();
-			if (outputRows.size() > 0) {
-				for (Table.Row outputRow : outputRows) {
-
-					TableRow bqRow = new TableRow();
-					String dlpRow = outputRow.getValuesList().stream().map(value -> value.getStringValue())
-							.collect(Collectors.joining(","));
-					String[] values = dlpRow.split(",");
-					List<TableCell> cells = new ArrayList<>();
-					for (int i = 0; i < values.length; i++) {
-						bqRow.set(headers[i].toString(), values[i].toString());
-						cells.add(new TableCell().set(headers[i].toString(), values[i].toString()));
-
-					}
-					bqRow.setF(cells);
-					
-					c.output(KV.of(key, bqRow));
-				}
-
-			}
+			c.output(KV.of(key, tokenizedData));
 
 		}
+
 	}
 
 	/**
-	 * A template that copies data from a relational database using JDBC to an
-	 * existing BigQuery table.
+	 * The {@link TableRowProcessorDoFn} class process tokenized DLP tables and
+	 * convert them to BigQuery Table Row
+	 * 
+	 * @param KV<String, Table>
+	 *
+	 * @return KV<String, TableRow> key is used as a tableIb in next transformation
 	 */
-	public static class CSVReader extends DoFn<ReadableFile, KV<String, Table>> {
+	public static class TableRowProcessorDoFn extends DoFn<KV<String, Table>, KV<String, TableRow>> {
 
-		/**
-		 * 
-		 */
 		private static final long serialVersionUID = 1L;
-		private ValueProvider<Integer> batchSize;
-		private Integer lineCount;
-
-		public CSVReader(ValueProvider<Integer> batchSize) {
-			this.batchSize = batchSize;
-			lineCount = 1;
-
-		}
 
 		@ProcessElement
-		public void processElement(ProcessContext c, OffsetRangeTracker tracker) throws IOException {
-			for (long i = tracker.currentRestriction().getFrom(); tracker.tryClaim(i); ++i) {
-				String fileName = c.element().getMetadata().resourceId().getFilename().toString();
-				String[] fileKey = fileName.split("\\.", 2);
-				BufferedReader br = getReader(c.element());
-				List<FieldId> headers = getHeaders(br);
-				List<Table.Row> rows = new ArrayList<>();
-				Table dlpTable = null;
-				int endOfLine = (int) (i * batchSize.get().intValue());
-				int startOfLine = (endOfLine - batchSize.get().intValue());
-				Iterator<String> csvRows = br.lines().skip(startOfLine).iterator();
-				while (csvRows.hasNext() && lineCount <= batchSize.get().intValue()) {
+		public void processElement(ProcessContext c) {
 
-					String csvRow = csvRows.next();
-					rows.add(convertCsvRowToTableRow(csvRow));
-					lineCount += 1;
-				}
-
-				dlpTable = Table.newBuilder().addAllHeaders(headers).addAllRows(rows).build();
-				c.output(KV.of(String.format("%s_%d", fileKey[0], i), dlpTable));
-
-				LOG.debug(
-						"Current Restriction From: {}, Current Restriction To: {},"
-								+ " StartofLine: {}, End Of Line {}, BatchData {}",
-						tracker.currentRestriction().getFrom(), tracker.currentRestriction().getTo(), startOfLine,
-						endOfLine, dlpTable.getRowsCount());
-
-			}
-
-		}
-
-		@GetInitialRestriction
-		public OffsetRange getInitialRestriction(ReadableFile csvFile) {
-
-			int rowCount = 0;
-			int totalSplit = 0;
-			BufferedReader br = getReader(csvFile);
-
-			if (br != null) {
-				// assume first row is header
-				int checkRowCount = (int) br.lines().count() - 1;
-				rowCount = (checkRowCount<1)?1:checkRowCount;
-				totalSplit = rowCount / batchSize.get().intValue();
-				int remaining = rowCount % batchSize.get().intValue();
-				if (remaining > 0) {
-					totalSplit = totalSplit + 2;
-
-				} else {
-					totalSplit = totalSplit + 1;
+			Table tokenizedData = c.element().getValue();
+			String[] headers = extracyTableHeader(tokenizedData);
+			List<Table.Row> outputRows = tokenizedData.getRowsList();
+			if (outputRows.size() > 0) {
+				for (Table.Row outputRow : outputRows) {
+					c.output(KV.of(c.element().getKey(), createBqRow(outputRow, headers)));
 				}
 
 			}
-
-			LOG.info("Initial Restriction range from 1 to: {}", totalSplit);
-			return new OffsetRange(1, totalSplit);
-
 		}
 
-		@SplitRestriction
-		public void splitRestriction(ReadableFile csvFile, OffsetRange range, OutputReceiver<OffsetRange> out) {
-			for (final OffsetRange p : range.split(1, 1)) {
-				out.output(p);
-
-			}
-		}
-
-		@NewTracker
-		public OffsetRangeTracker newTracker(OffsetRange range) {
-			return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
-
-		}
-
-		private BufferedReader getReader(ReadableFile csvFile) {
-			BufferedReader br = null;
-			ReadableByteChannel channel = null;
-
-			try {
-				channel = csvFile.openSeekable();
-
-			} catch (IOException e) {
-				LOG.error("Failed to Read File {}", e.getMessage());
-				e.printStackTrace();
-			}
-
-			if (channel != null) {
-
-				br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
-
-			}
-
-			return br;
-		}
-
-		private List<FieldId> getHeaders(BufferedReader reader) throws IOException {
-
-			List<FieldId> headers = Arrays.stream(reader.readLine().split(","))
-					.map(header -> FieldId.newBuilder().setName(checkHeaderName(header)).build())
+		private static String[] extracyTableHeader(Table encryptedData) {
+			List<String> outputHeaders = encryptedData.getHeadersList().stream().map(FieldId::getName)
 					.collect(Collectors.toList());
+			String[] headers = new String[outputHeaders.size()];
+
+			for (int i = 0; i < headers.length; i++) {
+				headers[i] = checkHeaderName(outputHeaders.get(i));
+
+			}
 			return headers;
 		}
-
-		private String checkHeaderName(String name) {
+		private static String checkHeaderName(String name) {
+			// some checks to make sure BQ column names don't fail e.g. special characters
 			String checkedHeader = name.replaceAll("\\s", "_");
 			checkedHeader = checkedHeader.replaceAll("'", "");
 			checkedHeader = checkedHeader.replaceAll("/", "");
 			return checkedHeader;
 		}
 
-		private Table.Row convertCsvRowToTableRow(String row) {
-			String[] values = row.split(",");
-			Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
-			for (String value : values) {
-				tableRowBuilder.addValues(Value.newBuilder().setStringValue(value).build());
+		private static TableRow createBqRow(Table.Row tokenizedValue, String[] headers) {
+			TableRow bqRow = new TableRow();
+			String dlpRow = tokenizedValue.getValuesList().stream().map(value -> value.getStringValue())
+					.collect(Collectors.joining(","));
+			String[] values = dlpRow.split(",");
+			List<TableCell> cells = new ArrayList<>();
+			for (int i = 0; i < values.length; i++) {
+				bqRow.set(headers[i].toString(), values[i].toString());
+				// creating a list of Table Cell to be used later to create BQ Table Schema
+				cells.add(new TableCell().set(headers[i].toString(), values[i].toString()));
+
+			}
+			bqRow.setF(cells);
+			return bqRow;
+
+		}
+	}
+
+	/**
+	 * The {@link BQDestination} class creates BigQuery table destination and table
+	 * schema based on the CSV file processed in earlier transformations. Table id
+	 * is same as filename Table schema is same as file header columns.
+	 *
+	 * @param KV<String, TableRow> where key is used as table id and table cells
+	 *        used to find header values
+	 *
+	 * @return TableSchema and TableDestination
+	 */
+	public static class BQDestination extends DynamicDestinations<KV<String, TableRow>, KV<String, TableRow>> {
+
+		private static final long serialVersionUID = 1L;
+		private ValueProvider<String> datasetName;
+		private String projectId;
+
+		public BQDestination(ValueProvider<String> datasetName, String projectId) {
+			this.datasetName = datasetName;
+			this.projectId = projectId;
+
+		}
+
+		@Override
+		public KV<String, TableRow> getDestination(ValueInSingleWindow<KV<String, TableRow>> element) {
+			String key = element.getValue().getKey();
+			String tableName = String.format("%s:%s.%s", projectId, datasetName.get(), key);
+			LOG.debug("Table Name {}", tableName);
+			return KV.of(tableName, element.getValue().getValue());
+		}
+
+		@Override
+		public TableDestination getTable(KV<String, TableRow> destination) {
+			TableDestination dest = new TableDestination(destination.getKey(),
+					"pii-tokenized output data from dataflow");
+			LOG.debug("Table Destination {}", dest.getTableSpec());
+			return dest;
+		}
+
+		@Override
+		public TableSchema getSchema(KV<String, TableRow> destination) {
+
+			TableRow bqRow = destination.getValue();
+			TableSchema schema = new TableSchema();
+			List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
+			// When TableRow is created in earlier steps, setF() was
+			// used to setup TableCells so that Table Schema can be constructed
+
+			List<TableCell> cells = bqRow.getF();
+
+			for (int i = 0; i < cells.size(); i++) {
+
+				Map<String, Object> object = cells.get(i);
+				String header = object.keySet().iterator().next();
+				// currently all BQ data types are set to String
+				fields.add(new TableFieldSchema().setName(header).setType("STRING"));
+
 			}
 
-			return tableRowBuilder.build();
+			schema.setFields(fields);
+			return schema;
 		}
 
 	}
 
-	public static PipelineResult run(TokenizePipelineOptions options) {
-		Pipeline p = Pipeline.create(options);
-
-		PCollection<ReadableFile> csvFile = p
-				.apply(FileIO.match().filepattern(options.getInputFile())
-						.continuously(Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
-				.apply(FileIO.readMatches().withCompression(Compression.UNCOMPRESSED));
-
-		PCollection<KV<String, TableRow>> bqDataMap = csvFile
-				.apply("Create DLP Table", ParDo.of(new CSVReader(options.getBatchSize())))
-				.apply("DoDLPTokenization",
-						ParDo.of(new DLPTokenizationDoFn(options.as(GcpOptions.class).getProject(),
-								options.getDeidentifyTemplateName(), options.getInspectTemplateName())))
-				.apply(Window
-						.<KV<String, TableRow>>into(FixedWindows.of(Duration.standardSeconds(options.getInterval())))
-						.triggering(
-								AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.standardMinutes(1)))
-						.discardingFiredPanes().withAllowedLateness(Duration.standardMinutes(1)));
-
-		bqDataMap.apply("WriteToBQ",
-				BigQueryIO.<KV<String, TableRow>>write()
-						.to(new BQDestination(options.getDataset(), options.as(GcpOptions.class).getProject()))
-						.withFormatFunction(element -> {
-							LOG.debug("BQ Row {}", element.getValue().getF());
-							return element.getValue();
-						}).withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
-						.withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED));
-
-		return p.run();
-	}
-
-	public static void main(String[] args) {
-
-		TokenizePipelineOptions options = PipelineOptionsFactory.fromArgs(args).withValidation()
-				.as(TokenizePipelineOptions.class);
-		run(options);
-
-	}
 }

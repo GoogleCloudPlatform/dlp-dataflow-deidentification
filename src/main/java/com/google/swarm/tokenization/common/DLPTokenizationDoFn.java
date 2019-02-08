@@ -62,7 +62,7 @@ public class DLPTokenizationDoFn extends DoFn<KV<String, Table>, Row> {
 
 		try {
 			this.dlpServiceClient = DlpServiceClient.create();
-			
+
 		} catch (IOException e) {
 
 			e.printStackTrace();

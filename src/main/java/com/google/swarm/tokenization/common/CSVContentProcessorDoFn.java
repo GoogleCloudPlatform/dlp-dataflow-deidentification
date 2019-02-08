@@ -45,6 +45,7 @@ public class CSVContentProcessorDoFn extends DoFn<KV<String, List<String>>, KV<S
 
 		this.batchSize = batchSize;
 	}
+
 	@StartBundle
 	public void startBundle() throws SQLException {
 		LOG.info("In start Bundle");
