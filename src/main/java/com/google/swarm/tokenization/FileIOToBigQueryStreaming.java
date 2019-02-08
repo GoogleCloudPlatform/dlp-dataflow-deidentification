@@ -147,13 +147,16 @@ public class FileIOToBigQueryStreaming {
 		// Create the pipeline
 		Pipeline p = Pipeline.create(options);
 		/*
-		 * Steps: 1) Continuously read from the file source in a given interval. Default
-		 * interval is set to 300 seconds. Please use --pollingInterval option to
-		 * configure desire value. 2) Create DLP Table objects by splitting the file
-		 * contents based on --batchSize option provided. 3) Convert response from DLP
-		 * API to a BigQuery Table Row 4) Apply a 30 seconds fixed window to unbounded
-		 * data. Please use --interval option to configure windowed interval 5) Create
-		 * dynamic table and insert successfully converted records into BigQuery.
+		 * Steps: 
+		 * 	1) Continuously read from the file source in a given interval. Default
+		 *     interval is set to 300 seconds. Please use --pollingInterval option to
+		 *     configure desire value. 
+		 *  2) Create DLP Table objects by splitting the file contents based on --batchSize 
+		 *     option provided. 
+		 *  3) Call DLP API with the templates provided for data tokenization.
+		 *  4) Process tokenized data by converting DL Table Rows to BQ Table Rows.
+		 *  5) Use BQ Dynamic destination to create table and schema and insert data.
+		 * 
 		 */
 
 		PCollection<ReadableFile> csvFile = p
@@ -163,19 +166,17 @@ public class FileIOToBigQueryStreaming {
 				.apply("Find Pattern Match",FileIO.readMatches().withCompression(Compression.UNCOMPRESSED));
 
 		PCollection<KV<String, TableRow>> bqDataMap = csvFile
-				// 2) Create DLP Table objects by splitting the file contents based on
-				// --batchSize
+				// 2) Create DLP Table objects by splitting the file contents based on --batchSize
 				.apply("Process File Contents", ParDo.of(new CSVReader(options.getBatchSize())))
-				// 3) Convert response from DLP API to a BigQuery Table Row
+				// 3) Perform DLP tokenization by using the DLP templates provided.
 				.apply("DLP-Tokenization",
 						ParDo.of(new DLPTokenizationDoFn(options.as(GcpOptions.class).getProject(),
 								options.getDeidentifyTemplateName(), options.getInspectTemplateName())))
-				// 4) Convert DLP Table Rows to BQ Table Row
+				// 4) Process tokenized data by converting DL Table Rows to BQ Table Rows.
 				.apply("Process Tokenized Data", ParDo.of(new TableRowProcessorDoFn()));
-
+		
 		bqDataMap.apply("Write To BQ",
-				// 5) Create dynamic table and insert successfully converted records into
-				// BigQuery.
+				// 5) Create dynamic table and insert successfully converted records into BigQuery.
 				BigQueryIO.<KV<String, TableRow>>write()
 						.to(new BQDestination(options.getDatasetName(), options.as(GcpOptions.class).getProject()))
 						.withFormatFunction(element -> {

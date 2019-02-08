@@ -46,7 +46,10 @@ import org.slf4j.LoggerFactory;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.privacy.dlp.v2.Table;
 
-/** Test cases for the {@link FileIOToBigQueryStreaming} class. */
+/**
+ * This is the unit test class for {@link FileIOToBigQueryStreaming} 
+ */
+
 @RunWith(JUnit4.class)
 public class FileIOToBigQueryStreamingTest {
 
@@ -82,8 +85,10 @@ public class FileIOToBigQueryStreamingTest {
 	}
 
 	/**
-	 * Tests reading from a sample CSV file in chunks and create DLP Table from the
-	 * contents and process the contents by converting to Table Row
+	 * Tests for 
+	 * - Reading from a sample CSV file in temp folder.
+	 * - Create DLP Table from the file contents.
+	 * - Process the table to convert to BQ Rows.
 	 */
 
 	@Test
