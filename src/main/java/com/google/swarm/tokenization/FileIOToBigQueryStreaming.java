@@ -1,5 +1,19 @@
+/*
+ * Copyright (C) 2018 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package com.google.swarm.tokenization;
-
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -53,29 +67,50 @@ import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
-import com.google.swarm.tokenization.common.Util;
 
 /**
  * The {@link FileIOToBigQueryStreaming} is a streaming pipeline that reads CSV
  * files from a storage location (e.g. GCS), uses DLP API to tokenize sensitive
  * information (e.g. PII Data like passport or SIN number) and at the end stores
  * tokenized data in Big Query to be used for various purposes.
- * <p>
- * Example Usage:
+ * <p><b>Pipeline Requirements</b>
+ *
+ * <ul>
+ *   <li>DLP Templates exist (e.g. deidentifyTemplate, InspectTemplate)
+ *   <li>The BigQuery Dataset exists
+ * </ul>
+ *
+ * <p><b>Example Usage</b>
  *
  * <pre>
- * {@code mvn compile exec:java \
+ * # Set the pipeline vars
+ * PROJECT_ID=PROJECT ID HERE
+ * BUCKET_NAME=BUCKET NAME HERE
+ * PIPELINE_FOLDER=gs://${BUCKET_NAME}/dataflow/pipelines/fileio-to-bigquery-dlp
+ *
+ * # Set the runner
+ * RUNNER=DataflowRunner
+ *
+ * # Build the template
+ * mvn compile exec:java \
  * -Dexec.mainClass=com.google.cloud.teleport.templates.FileIOToBigQueryStreaming \
- * -Dexec.args="\
+ * -Dexec.cleanupDaemonThreads=false \
+ * -Dexec.args=" \
  * --project=${PROJECT_ID} \
- * --stagingLocation=gs://${STAGING_BUCKET}/staging \
- * --tempLocation=gs://${STAGING_BUCKET}/tmp \
- * --runner=DataflowRunner \
- * --inputFilePattern=gs://path/to/input* \
- * --batchSize=<any positive number> \
- * --dataset=<BQ dataset id> \
- * --deidentifyTemplateName=projects/${PROJECT_ID}/deidentifyTemplates/<deidTemplateId>"
- * }
+ * --stagingLocation=${PIPELINE_FOLDER}/staging \
+ * --tempLocation=${PIPELINE_FOLDER}/temp \
+ * --templateLocation=${PIPELINE_FOLDER}/template \
+ * --runner=${RUNNER}"
+ *
+ * # Execute the template
+ * JOB_NAME=fileio-to-bigquery-dlp-$USER-`date +"%Y%m%d-%H%M%S%z"`
+ *
+ * gcloud dataflow jobs run ${JOB_NAME} \
+ * --gcs-location=${PIPELINE_FOLDER}/template \
+ * --zone=us-east1-d \
+ * --parameters \
+ * "inputFilePattern=gs://<bucketName>/<fileName>.csv, batchSize=15, deidentifyTemplateName=projects/{projectId}/deidentifyTemplates/{deIdTemplateId} 
+"
  * </pre>
  */
 
@@ -123,22 +158,22 @@ public class FileIOToBigQueryStreaming {
 
 		PCollection<ReadableFile> csvFile = p
 				// 1) Continuously read from the file source in a given interval
-				.apply(FileIO.match().filepattern(options.getInputFilePattern())
+				.apply("Poll Input Files",FileIO.match().filepattern(options.getInputFilePattern())
 						.continuously(Duration.standardSeconds(options.getPollingInterval()), Watch.Growth.never()))
-				.apply(FileIO.readMatches().withCompression(Compression.UNCOMPRESSED));
+				.apply("Find Pattern Match",FileIO.readMatches().withCompression(Compression.UNCOMPRESSED));
 
 		PCollection<KV<String, TableRow>> bqDataMap = csvFile
 				// 2) Create DLP Table objects by splitting the file contents based on
 				// --batchSize
-				.apply("Create DLP Table", ParDo.of(new CSVReader(options.getBatchSize())))
+				.apply("Process File Contents", ParDo.of(new CSVReader(options.getBatchSize())))
 				// 3) Convert response from DLP API to a BigQuery Table Row
-				.apply("DoDLPTokenization",
+				.apply("DLP-Tokenization",
 						ParDo.of(new DLPTokenizationDoFn(options.as(GcpOptions.class).getProject(),
 								options.getDeidentifyTemplateName(), options.getInspectTemplateName())))
 				// 4) Convert DLP Table Rows to BQ Table Row
-				.apply("ProcessaTokenizedData", ParDo.of(new TableRowProcessorDoFn()));
+				.apply("Process Tokenized Data", ParDo.of(new TableRowProcessorDoFn()));
 
-		bqDataMap.apply("WriteToBQ",
+		bqDataMap.apply("Write To BQ",
 				// 5) Create dynamic table and insert successfully converted records into
 				// BigQuery.
 				BigQueryIO.<KV<String, TableRow>>write()
@@ -157,12 +192,6 @@ public class FileIOToBigQueryStreaming {
 	 * options passed by the executor at the command-line.
 	 */
 	public interface TokenizePipelineOptions extends PipelineOptions {
-
-//		@Description("Default windowed interval is set to 10 seconds")
-//		@Default.Integer(10)
-//		Integer getWindowedInterval();
-//
-//		void setWindowednterval(Integer seconds);
 
 		@Description("Polling interval used to look for new files. " + "Default is set to 300 seconds")
 		@Default.Integer(300)
@@ -334,12 +363,9 @@ public class FileIOToBigQueryStreaming {
 
 			// First line in the CSV file as a header and converting to DLP Field Id
 			List<FieldId> headers = Arrays.stream(reader.readLine().split(","))
-					.map(header -> FieldId.newBuilder().setName(header).build())
-					.collect(Collectors.toList());
+					.map(header -> FieldId.newBuilder().setName(header).build()).collect(Collectors.toList());
 			return headers;
 		}
-
-		
 
 		private Table.Row convertCsvRowToTableRow(String row) {
 			// convert from CSV row to DLP Table Row
@@ -479,6 +505,7 @@ public class FileIOToBigQueryStreaming {
 			}
 			return headers;
 		}
+
 		private static String checkHeaderName(String name) {
 			// some checks to make sure BQ column names don't fail e.g. special characters
 			String checkedHeader = name.replaceAll("\\s", "_");

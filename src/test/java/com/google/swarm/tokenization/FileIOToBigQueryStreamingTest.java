@@ -1,4 +1,20 @@
+/*
+ * Copyright (C) 2018 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package com.google.swarm.tokenization;
+
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
@@ -38,10 +54,10 @@ public class FileIOToBigQueryStreamingTest {
 
 	@Rule
 	public final transient TestPipeline p = TestPipeline.create();
-	
+
 	@ClassRule
 	public static TemporaryFolder tempFolder = new TemporaryFolder();
-	
+
 	private static final String TOKENIZE_FILE_NAME = "tokenization_data.csv";
 	private static StringBuilder TOKENIZE_FILE_CONTENTS = new StringBuilder();
 	private static String HEADER = "CardTypeCode,CardTypeFullName,IssuingBank,CardNumber,CardHoldersName,CVVCVV2,IssueDate,ExpiryDate,"
@@ -49,12 +65,12 @@ public class FileIOToBigQueryStreamingTest {
 	private static String CONTENTS = "MC,Master Card,Wells Fargo,E5ssxfuqnGfF36Kk,Jeremy O Wilson,"
 			+ "NK3,12/2007,12/2008,3,vmFF,19800";
 	private static String tokenizedFilePath;
-	
+
 	@BeforeClass
 	public static void setupClass() throws IOException {
 
 		tokenizedFilePath = tempFolder.newFile(TOKENIZE_FILE_NAME).getAbsolutePath();
-		TOKENIZE_FILE_CONTENTS.append(HEADER+"\n");
+		TOKENIZE_FILE_CONTENTS.append(HEADER + "\n");
 		TOKENIZE_FILE_CONTENTS.append(CONTENTS);
 		Files.write(new File(tokenizedFilePath).toPath(), TOKENIZE_FILE_CONTENTS.toString().getBytes(Charsets.UTF_8));
 
@@ -77,7 +93,7 @@ public class FileIOToBigQueryStreamingTest {
 		PCollection<KV<String, Table>> dlpTable = p.apply("Match", FileIO.match().filepattern(tokenizedFilePath))
 				.apply("Read File", FileIO.readMatches().withCompression(Compression.UNCOMPRESSED))
 				.apply("Create DLP Table", ParDo.of(new FileIOToBigQueryStreaming.CSVReader(batchSize)));
-				
+
 		PAssert.that(dlpTable).satisfies(collection -> {
 
 			KV<String, Table> tableData = collection.iterator().next();
@@ -86,33 +102,27 @@ public class FileIOToBigQueryStreamingTest {
 			assertThat(tableData.getValue().getRowsCount(), is(equalTo(1)));
 			return null;
 		});
-		
-		PCollection<KV<String, TableRow>> tableRowMap=dlpTable
+
+		PCollection<KV<String, TableRow>> tableRowMap = dlpTable
 				.apply(ParDo.of(new FileIOToBigQueryStreaming.TableRowProcessorDoFn()));
-		
-		PAssert.that(tableRowMap)
-        .satisfies(
-            collection -> {
-              KV<String, TableRow> result = collection.iterator().next();
-              
-              assertThat(result.getValue().get("CardTypeCode"), is(equalTo("MC")));
-              assertThat(result.getValue().get("CardTypeFullName"), is(equalTo("Master Card")));
-              assertThat(result.getValue().get("IssuingBank"), is(equalTo("Wells Fargo")));
-              assertThat(result.getValue().get("CardNumber"), is(equalTo("E5ssxfuqnGfF36Kk")));
-              assertThat(result.getValue().get("CardHoldersName"), is(equalTo("Jeremy O Wilson")));
-              assertThat(result.getValue().get("CVVCVV2"), is(equalTo("NK3")));
-              assertThat(result.getValue().get("IssueDate"), is(equalTo("12/2007")));
-              assertThat(result.getValue().get("ExpiryDate"), is(equalTo("12/2008")));
-              assertThat(result.getValue().get("BillingDate"), is(equalTo("3")));
-              assertThat(result.getValue().get("CardPIN"), is(equalTo("vmFF")));
-              assertThat(result.getValue().get("CreditLimit"), is(equalTo("19800")));
-              return null;
-            });
+
+		PAssert.that(tableRowMap).satisfies(collection -> {
+			KV<String, TableRow> result = collection.iterator().next();
+
+			assertThat(result.getValue().get("CardTypeCode"), is(equalTo("MC")));
+			assertThat(result.getValue().get("CardTypeFullName"), is(equalTo("Master Card")));
+			assertThat(result.getValue().get("IssuingBank"), is(equalTo("Wells Fargo")));
+			assertThat(result.getValue().get("CardNumber"), is(equalTo("E5ssxfuqnGfF36Kk")));
+			assertThat(result.getValue().get("CardHoldersName"), is(equalTo("Jeremy O Wilson")));
+			assertThat(result.getValue().get("CVVCVV2"), is(equalTo("NK3")));
+			assertThat(result.getValue().get("IssueDate"), is(equalTo("12/2007")));
+			assertThat(result.getValue().get("ExpiryDate"), is(equalTo("12/2008")));
+			assertThat(result.getValue().get("BillingDate"), is(equalTo("3")));
+			assertThat(result.getValue().get("CardPIN"), is(equalTo("vmFF")));
+			assertThat(result.getValue().get("CreditLimit"), is(equalTo("19800")));
+			return null;
+		});
 		p.run();
 	}
-	
-
-	
-	
 
 }
