@@ -83,7 +83,6 @@ public class CSVContentProcessorDoFn extends DoFn<KV<String, List<String>>, KV<S
 						"Current Restriction From: {}, Current Restriction To: {}, StartofLine: {}, End Of Line {}, BatchData {}",
 						tracker.currentRestriction().getFrom(), tracker.currentRestriction().getTo(), startOfLine,
 						endOfLine, batchData.getRowsCount());
-				System.out.println(key);
 				c.output(KV.of(key, batchData));
 				lines.clear();
 			}
