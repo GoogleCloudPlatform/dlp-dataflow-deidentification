@@ -86,7 +86,20 @@ gradle run -DmainClass=com.google.swarm.tokenization.TextStreamingPipeline  -Par
 
 ### Prerequisites
 
-There are quite a few tasks before you can run this successfully:  
+#### Quickstart with Terraform
+Assuming that you are gcloud authenticated - see [here](https://cloud.google.com/docs/authentication/production) and have enabled the following APIs- see [here](https://cloud.google.com/apis/docs/enable-disable-apis)
+1. Cloud Key Management Service (KMS) API
+2. Cloud Storage API 
+3. BigQuery API
+4. DLP API
+
+Download and install [Terraform](https://www.terraform.io/downloads.html). Go to `terraform_setup/main.tf` and fill in the variables under the local section. Then run `terraform init` followed by `terraform apply`. This will set up all prerequisite GCP resources for this demo.
+
+#### Manual Setup 
+
+
+There are quite a few tasks before you can run this successfully:
+
 
 Create a GCP project and input output  GCS bucket  
 
