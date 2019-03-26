@@ -101,7 +101,7 @@ public class S3Import {
 	@SuppressWarnings("serial")
 	public static class S3FileReader extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
 
-		ValueProvider<Integer> batchSize;
+		private ValueProvider<Integer> batchSize;
 
 		public S3FileReader(ValueProvider<Integer> batchSize) {
 			this.batchSize = batchSize;
@@ -112,7 +112,7 @@ public class S3Import {
 
 			String fileName = c.element().getKey();
 			try (SeekableByteChannel channel = getReader(c.element().getValue())) {
-				ByteBuffer bf = ByteBuffer.allocate(batchSize.get());
+				ByteBuffer bf = ByteBuffer.allocate(this.batchSize.get());
 				while ((channel.read(bf)) > 0) {
 					bf.flip();
 					byte[] data = bf.array();
