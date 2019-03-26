@@ -44,7 +44,7 @@ public class CSVContentProcessorDoFn extends DoFn<KV<String, List<String>>, KV<S
 		this.batchSize = batchSize;
 	}
 
-	public KV<Integer, Integer> createStartEnd(int rowSize, long i){
+	public KV<Integer, Integer> createStartEnd(int rowSize, long i) {
 		int startOfLine;
 		int endOfLine = (int) (i * this.batchSize.get().intValue());
 		if (endOfLine > rowSize) {
@@ -65,10 +65,9 @@ public class CSVContentProcessorDoFn extends DoFn<KV<String, List<String>>, KV<S
 			List<String> rows = c.element().getValue().stream().skip(1).collect(Collectors.toList());
 			List<FieldId> headers = Arrays.stream(c.element().getValue().get(0).split(","))
 					.map(header -> FieldId.newBuilder().setName(header).build()).collect(Collectors.toList());
-			KV<Integer,Integer> lineRange= createStartEnd(rows.size(), i);
+			KV<Integer, Integer> lineRange = createStartEnd(rows.size(), i);
 			int startOfLine = lineRange.getKey();
 			int endOfLine = lineRange.getValue();
-
 
 			List<String> lines = new ArrayList<>();
 

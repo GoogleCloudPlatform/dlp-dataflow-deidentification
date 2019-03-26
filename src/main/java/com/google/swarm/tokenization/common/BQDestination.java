@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.api.services.bigquery.model.TableSchema;
 
-
 @SuppressWarnings("serial")
 public class BQDestination extends DynamicDestinations<Row, KV<String, List<String>>> {
 

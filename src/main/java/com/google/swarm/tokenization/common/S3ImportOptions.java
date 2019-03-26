@@ -20,35 +20,40 @@ import org.apache.beam.sdk.io.aws.options.S3Options;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.ValueProvider;
 
-public interface S3ImportOptions extends DataflowPipelineOptions, S3Options{
-	  @Description("Import location in the format s3://<BUCKET_NAME>")
-	  String getBucketUrl();
+public interface S3ImportOptions extends DataflowPipelineOptions, S3Options {
+	@Description("Import location in the format s3://<BUCKET_NAME>")
+	String getBucketUrl();
 
-	  void setBucketUrl(String bucketUrl);
+	void setBucketUrl(String bucketUrl);
 
-	  @Description("AWS S3 Key ID")
-	  String getAwsAccessKey();
+	@Description("AWS S3 Key ID")
+	String getAwsAccessKey();
 
-	  void setAwsAccessKey(String awsAccessKey);
+	void setAwsAccessKey(String awsAccessKey);
 
-	  @Description("AWS S3 Secret Key")
-	  String getAwsSecretKey();
+	@Description("AWS S3 Secret Key")
+	String getAwsSecretKey();
 
-	  void setAwsSecretKey(String awsSecretKey);
-	  @Description("Template to DeIdentiy")
-		ValueProvider<String> getDeidentifyTemplateName();
+	void setAwsSecretKey(String awsSecretKey);
 
-		void setDeidentifyTemplateName(ValueProvider<String> value);
+	@Description("Template to DeIdentiy")
+	ValueProvider<String> getDeidentifyTemplateName();
 
-		@Description("Template to Inspect")
-		ValueProvider<String> getInspectTemplateName();
+	void setDeidentifyTemplateName(ValueProvider<String> value);
 
-		void setInspectTemplateName(ValueProvider<String> value);
-	  
-		@Description("Path of the file to write to")
-		ValueProvider<String> getOutputFile();
+	@Description("Template to Inspect")
+	ValueProvider<String> getInspectTemplateName();
 
-		void setOutputFile(ValueProvider<String> value);
+	void setInspectTemplateName(ValueProvider<String> value);
 
-	
+	@Description("Path of the file to write to")
+	ValueProvider<String> getOutputFile();
+
+	void setOutputFile(ValueProvider<String> value);
+
+	@Description("batch Size")
+	ValueProvider<Integer> getBatchSize();
+
+	void setBatchSize(ValueProvider<Integer> value);
+
 }
