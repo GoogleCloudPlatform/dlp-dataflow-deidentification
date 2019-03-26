@@ -1,5 +1,10 @@
-# Data Tokenization PoC Using Dataflow/Beam 2.8 & DLP API  
+# Data Tokenization PoC Using Dataflow/Beam & DLP API  
+Use case for fully structure data from GCS (CSV Files) to Big Query Dataset has been successfully migrated to standard dataflow template. You can use this template for data tokenization  with just few clicks. Please see the [code](https://github.com/GoogleCloudPlatform/DataflowTemplates/blob/master/src/main/java/com/google/cloud/teleport/templates/DLPTextToBigQueryStreaming.java) and [document](https://cloud.google.com/dataflow/docs/guides/templates/provided-templates#dlptexttobigquerystreaming).   
 
+![standard dataflow template](dataflow-template-ss.png)
+
+If your use case required encryption using customer supplied key (CSEK) and multiple sinks like GCS and BQ, then you can still use this repo going forward. 
+There is also a new pipeline that supports import non structured data from AWS S3 bucket to GCS. Please see details below. 
 This solution deidentify sensitive PII data by using data flow and DLP API. Solution reads an encrypted CSV or text file from GCS and output to GCS and Big Query Table.   
 Some example use cases:  
 Example:1 (Fully Structure using DLP Table Object)  
@@ -256,14 +261,12 @@ dlpRows.apply("WriteToBQ",
 
 ### Known Issue
 
-There is a bug relate to File.IO watch termination condition 
-https://issues.apache.org/jira/browse/BEAM-6352. 
-After it's resolved in 2.10, pipeline can be upgraded to latest version and implement dynamic big query dataset creation. 
+There is no known issue for Beam 2.11 that impacts this repo. 
 
 
 ### Has it been performance tested?
 
-It has not been properly performance tested but has successfully processed 145 MB csv file with 150M rows less than a minute for a use case relate to credit card data for de-identification only. It uses 500 DLP API quotas/minute. Please know there is a soft limit for 600 for project but can be increased if required. Screenshot below shows the execution patterns. 
+It has not been properly performance tested but has successfully processed 145 MB csv file with 1.5M rows less than a minute for a use case relate to credit card data for de-identification only. It uses 500 DLP API quotas/minute. Please know there is a soft limit for 600 for project but can be increased if required. Screenshot below shows the execution patterns. 
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.CSVStreamingPipeline -Pargs="--streaming --project=<id> --runner=DataflowRunner  --inputFile=gs://customer-encrypted-data/1500000CCRecords_1.csv --batchSize=3000 --deidentifyTemplateName=projects/<id>/deidentifyTemplates/31224989062215255  --outputFile=gs://output-tokenization-data/1500000_CC_Records --numWorkers=5 --workerMachineType=n1-highmem-8 --maxNumWorkers=10 --dataset=pii_dataset"
@@ -510,11 +513,27 @@ DLP Inspect template:
 
 ```
 
+### AWS S3 Import to GCS for Non Structured Data
+
+If you have some non structured text or log files that you would like to inspect or deidentify and upload the result to GCS bucket, please clone the repo in cloud shell and execute following gradle command. Please update the arguments as required for your project.
+
+```
+
+gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streaming --project=<id> --runner=DataflowRunner --awsAccessKey=<key> --awsSecretKey=<key> --bucketUrl=s3://<bukcet>/*.txt --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --inspectTemplateName=projects/<id>/inspectTemplates/<id> --awsRegion=us-east-2 --outputFile=gs://output_s3_import"
+
+
+```
+![AWS S3 Bucket](aws-s3-bucket.png)
+
+After Tokenization in GCS: 
+
+![GCS Bucket](gcs-bucket.png)
+
 
 
 ### To Do
 
-- Unit Test and Code Coverage 
+- Unit Test and Code Coverage - in progress
 - Rate Limiter
-- Dynamic bigquery dataset creation
-- Upgrade to 2.10 beam
+- Dynamic BQ dataset creation
+
