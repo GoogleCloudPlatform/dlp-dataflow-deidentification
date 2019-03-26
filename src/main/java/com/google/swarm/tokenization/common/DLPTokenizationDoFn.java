@@ -77,18 +77,20 @@ public class DLPTokenizationDoFn extends DoFn<KV<String, Table>, Row> {
 		}
 	}
 
-	@ProcessElement
-	public void processElement(ProcessContext c) {
-
-		String key = c.element().getKey();
-		Table nonEncryptedData = c.element().getValue();
+	public void setInspectTemplateExist(){
 		if (this.inspectTemplateName.isAccessible()) {
 			if (this.inspectTemplateName.get() != null)
 				this.inspectTemplateExist = true;
 		}
-		ContentItem tableItem = ContentItem.newBuilder().setTable(nonEncryptedData).build();
+	}
+
+	public Boolean getInspectTemplateExist(){
+		return this.inspectTemplateExist;
+
+	}
+
+	public DeidentifyContentRequest buildDeidentifyContentRequest(ContentItem tableItem){
 		DeidentifyContentRequest request;
-		DeidentifyContentResponse response;
 		if (this.inspectTemplateExist) {
 			request = DeidentifyContentRequest.newBuilder().setParent(ProjectName.of(this.projectId).toString())
 					.setDeidentifyTemplateName(this.deIdentifyTemplateName.get())
@@ -98,7 +100,28 @@ public class DLPTokenizationDoFn extends DoFn<KV<String, Table>, Row> {
 					.setDeidentifyTemplateName(this.deIdentifyTemplateName.get()).setItem(tableItem).build();
 
 		}
+		return request;
+	}
 
+	public Row convertTableRowToRow(String[] header, String key, Table.Row outputRow){
+		String dlpRow = outputRow.getValuesList().stream().map(value -> value.getStringValue())
+				.collect(Collectors.joining(","));
+		String[] values = dlpRow.split(",");
+		Row row = new Row(key, header, values);
+		return row;
+	}
+
+
+	@ProcessElement
+	public void processElement(ProcessContext c) {
+
+		String key = c.element().getKey();
+		Table nonEncryptedData = c.element().getValue();
+		setInspectTemplateExist();
+		ContentItem tableItem = ContentItem.newBuilder().setTable(nonEncryptedData).build();
+
+		DeidentifyContentResponse response;
+		DeidentifyContentRequest request = buildDeidentifyContentRequest(tableItem);
 		response = dlpServiceClient.deidentifyContent(request);
 		Table encryptedData = response.getItem().getTable();
 		LOG.info("Request Size Successfully Tokenized:{} rows {} bytes ", encryptedData.getRowsList().size(),
@@ -115,11 +138,7 @@ public class DLPTokenizationDoFn extends DoFn<KV<String, Table>, Row> {
 		List<Table.Row> outputRows = encryptedData.getRowsList();
 
 		for (Table.Row outputRow : outputRows) {
-
-			String dlpRow = outputRow.getValuesList().stream().map(value -> value.getStringValue())
-					.collect(Collectors.joining(","));
-			String[] values = dlpRow.split(",");
-			Row row = new Row(key, header, values);
+			Row row = convertTableRowToRow(header, key, outputRow);
 			c.output(row);
 		}
 	}

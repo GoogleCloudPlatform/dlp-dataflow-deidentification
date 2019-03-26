@@ -74,15 +74,21 @@ dependencies {
     annotationProcessor "com.google.auto.value:auto-value:1.6.2"
 	testCompile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
 	testCompile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
+    testCompile group: 'org.hamcrest', name: 'hamcrest-core', version: '1.3'
+    testCompile group: 'org.hamcrest', name: 'hamcrest-library', version: '1.3'
 	testCompile 'junit:junit:4.12'
-	
+
+
+
 }
 
 jar {
     manifest {
         attributes ('Main-Class': mainClassName)
     }
-    
+
+
+
 }
 
 compileJava {
