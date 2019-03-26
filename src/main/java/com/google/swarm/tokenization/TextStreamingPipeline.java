@@ -87,7 +87,6 @@ public class TextStreamingPipeline {
 		public TokenizeData(String projectId, ValueProvider<String> deIdentifyTemplateName,
 				ValueProvider<String> inspectTemplateName) {
 			this.projectId = projectId;
-			System.out.println("Project Id: " + projectId);
 			this.deIdentifyTemplateName = deIdentifyTemplateName;
 			this.inspectTemplateName = inspectTemplateName;
 		}
