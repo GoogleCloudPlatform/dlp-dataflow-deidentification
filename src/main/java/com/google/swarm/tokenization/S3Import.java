@@ -30,6 +30,7 @@ import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.options.ValueProvider.NestedValueProvider;
+import org.apache.beam.sdk.options.ValueProvider.StaticValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
@@ -48,6 +49,8 @@ import org.slf4j.LoggerFactory;
 import com.google.cloud.dlp.v2.DlpServiceClient;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.DeidentifyContentRequest;
+import com.google.privacy.dlp.v2.DeidentifyContentRequest.Builder;
+
 import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.swarm.tokenization.common.AWSOptionParser;
@@ -58,7 +61,7 @@ public class S3Import {
 
 	public static final Logger LOG = LoggerFactory.getLogger(S3Import.class);
 	private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(300);
-	private static final int DEFAULT_BATCH_SIZE = 51200;
+	private static final Integer DEFAULT_BATCH_SIZE = 51200;
 	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(60);
 
 	public static void main(String[] args) {
@@ -80,6 +83,7 @@ public class S3Import {
 				return batchSize;
 			} else {
 				return DEFAULT_BATCH_SIZE;
+
 			}
 		})))).apply(ParDo.of(new TokenizeData(options.getProject(), options.getDeidentifyTemplateName(),
 				options.getInspectTemplateName())))
@@ -104,23 +108,27 @@ public class S3Import {
 		private ValueProvider<Integer> batchSize;
 
 		public S3FileReader(ValueProvider<Integer> batchSize) {
-			this.batchSize = batchSize;
-		}
 
+			this.batchSize=batchSize;
+
+		}
+		
+		
+		
 		@ProcessElement
 		public void processElement(ProcessContext c) throws IOException {
 
 			String fileName = c.element().getKey();
+			
 			try (SeekableByteChannel channel = getReader(c.element().getValue())) {
+
 				ByteBuffer bf = ByteBuffer.allocate(this.batchSize.get());
 				while ((channel.read(bf)) > 0) {
 					bf.flip();
 					byte[] data = bf.array();
 					bf.clear();
 					c.output(KV.of(fileName, new String(data, StandardCharsets.UTF_8).trim()));
-
 				}
-
 			}
 
 		}
@@ -129,38 +137,72 @@ public class S3Import {
 
 	@SuppressWarnings("serial")
 	public static class TokenizeData extends DoFn<KV<String, String>, KV<String, String>> {
-
 		private String projectId;
+		private DlpServiceClient dlpServiceClient;
 		private ValueProvider<String> deIdentifyTemplateName;
 		private ValueProvider<String> inspectTemplateName;
+		private boolean inspectTemplateExist;
+
+		private Builder requestBuilder;
 
 		public TokenizeData(String projectId, ValueProvider<String> deIdentifyTemplateName,
 				ValueProvider<String> inspectTemplateName) {
 			this.projectId = projectId;
+			this.dlpServiceClient = null;
 			this.deIdentifyTemplateName = deIdentifyTemplateName;
 			this.inspectTemplateName = inspectTemplateName;
+			this.inspectTemplateExist = false;
 
+		}
+
+		@Setup
+		public void setup() {
+			if (this.inspectTemplateName.isAccessible()) {
+				if (this.inspectTemplateName.get() != null) {
+					this.inspectTemplateExist = true;
+				}
+			}
+			if (this.deIdentifyTemplateName.isAccessible()) {
+				if (this.deIdentifyTemplateName.get() != null) {
+					this.requestBuilder = DeidentifyContentRequest.newBuilder()
+							.setParent(ProjectName.of(this.projectId).toString())
+							.setDeidentifyTemplateName(this.deIdentifyTemplateName.get());
+					if (this.inspectTemplateExist) {
+						this.requestBuilder.setInspectTemplateName(this.inspectTemplateName.get());
+					}
+				}
+			}
+		}
+
+		@StartBundle
+		public void startBundle() {
+
+			try {
+				this.dlpServiceClient = DlpServiceClient.create();
+
+			} catch (IOException e) {
+				LOG.error("Failed to create DLP Service Client", e.getMessage());
+				throw new RuntimeException(e);
+			}
+		}
+
+		@FinishBundle
+		public void finishBundle() throws Exception {
+			if (this.dlpServiceClient != null) {
+				this.dlpServiceClient.close();
+			}
 		}
 
 		@ProcessElement
 		public void processElement(ProcessContext c) throws IOException {
 
-			try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
+			ContentItem contentItem = ContentItem.newBuilder().setValue(c.element().getValue()).build();
+			this.requestBuilder.setItem(contentItem);
+			DeidentifyContentResponse response = dlpServiceClient.deidentifyContent(this.requestBuilder.build());
 
-				ContentItem contentItem = ContentItem.newBuilder().setValue(c.element().getValue()).build();
-
-				DeidentifyContentRequest request = DeidentifyContentRequest.newBuilder()
-						.setParent(ProjectName.of(this.projectId).toString())
-						.setDeidentifyTemplateName(this.deIdentifyTemplateName.get())
-						.setInspectTemplateName(this.inspectTemplateName.get()).setItem(contentItem).build();
-
-				DeidentifyContentResponse response = dlpServiceClient.deidentifyContent(request);
-
-				String encryptedData = response.getItem().getValue();
-				LOG.info("Successfully tokenized request size: " + request.toByteString().size() + " bytes");
-				c.output(KV.of(c.element().getKey(), encryptedData));
-
-			}
+			String encryptedData = response.getItem().getValue();
+			LOG.info("Successfully tokenized request size {} bytes", response.getSerializedSize());
+			c.output(KV.of(c.element().getKey(), encryptedData));
 
 		}
 	}
