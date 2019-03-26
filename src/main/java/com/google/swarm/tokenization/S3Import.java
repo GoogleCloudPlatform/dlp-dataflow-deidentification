@@ -29,6 +29,7 @@ import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.ValueProvider;
+import org.apache.beam.sdk.options.ValueProvider.NestedValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
@@ -61,55 +62,57 @@ public class S3Import {
 	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(60);
 
 	public static void main(String[] args) {
-		S3ImportOptions options = PipelineOptionsFactory.fromArgs(args).withValidation()
-				.as(S3ImportOptions.class);
-	
-	    AWSOptionParser.formatOptions(options);
+		S3ImportOptions options = PipelineOptionsFactory.fromArgs(args).withValidation().as(S3ImportOptions.class);
 
-	
+		AWSOptionParser.formatOptions(options);
+
 		Pipeline p = Pipeline.create(options);
-		PCollection<KV<String, ReadableFile>> files = p.apply(
-	                "Poll Input Files",
-	                FileIO.match()
-	                    .filepattern(options.getBucketUrl())
-	                    .continuously(DEFAULT_POLL_INTERVAL, Watch.Growth.never()))
-	            .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
-	            .apply(WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
-	            .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()));
-		
-		files.apply(ParDo.of(new S3FileReader()))
-		.apply(ParDo.of(new TokenizeData(options.getProject(),options.getDeidentifyTemplateName(),
+		PCollection<KV<String, ReadableFile>> files = p
+				.apply("Poll Input Files",
+						FileIO.match().filepattern(options.getBucketUrl()).continuously(DEFAULT_POLL_INTERVAL,
+								Watch.Growth.never()))
+				.apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
+				.apply(WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
+				.setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()));
+
+		files.apply(ParDo.of(new S3FileReader(NestedValueProvider.of(options.getBatchSize(), batchSize -> {
+			if (batchSize != null) {
+				return batchSize;
+			} else {
+				return DEFAULT_BATCH_SIZE;
+			}
+		})))).apply(ParDo.of(new TokenizeData(options.getProject(), options.getDeidentifyTemplateName(),
 				options.getInspectTemplateName())))
-		.apply("30 sec window",
-	                Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL))
-	                    .triggering(
-	                        AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.ZERO))
-	                    .discardingFiredPanes()
-	                    .withAllowedLateness(Duration.ZERO))
-		 .apply(GroupByKey.create())
-		 .apply("WriteToGCS",FileIO.<String, KV<String, Iterable<String>>>writeDynamic()
-				.by((SerializableFunction<KV<String, Iterable<String>>, String>) contents -> {
-					return contents.getKey();})
-				.via(new TextSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
-				.withNumShards(1).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
+				.apply("30 sec window",
+						Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL))
+								.triggering(AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.ZERO))
+								.discardingFiredPanes().withAllowedLateness(Duration.ZERO))
+				.apply(GroupByKey.create())
+				.apply("WriteToGCS", FileIO.<String, KV<String, Iterable<String>>>writeDynamic()
+						.by((SerializableFunction<KV<String, Iterable<String>>, String>) contents -> {
+							return contents.getKey();
+						}).via(new TextSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
+						.withNumShards(1).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
 
-
-		
 		p.run();
-		
 
 	}
-	
+
 	@SuppressWarnings("serial")
-	public static class S3FileReader extends DoFn<KV<String,ReadableFile>, KV<String, String>> {
-		
-		
+	public static class S3FileReader extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
+
+		ValueProvider<Integer> batchSize;
+
+		public S3FileReader(ValueProvider<Integer> batchSize) {
+			this.batchSize = batchSize;
+		}
+
 		@ProcessElement
 		public void processElement(ProcessContext c) throws IOException {
-		      
+
 			String fileName = c.element().getKey();
 			try (SeekableByteChannel channel = getReader(c.element().getValue())) {
-				ByteBuffer bf = ByteBuffer.allocate(DEFAULT_BATCH_SIZE);
+				ByteBuffer bf = ByteBuffer.allocate(batchSize.get());
 				while ((channel.read(bf)) > 0) {
 					bf.flip();
 					byte[] data = bf.array();
@@ -117,19 +120,15 @@ public class S3Import {
 					c.output(KV.of(fileName, new String(data, StandardCharsets.UTF_8).trim()));
 
 				}
-				
+
 			}
-				
 
 		}
-		
-		
+
 	}
-	
-	
-	
+
 	@SuppressWarnings("serial")
-	public static class TokenizeData extends DoFn<KV<String,String>, KV<String,String>> {
+	public static class TokenizeData extends DoFn<KV<String, String>, KV<String, String>> {
 
 		private String projectId;
 		private ValueProvider<String> deIdentifyTemplateName;
@@ -140,6 +139,7 @@ public class S3Import {
 			this.projectId = projectId;
 			this.deIdentifyTemplateName = deIdentifyTemplateName;
 			this.inspectTemplateName = inspectTemplateName;
+
 		}
 
 		@ProcessElement
@@ -158,28 +158,24 @@ public class S3Import {
 
 				String encryptedData = response.getItem().getValue();
 				LOG.info("Successfully tokenized request size: " + request.toByteString().size() + " bytes");
-				c.output(KV.of(c.element().getKey(),encryptedData));
+				c.output(KV.of(c.element().getKey(), encryptedData));
 
 			}
 
 		}
 	}
 
-
 	private static SeekableByteChannel getReader(ReadableFile eventFile) {
-	    SeekableByteChannel channel = null;
-	    /** read the file and create buffered reader */
-	    try {
-	      channel = eventFile.openSeekable();
+		SeekableByteChannel channel = null;
+		try {
+			channel = eventFile.openSeekable();
 
-	    } catch (IOException e) {
-	      LOG.error("Failed to Open File {}", e.getMessage());
-	      throw new RuntimeException(e);
-	    }
-	    return channel;
-	    
-	  }
+		} catch (IOException e) {
+			LOG.error("Failed to Open File {}", e.getMessage());
+			throw new RuntimeException(e);
+		}
+		return channel;
 
-	
+	}
 
 }

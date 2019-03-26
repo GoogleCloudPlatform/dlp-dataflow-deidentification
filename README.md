@@ -515,11 +515,11 @@ DLP Inspect template:
 
 ### AWS S3 Import to GCS for Non Structured Data
 
-If you have some non structured text or log files that you would like to inspect or deidentify and upload the result to GCS bucket, please clone the repo in cloud shell and execute following gradle command. Please update the arguments as required for your project.
+If you have some non structured text or log files that you would like to inspect or deidentify and upload the result to GCS bucket, please clone the repo in cloud shell and execute following gradle command. Please update the arguments as required for your project. Batch size is in bytes and if not supplied defaulted to 51200 bytes
 
 ```
 
-gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streaming --project=<id> --runner=DataflowRunner --awsAccessKey=<key> --awsSecretKey=<key> --bucketUrl=s3://<bukcet>/*.txt --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --inspectTemplateName=projects/<id>/inspectTemplates/<id> --awsRegion=us-east-2 --outputFile=gs://output_s3_import"
+gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streaming --project=next-dlp-demo-teleport --runner=DirectRunner --awsAccessKey=AKIAJAKZDF6YC5K6XIKQ --awsSecretKey=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 --bucketUrl=s3://input-files-beam/*.txt --deidentifyTemplateName=projects/next-dlp-demo-teleport/deidentifyTemplates/4857039881746318638 --inspectTemplateName=projects/next-dlp-demo-teleport/inspectTemplates/377650860062346786 --awsRegion=us-east-2 --outputFile=gs://output_s3_import --batchSize=50000000"
 
 
 ```

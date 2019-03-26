@@ -23,9 +23,10 @@ import java.util.Iterator;
 
 import org.apache.beam.sdk.io.FileIO.Sink;
 import org.apache.beam.sdk.values.KV;
+
 @SuppressWarnings("serial")
 
-public class TextSink implements Sink <KV<String,Iterable<String>>> {
+public class TextSink implements Sink<KV<String, Iterable<String>>> {
 	private PrintWriter writer;
 
 	@Override
@@ -40,10 +41,11 @@ public class TextSink implements Sink <KV<String,Iterable<String>>> {
 		StringBuilder contents = new StringBuilder();
 		while (valueIterator.hasNext()) {
 			contents.append(valueIterator.next());
-			
+
 		}
 		writer.println(contents);
 	}
+
 	@Override
 	public void flush() throws IOException {
 		writer.flush();
