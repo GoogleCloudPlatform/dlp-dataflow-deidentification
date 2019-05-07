@@ -40,7 +40,7 @@ apply plugin: 'idea'
 apply plugin: "net.ltgt.apt"
 
 mainClassName = System.getProperty("mainClass")
-//mainClassName = 'com.google.swarm.tokenization.S3Import' 
+//mainClassName = 'com.google.swarm.tokenization.XferMgrProgress' 
 
 group 'com.google.swarm'
 version '0.1.0'
@@ -69,6 +69,7 @@ dependencies {
     compile 'com.google.cloud:google-cloud-dlp:0.74.0-beta'
     compile 'com.google.guava:guava:27.0-jre'
     compile 'com.google.api-client:google-api-client:1.27.0'
+   	compile group: 'com.amazonaws', name: 'aws-java-sdk', version: '1.11.546'
     compile group: 'com.google.apis', name: 'google-api-services-cloudkms', version: 'v1-rev53-1.23.0'
 	compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
 	compile "com.google.auto.value:auto-value-annotations:1.6.2"
