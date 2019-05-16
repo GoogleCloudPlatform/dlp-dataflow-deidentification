@@ -90,10 +90,18 @@ gradle run -DmainClass=com.google.swarm.tokenization.TextStreamingPipeline  -Par
 Assuming that you are gcloud authenticated - see [here](https://cloud.google.com/docs/authentication/production) and have enabled the following APIs- see [here](https://cloud.google.com/apis/docs/enable-disable-apis)
 1. Cloud Key Management Service (KMS) API
 2. Cloud Storage API 
-3. BigQuery API
-4. DLP API
+3. DLP API
 
-Download and install [Terraform](https://www.terraform.io/downloads.html). Go to `terraform_setup/main.tf` and fill in the variables under the local section. Then run `terraform init` followed by `terraform apply`. This will set up all prerequisite GCP resources for this demo.
+Download and install [Terraform](https://www.terraform.io/downloads.html). Go to `terraform_setup/main.tf` and fill in the variables under the local section. Terraform runs by using the service account credentials json set under the environmental variable `GOOGLE_APPLICATION_CREDENTIALS` (see [here](https://cloud.google.com/docs/authentication/production) for more details. Your service account should have the following roles:
+
+- roles/iam.serviceAccountUser
+- roles/storage.admin
+- roles/bigquery.admin
+- roles/cloudkms.admin
+- roles/dlp.admin
+- roles/cloudkms.cryptoKeyEncrypterDecrypter
+
+This terraform script allows users to use their own pre-created KMS key ring/key/wrapped key by setting the variable `create_key_ring=false` or can also create all such resources for them by setting the variable `create_key_ring=true`. Run the terraform setup up by executing `terraform init` followed by `terraform apply`. This will set up all prerequisite GCP resources for this demo. 
 
 #### Manual Setup 
 
