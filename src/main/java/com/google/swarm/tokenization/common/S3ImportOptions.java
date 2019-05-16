@@ -17,6 +17,7 @@ package com.google.swarm.tokenization.common;
 
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
+import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.ValueProvider;
 
@@ -55,5 +56,10 @@ public interface S3ImportOptions extends DataflowPipelineOptions, S3Options {
 	ValueProvider<Integer> getBatchSize();
 
 	void setBatchSize(ValueProvider<Integer> value);
+	
+	  @Default.Integer(50)
+	  int getS3ThreadPoolSize();
+
+	  void setS3ThreadPoolSize(int value);
 
 }

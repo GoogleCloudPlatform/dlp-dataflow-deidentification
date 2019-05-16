@@ -17,8 +17,11 @@ package com.google.swarm.tokenization;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
+
+import javax.annotation.Nullable;
 
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -30,11 +33,8 @@ import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.options.ValueProvider.NestedValueProvider;
-import org.apache.beam.sdk.options.ValueProvider.StaticValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
@@ -50,20 +50,32 @@ import com.google.cloud.dlp.v2.DlpServiceClient;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.DeidentifyContentRequest;
 import com.google.privacy.dlp.v2.DeidentifyContentRequest.Builder;
-
 import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.ProjectName;
+import com.google.protobuf.ByteString;
 import com.google.swarm.tokenization.common.AWSOptionParser;
 import com.google.swarm.tokenization.common.S3ImportOptions;
-import com.google.swarm.tokenization.common.TextSink;
 
 public class S3Import {
 
 	public static final Logger LOG = LoggerFactory.getLogger(S3Import.class);
 	private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(300);
-	private static final Integer DEFAULT_BATCH_SIZE = 51200;
+	private static final Integer DEFAULT_BATCH_SIZE = 524288;
 	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(60);
 
+	private static final int READ_BUFFER_SIZE = 8192;
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(READ_BUFFER_SIZE);
+    private ByteString buffer;
+    private int startOfDelimiterInBuffer;
+    private int endOfDelimiterInBuffer;
+    private long startOfRecord;
+    private volatile long startOfNextRecord;
+    private volatile boolean eof;
+    private volatile boolean elementIsPresent;
+    private @Nullable String currentValue;
+    private @Nullable ReadableByteChannel inChannel;
+    private @Nullable byte[] delimiter;
+	
 	public static void main(String[] args) {
 		S3ImportOptions options = PipelineOptionsFactory.fromArgs(args).withValidation().as(S3ImportOptions.class);
 
@@ -90,13 +102,13 @@ public class S3Import {
 				.apply("30 sec window",
 						Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL))
 								.triggering(AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.ZERO))
-								.discardingFiredPanes().withAllowedLateness(Duration.ZERO))
-				.apply(GroupByKey.create())
-				.apply("WriteToGCS", FileIO.<String, KV<String, Iterable<String>>>writeDynamic()
-						.by((SerializableFunction<KV<String, Iterable<String>>, String>) contents -> {
-							return contents.getKey();
-						}).via(new TextSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
-						.withNumShards(1).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
+								.discardingFiredPanes().withAllowedLateness(Duration.ZERO));
+//				.apply(GroupByKey.create());
+//				.apply("WriteToGCS", FileIO.<String, KV<String, Iterable<String>>>writeDynamic()
+//						.by((SerializableFunction<KV<String, Iterable<String>>, String>) contents -> {
+//							return contents.getKey();
+//						}).via(new TextSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
+//						.withNumShards(100).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
 
 		p.run();
 
@@ -197,11 +209,12 @@ public class S3Import {
 		public void processElement(ProcessContext c) throws IOException {
 
 			ContentItem contentItem = ContentItem.newBuilder().setValue(c.element().getValue()).build();
+			LOG.debug("Request Size {}",contentItem.getSerializedSize() );
+
 			this.requestBuilder.setItem(contentItem);
 			DeidentifyContentResponse response = dlpServiceClient.deidentifyContent(this.requestBuilder.build());
-
 			String encryptedData = response.getItem().getValue();
-			LOG.info("Successfully tokenized request size {} bytes", response.getSerializedSize());
+			LOG.info("Successfully tokenized request size {} bytes for File {}", response.getSerializedSize(), c.element().getKey());
 			c.output(KV.of(c.element().getKey(), encryptedData));
 
 		}
@@ -219,5 +232,93 @@ public class S3Import {
 		return channel;
 
 	}
+	
+	protected boolean readNextRecord() throws IOException {
+	      startOfRecord = startOfNextRecord;
+	      findDelimiterBounds();
+
+	      // If we have reached EOF file and consumed all of the buffer then we know
+	      // that there are no more records.
+	      if (eof && buffer.isEmpty()) {
+	        elementIsPresent = false;
+	        return false;
+	      }
+
+	      decodeCurrentElement();
+	      startOfNextRecord = startOfRecord + endOfDelimiterInBuffer;
+	      return true;
+	    }
+	 private void findDelimiterBounds() throws IOException {
+	      int bytePositionInBuffer = 0;
+	      while (true) {
+	        if (!tryToEnsureNumberOfBytesInBuffer(bytePositionInBuffer + 1)) {
+	          startOfDelimiterInBuffer = endOfDelimiterInBuffer = bytePositionInBuffer;
+	          break;
+	        }
+
+	        byte currentByte = buffer.byteAt(bytePositionInBuffer);
+
+	        if (delimiter == null) {
+	          // default delimiter
+	          if (currentByte == '\n') {
+	            startOfDelimiterInBuffer = bytePositionInBuffer;
+	            endOfDelimiterInBuffer = startOfDelimiterInBuffer + 1;
+	            break;
+	          } else if (currentByte == '\r') {
+	            startOfDelimiterInBuffer = bytePositionInBuffer;
+	            endOfDelimiterInBuffer = startOfDelimiterInBuffer + 1;
+
+	            if (tryToEnsureNumberOfBytesInBuffer(bytePositionInBuffer + 2)) {
+	              currentByte = buffer.byteAt(bytePositionInBuffer + 1);
+	              if (currentByte == '\n') {
+	                endOfDelimiterInBuffer += 1;
+	              }
+	            }
+	            break;
+	          }
+	        } else {
+	          // user defined delimiter
+	          int i = 0;
+	          // initialize delimiter not found
+	          startOfDelimiterInBuffer = endOfDelimiterInBuffer = bytePositionInBuffer;
+	          while ((i <= delimiter.length - 1) && (currentByte == delimiter[i])) {
+	            // read next byte
+	            i++;
+	            if (tryToEnsureNumberOfBytesInBuffer(bytePositionInBuffer + i + 1)) {
+	              currentByte = buffer.byteAt(bytePositionInBuffer + i);
+	            } else {
+	              // corner case: delimiter truncated at the end of the file
+	              startOfDelimiterInBuffer = endOfDelimiterInBuffer = bytePositionInBuffer;
+	              break;
+	            }
+	          }
+	          if (i == delimiter.length) {
+	            // all bytes of delimiter found
+	            endOfDelimiterInBuffer = bytePositionInBuffer + i;
+	            break;
+	          }
+	        }
+	        // Move to the next byte in buffer.
+	        bytePositionInBuffer += 1;
+	      }
+	    }
+	 private void decodeCurrentElement() throws IOException {
+	      ByteString dataToDecode = buffer.substring(0, startOfDelimiterInBuffer);
+	      currentValue = dataToDecode.toStringUtf8();
+	      elementIsPresent = true;
+	      buffer = buffer.substring(endOfDelimiterInBuffer);
+	    }
+	 private boolean tryToEnsureNumberOfBytesInBuffer(int minCapacity) throws IOException {
+	      // While we aren't at EOF or haven't fulfilled the minimum buffer capacity,
+	      // attempt to read more bytes.
+	      while (buffer.size() <= minCapacity && !eof) {
+	        eof = inChannel.read(readBuffer) == -1;
+	        readBuffer.flip();
+	        buffer = buffer.concat(ByteString.copyFrom(readBuffer));
+	        readBuffer.clear();
+	      }
+	      // Return true if we were able to honor the minimum buffer capacity request
+	      return buffer.size() >= minCapacity;
+	    }
 
 }

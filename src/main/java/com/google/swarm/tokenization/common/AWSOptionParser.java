@@ -1,5 +1,6 @@
 package com.google.swarm.tokenization.common;
 
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 
@@ -9,6 +10,15 @@ public class AWSOptionParser {
 	private static final String AWS_S3_PREFIX = "s3";
 
 	public static void formatOptions(S3ImportOptions options) {
+		options.setS3ThreadPoolSize(10000);
+		 ClientConfiguration configuration = new ClientConfiguration()
+				 .withMaxConnections(1000000)
+				 .withConnectionTTL(1000);
+		
+		 options.setClientConfiguration(configuration);
+		 
+		
+		
 		if (options.getBucketUrl().toLowerCase().startsWith(AWS_S3_PREFIX)) {
 			setAwsCredentials(options);
 		}
