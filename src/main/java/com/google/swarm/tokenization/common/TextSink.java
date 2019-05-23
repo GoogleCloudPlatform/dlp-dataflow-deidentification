@@ -19,14 +19,13 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
-import java.util.Iterator;
 
 import org.apache.beam.sdk.io.FileIO.Sink;
 import org.apache.beam.sdk.values.KV;
 
 @SuppressWarnings("serial")
 
-public class TextSink implements Sink<KV<String, Iterable<String>>> {
+public class TextSink implements Sink<KV<String, String>> {
 	private PrintWriter writer;
 
 	@Override
@@ -36,14 +35,14 @@ public class TextSink implements Sink<KV<String, Iterable<String>>> {
 	}
 
 	@Override
-	public void write(KV<String, Iterable<String>> element) {
-		Iterator<String> valueIterator = element.getValue().iterator();
-		StringBuilder contents = new StringBuilder();
-		while (valueIterator.hasNext()) {
-			contents.append(valueIterator.next());
-
-		}
-		writer.println(contents);
+	public void write(KV<String, String> element) {
+		// Iterator<String> valueIterator = element.getValue().iterator();
+		// StringBuilder contents = new StringBuilder();
+//		while (valueIterator.hasNext()) {
+//			contents.append(valueIterator.next());
+//
+//		}
+		writer.println(element.getValue());
 	}
 
 	@Override
