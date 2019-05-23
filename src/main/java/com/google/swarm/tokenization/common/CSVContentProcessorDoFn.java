@@ -15,7 +15,6 @@
  */
 package com.google.swarm.tokenization.common;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -24,7 +23,6 @@ import java.util.stream.Collectors;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.DoFn.StartBundle;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.values.KV;
 import org.slf4j.Logger;
@@ -45,12 +43,8 @@ public class CSVContentProcessorDoFn extends DoFn<KV<String, List<String>>, KV<S
 
 		this.batchSize = batchSize;
 	}
-	@StartBundle
-	public void startBundle() throws SQLException {
-		LOG.info("In start Bundle");
-	}
 
-	public KV<Integer, Integer> createStartEnd(int rowSize, long i){
+	public KV<Integer, Integer> createStartEnd(int rowSize, long i) {
 		int startOfLine;
 		int endOfLine = (int) (i * this.batchSize.get().intValue());
 		if (endOfLine > rowSize) {
@@ -71,10 +65,9 @@ public class CSVContentProcessorDoFn extends DoFn<KV<String, List<String>>, KV<S
 			List<String> rows = c.element().getValue().stream().skip(1).collect(Collectors.toList());
 			List<FieldId> headers = Arrays.stream(c.element().getValue().get(0).split(","))
 					.map(header -> FieldId.newBuilder().setName(header).build()).collect(Collectors.toList());
-			KV<Integer,Integer> lineRange= createStartEnd(rows.size(), i);
+			KV<Integer, Integer> lineRange = createStartEnd(rows.size(), i);
 			int startOfLine = lineRange.getKey();
 			int endOfLine = lineRange.getValue();
-
 
 			List<String> lines = new ArrayList<>();
 

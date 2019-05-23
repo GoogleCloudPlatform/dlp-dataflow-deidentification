@@ -15,7 +15,7 @@
  */
 buildscript {
     ext {
-        dataflowBeamVersion = '2.8.0'
+        dataflowBeamVersion = '2.11.0'
     }
     repositories {
         mavenCentral()
@@ -39,8 +39,8 @@ apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: "net.ltgt.apt"
 
-//mainClassName = System.getProperty("mainClass")
-mainClassName = 'com.google.swarm.tokenization.FileIOToBigQueryStreaming' 
+mainClassName = System.getProperty("mainClass")
+//mainClassName = 'com.google.swarm.tokenization.S3Import' 
 
 group 'com.google.swarm'
 version '0.1.0'
@@ -70,8 +70,10 @@ dependencies {
     compile 'com.google.guava:guava:27.0-jre'
     compile 'com.google.api-client:google-api-client:1.27.0'
     compile group: 'com.google.apis', name: 'google-api-services-cloudkms', version: 'v1-rev53-1.23.0'
+	compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
 	compile "com.google.auto.value:auto-value-annotations:1.6.2"
     annotationProcessor "com.google.auto.value:auto-value:1.6.2"
+	compile group: 'org.apache.commons', name: 'commons-csv', version: '1.1'
 	testCompile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
 	testCompile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
     testCompile group: 'org.hamcrest', name: 'hamcrest-core', version: '1.3'
@@ -109,6 +111,7 @@ run {
         args project.args.split('\\s')
     }
 }
+
 
 run.mustRunAfter 'resources'
 

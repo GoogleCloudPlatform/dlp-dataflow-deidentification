@@ -73,7 +73,6 @@ public class Util {
 
 		return keyRing != null || keyName != null || csek != null || csekhash != null;
 	}
-	
 
 	public static BufferedReader getReader(boolean customerSuppliedKey, String objectName, String bucketName,
 			ReadableFile file, String key, ValueProvider<String> csekhash) {
@@ -116,17 +115,15 @@ public class Util {
 
 	}
 
-
 	public static String checkHeaderName(String name) {
 		String checkedHeader = name.replaceAll("\\s", "_");
 		checkedHeader = checkedHeader.replaceAll("'", "");
 		checkedHeader = checkedHeader.replaceAll("/", "");
 		checkedHeader = checkedHeader.replaceAll("\\W", "");
 		LOG.debug("Name {} checkedHeader {}", name, checkedHeader);
-
-
 		return checkedHeader;
 	}
+
 	@SuppressWarnings("serial")
 	public static TableSchema getSchema(List<String> outputHeaders) {
 		return new TableSchema().setFields(new ArrayList<TableFieldSchema>() {
@@ -142,7 +139,6 @@ public class Util {
 			}
 
 		});
-	
 
 	}
 }
