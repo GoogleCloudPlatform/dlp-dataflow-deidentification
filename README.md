@@ -541,7 +541,7 @@ gradle build -DmainClass=com.google.swarm.tokenization.S3Import --x test
 
 To Run: 
 
-gradle run -DmainClass=com.google.swarm.tokenization.S3CSVImport -Pargs=" --streaming --project=<id> --runner=DataflowRunner --numWorkers=<n> --workerMachineType=n1-highmem-8 --maxNumWorkers=<n> --autoscalingAlgorithm=NONE --experiments=shuffle_mode=service --tempLocation=gs://<bucket>/temp --batchSize=524000 --s3ThreadPoolSize=1000 --maxConnections=1000000 --socketTimeout=10 --connectionTimeout=10 --awsRegion=ca-central-1 --awsAccessKey=<key> --awsSecretKey=<key> --bucketUrl=s3://<bucket>/*.* --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --inspectTemplateName=projects/<id>/inspectTemplates/<id> --outputFile=gs://<bucket>/"
+gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streaming --project=<id> --runner=DataflowRunner --numWorkers=<n> --workerMachineType=n1-highmem-8 --maxNumWorkers=<n> --autoscalingAlgorithm=NONE --experiments=shuffle_mode=service --tempLocation=gs://<bucket>/temp --batchSize=524000 --s3ThreadPoolSize=1000 --maxConnections=1000000 --socketTimeout=10 --connectionTimeout=10 --awsRegion=ca-central-1 --awsAccessKey=<key> --awsSecretKey=<key> --bucketUrl=s3://<bucket>/*.* --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --inspectTemplateName=projects/<id>/inspectTemplates/<id> --outputFile=gs://<bucket>/"
 
 
 ```
