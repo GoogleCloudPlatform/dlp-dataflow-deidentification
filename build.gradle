@@ -40,7 +40,7 @@ apply plugin: 'idea'
 apply plugin: "net.ltgt.apt"
 
 mainClassName = System.getProperty("mainClass")
-//mainClassName = 'com.google.swarm.tokenization.S3CSVImport' 
+//mainClassName = 'com.google.swarm.tokenization.S3Import' 
 
 group 'com.google.swarm'
 version '0.1.0'

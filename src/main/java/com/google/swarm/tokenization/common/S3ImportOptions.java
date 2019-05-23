@@ -57,19 +57,17 @@ public interface S3ImportOptions extends DataflowPipelineOptions, AwsOptions, S3
 
 	void setBatchSize(ValueProvider<Integer> value);
 
-	
 	@Description("AWS Client Configuration")
 	int getMaxConnections();
-	
+
 	void setMaxConnections(int maxConnections);
-	
+
 	int getConnectionTimeout();
-	
+
 	void setConnectionTimeout(int connectionTimeout);
-	
+
 	int getSocketTimeout();
-	
+
 	void setSocketTimeout(int socketTimeout);
-	
 
 }

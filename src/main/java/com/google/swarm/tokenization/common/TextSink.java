@@ -36,8 +36,8 @@ public class TextSink implements Sink<KV<String, String>> {
 
 	@Override
 	public void write(KV<String, String> element) {
-		//Iterator<String> valueIterator = element.getValue().iterator();
-		//StringBuilder contents = new StringBuilder();
+		// Iterator<String> valueIterator = element.getValue().iterator();
+		// StringBuilder contents = new StringBuilder();
 //		while (valueIterator.hasNext()) {
 //			contents.append(valueIterator.next());
 //

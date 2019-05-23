@@ -20,6 +20,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import javax.annotation.Nullable;
 
@@ -30,14 +31,19 @@ import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.ReadableFileCoder;
+import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.options.ValueProvider.NestedValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.transforms.WithKeys;
+import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
+import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
+import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
@@ -55,27 +61,16 @@ import com.google.privacy.dlp.v2.ProjectName;
 import com.google.protobuf.ByteString;
 import com.google.swarm.tokenization.common.AWSOptionParser;
 import com.google.swarm.tokenization.common.S3ImportOptions;
+import com.google.swarm.tokenization.common.TextBasedReader;
+import com.google.swarm.tokenization.common.TextSink;
 
 public class S3Import {
 
 	public static final Logger LOG = LoggerFactory.getLogger(S3Import.class);
 	private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(300);
-	private static final Integer DEFAULT_BATCH_SIZE = 524288;
-	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(60);
+	public static Integer BATCH_SIZE = 524288;
+	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(30);
 
-	private static final int READ_BUFFER_SIZE = 8192;
-    private final ByteBuffer readBuffer = ByteBuffer.allocate(READ_BUFFER_SIZE);
-    private ByteString buffer;
-    private int startOfDelimiterInBuffer;
-    private int endOfDelimiterInBuffer;
-    private long startOfRecord;
-    private volatile long startOfNextRecord;
-    private volatile boolean eof;
-    private volatile boolean elementIsPresent;
-    private @Nullable String currentValue;
-    private @Nullable ReadableByteChannel inChannel;
-    private @Nullable byte[] delimiter;
-	
 	public static void main(String[] args) {
 		S3ImportOptions options = PipelineOptionsFactory.fromArgs(args).withValidation().as(S3ImportOptions.class);
 
@@ -90,59 +85,84 @@ public class S3Import {
 				.apply(WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
 				.setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()));
 
-		files.apply(ParDo.of(new S3FileReader(NestedValueProvider.of(options.getBatchSize(), batchSize -> {
+		files.apply(ParDo.of(new S3CSVFileReader(NestedValueProvider.of(options.getBatchSize(), batchSize -> {
 			if (batchSize != null) {
 				return batchSize;
 			} else {
-				return DEFAULT_BATCH_SIZE;
+				return BATCH_SIZE;
 
 			}
 		})))).apply(ParDo.of(new TokenizeData(options.getProject(), options.getDeidentifyTemplateName(),
 				options.getInspectTemplateName())))
-				.apply("30 sec window",
+				.apply("Fixed Window",
 						Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL))
-								.triggering(AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.ZERO))
-								.discardingFiredPanes().withAllowedLateness(Duration.ZERO));
-//				.apply(GroupByKey.create());
-//				.apply("WriteToGCS", FileIO.<String, KV<String, Iterable<String>>>writeDynamic()
-//						.by((SerializableFunction<KV<String, Iterable<String>>, String>) contents -> {
-//							return contents.getKey();
-//						}).via(new TextSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
-//						.withNumShards(100).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
+								.triggering(AfterWatermark.pastEndOfWindow()
+										.withEarlyFirings(AfterProcessingTime.pastFirstElementInPane()
+												.plusDelayOf(Duration.standardSeconds(1)))
+										.withLateFirings(AfterPane.elementCountAtLeast(1)))
+								.discardingFiredPanes().withAllowedLateness(Duration.ZERO))
+
+				.apply("WriteToGCS", FileIO.<String, KV<String, String>>writeDynamic()
+						.by((SerializableFunction<KV<String, String>, String>) contents -> {
+							return contents.getKey();
+						}).via(new TextSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
+						.withNumShards(1).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
 
 		p.run();
-
 	}
 
 	@SuppressWarnings("serial")
-	public static class S3FileReader extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
+	public static class S3CSVFileReader extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
 
 		private ValueProvider<Integer> batchSize;
 
-		public S3FileReader(ValueProvider<Integer> batchSize) {
+		public S3CSVFileReader(ValueProvider<Integer> batchSize) {
 
-			this.batchSize=batchSize;
+			this.batchSize = batchSize;
 
 		}
-		
-		
-		
+
 		@ProcessElement
-		public void processElement(ProcessContext c) throws IOException {
-
+		public void processElement(ProcessContext c, OffsetRangeTracker tracker) throws IOException {
+			// create the channel
 			String fileName = c.element().getKey();
-			
-			try (SeekableByteChannel channel = getReader(c.element().getValue())) {
 
-				ByteBuffer bf = ByteBuffer.allocate(this.batchSize.get());
-				while ((channel.read(bf)) > 0) {
-					bf.flip();
-					byte[] data = bf.array();
-					bf.clear();
-					c.output(KV.of(fileName, new String(data, StandardCharsets.UTF_8).trim()));
+			try (SeekableByteChannel channel = getReader(c.element().getValue())) {
+				TextBasedReader reader = new TextBasedReader(channel, tracker.currentRestriction().getFrom(),
+						"\n".getBytes());
+				while (tracker.tryClaim(reader.getStartOfNextRecord())) {
+
+					reader.readNextRecord();
+					c.output(KV.of(fileName, reader.getCurrent()));
+
 				}
+
 			}
 
+		}
+
+		@GetInitialRestriction
+		public OffsetRange getInitialRestriction(KV<String, ReadableFile> file) throws IOException {
+			long totalBytes = file.getValue().getMetadata().sizeBytes();
+			LOG.debug("Initial Restriction range from 1 to: {}", totalBytes);
+			return new OffsetRange(0, totalBytes);
+
+		}
+
+		@SplitRestriction
+		public void splitRestriction(KV<String, ReadableFile> csvFile, OffsetRange range,
+				OutputReceiver<OffsetRange> out) {
+
+			List<OffsetRange> splits = range.split(BATCH_SIZE, BATCH_SIZE);
+			LOG.debug("Number of Split {}", splits.size());
+			for (final OffsetRange p : splits) {
+				out.output(p);
+			}
+		}
+
+		@NewTracker
+		public OffsetRangeTracker newTracker(OffsetRange range) {
+			return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
 		}
 
 	}
@@ -208,14 +228,19 @@ public class S3Import {
 		@ProcessElement
 		public void processElement(ProcessContext c) throws IOException {
 
-			ContentItem contentItem = ContentItem.newBuilder().setValue(c.element().getValue()).build();
-			LOG.debug("Request Size {}",contentItem.getSerializedSize() );
+			if (!c.element().getValue().isEmpty()) {
 
-			this.requestBuilder.setItem(contentItem);
-			DeidentifyContentResponse response = dlpServiceClient.deidentifyContent(this.requestBuilder.build());
-			String encryptedData = response.getItem().getValue();
-			LOG.info("Successfully tokenized request size {} bytes for File {}", response.getSerializedSize(), c.element().getKey());
-			c.output(KV.of(c.element().getKey(), encryptedData));
+				ContentItem contentItem = ContentItem.newBuilder().setValue(c.element().getValue()).build();
+				this.requestBuilder.setItem(contentItem);
+				DeidentifyContentResponse response = dlpServiceClient.deidentifyContent(this.requestBuilder.build());
+
+				String encryptedData = response.getItem().getValue();
+				LOG.info("Successfully tokenized request size {} bytes for File {}", response.getSerializedSize(),
+						c.element().getKey());
+				c.output(KV.of(c.element().getKey(), encryptedData));
+			} else {
+				LOG.error("Content Item is empty for the request {}", c.element().getKey());
+			}
 
 		}
 	}
@@ -232,93 +257,5 @@ public class S3Import {
 		return channel;
 
 	}
-	
-	protected boolean readNextRecord() throws IOException {
-	      startOfRecord = startOfNextRecord;
-	      findDelimiterBounds();
-
-	      // If we have reached EOF file and consumed all of the buffer then we know
-	      // that there are no more records.
-	      if (eof && buffer.isEmpty()) {
-	        elementIsPresent = false;
-	        return false;
-	      }
-
-	      decodeCurrentElement();
-	      startOfNextRecord = startOfRecord + endOfDelimiterInBuffer;
-	      return true;
-	    }
-	 private void findDelimiterBounds() throws IOException {
-	      int bytePositionInBuffer = 0;
-	      while (true) {
-	        if (!tryToEnsureNumberOfBytesInBuffer(bytePositionInBuffer + 1)) {
-	          startOfDelimiterInBuffer = endOfDelimiterInBuffer = bytePositionInBuffer;
-	          break;
-	        }
-
-	        byte currentByte = buffer.byteAt(bytePositionInBuffer);
-
-	        if (delimiter == null) {
-	          // default delimiter
-	          if (currentByte == '\n') {
-	            startOfDelimiterInBuffer = bytePositionInBuffer;
-	            endOfDelimiterInBuffer = startOfDelimiterInBuffer + 1;
-	            break;
-	          } else if (currentByte == '\r') {
-	            startOfDelimiterInBuffer = bytePositionInBuffer;
-	            endOfDelimiterInBuffer = startOfDelimiterInBuffer + 1;
-
-	            if (tryToEnsureNumberOfBytesInBuffer(bytePositionInBuffer + 2)) {
-	              currentByte = buffer.byteAt(bytePositionInBuffer + 1);
-	              if (currentByte == '\n') {
-	                endOfDelimiterInBuffer += 1;
-	              }
-	            }
-	            break;
-	          }
-	        } else {
-	          // user defined delimiter
-	          int i = 0;
-	          // initialize delimiter not found
-	          startOfDelimiterInBuffer = endOfDelimiterInBuffer = bytePositionInBuffer;
-	          while ((i <= delimiter.length - 1) && (currentByte == delimiter[i])) {
-	            // read next byte
-	            i++;
-	            if (tryToEnsureNumberOfBytesInBuffer(bytePositionInBuffer + i + 1)) {
-	              currentByte = buffer.byteAt(bytePositionInBuffer + i);
-	            } else {
-	              // corner case: delimiter truncated at the end of the file
-	              startOfDelimiterInBuffer = endOfDelimiterInBuffer = bytePositionInBuffer;
-	              break;
-	            }
-	          }
-	          if (i == delimiter.length) {
-	            // all bytes of delimiter found
-	            endOfDelimiterInBuffer = bytePositionInBuffer + i;
-	            break;
-	          }
-	        }
-	        // Move to the next byte in buffer.
-	        bytePositionInBuffer += 1;
-	      }
-	    }
-	 private void decodeCurrentElement() throws IOException {
-	      ByteString dataToDecode = buffer.substring(0, startOfDelimiterInBuffer);
-	      currentValue = dataToDecode.toStringUtf8();
-	      elementIsPresent = true;
-	      buffer = buffer.substring(endOfDelimiterInBuffer);
-	    }
-	 private boolean tryToEnsureNumberOfBytesInBuffer(int minCapacity) throws IOException {
-	      // While we aren't at EOF or haven't fulfilled the minimum buffer capacity,
-	      // attempt to read more bytes.
-	      while (buffer.size() <= minCapacity && !eof) {
-	        eof = inChannel.read(readBuffer) == -1;
-	        readBuffer.flip();
-	        buffer = buffer.concat(ByteString.copyFrom(readBuffer));
-	        readBuffer.clear();
-	      }
-	      // Return true if we were able to honor the minimum buffer capacity request
-	      return buffer.size() >= minCapacity;
-	    }
 
 }

@@ -42,11 +42,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
-public class DynamicOneFilePerWindow extends PTransform<PCollection<KV<String,String>>, PDone> {
+public class DynamicOneFilePerWindow extends PTransform<PCollection<KV<String, String>>, PDone> {
 	public static final Logger LOG = LoggerFactory.getLogger(DynamicOneFilePerWindow.class);
 
 	public static final DateTimeFormatter FORMATTER = ISODateTimeFormat.hourMinute();
-	
+
 	public String filenamePrefix;
 	@Nullable
 	private Integer numShards;
@@ -60,12 +60,12 @@ public class DynamicOneFilePerWindow extends PTransform<PCollection<KV<String,St
 	}
 
 	@Override
-	public PDone expand(PCollection<KV<String,String>> input) {
+	public PDone expand(PCollection<KV<String, String>> input) {
 
 		PCollection<String> contents = input.apply(ParDo.of(new DoFn<KV<String, String>, String>() {
 			@ProcessElement
 			public void processElement(ProcessContext c) {
-				filenamePrefix = String.format("%s%s", filenamePrefix,c.element().getKey());
+				filenamePrefix = String.format("%s%s", filenamePrefix, c.element().getKey());
 				LOG.info("File Prefix {}", filenamePrefix);
 
 				c.output(c.element().getValue());
@@ -100,7 +100,7 @@ public class DynamicOneFilePerWindow extends PTransform<PCollection<KV<String,St
 
 		public String filenamePrefixForWindow(IntervalWindow window) {
 			String prefix = baseFilename.isDirectory() ? "" : firstNonNull(baseFilename.getFilename(), "");
-			
+
 			return String.format("%s-%s-%s", prefix, FORMATTER.print(window.start()), FORMATTER.print(window.end()));
 		}
 
