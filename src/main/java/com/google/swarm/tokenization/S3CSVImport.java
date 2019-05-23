@@ -61,15 +61,15 @@ import com.google.swarm.tokenization.common.TextSink;
 public class S3CSVImport {
 	public static final Logger LOG = LoggerFactory.getLogger(S3Import.class);
 	private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(300);
-	public static Integer BATCH_SIZE=524288;
+	public static Integer BATCH_SIZE = 524288;
 	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(30);
-	
+
 	public static void main(String[] args) {
 		S3ImportOptions options = PipelineOptionsFactory.fromArgs(args).withValidation().as(S3ImportOptions.class);
 
 		AWSOptionParser.formatOptions(options);
 
-		Pipeline p = Pipeline.create(options);	 
+		Pipeline p = Pipeline.create(options);
 		PCollection<KV<String, ReadableFile>> files = p
 				.apply("Poll Input Files",
 						FileIO.match().filepattern(options.getBucketUrl()).continuously(DEFAULT_POLL_INTERVAL,
@@ -109,54 +109,56 @@ public class S3CSVImport {
 	public static class S3CSVFileReader extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
 
 		private ValueProvider<Integer> batchSize;
+
 		public S3CSVFileReader(ValueProvider<Integer> batchSize) {
 
 			this.batchSize = batchSize;
-			
 
 		}
 
 		@ProcessElement
 		public void processElement(ProcessContext c, OffsetRangeTracker tracker) throws IOException {
-			// create the channel 
-			 String fileName = c.element().getKey();
-			 TextBasedReader reader = new TextBasedReader(getReader(c.element().getValue()), 
-					 tracker.currentRestriction().getFrom(), "\n".getBytes());
-			 
-			 while(tracker.tryClaim(reader.getStartOfNextRecord())) {
-				 
-				 reader.readNextRecord();
-				 c.output(KV.of(fileName,reader.getCurrent()));
-				 
-			 }
-			 
-			 
-			 LOG.info("Restriction Completed {}", tracker.currentRestriction());
-	
+			// create the channel
+			String fileName = c.element().getKey();
 			
+			try (SeekableByteChannel channel = getReader(c.element().getValue())){
+				TextBasedReader reader = new TextBasedReader(channel,
+						tracker.currentRestriction().getFrom(), "\n".getBytes());
+				while (tracker.tryClaim(reader.getStartOfNextRecord())) {
+
+					reader.readNextRecord();
+					c.output(KV.of(fileName, reader.getCurrent()));
+
+				}
+					
+			}
+			LOG.info("Restriction Completed {}", tracker.currentRestriction());
+
+
 			
+
 
 		}
 
 		@GetInitialRestriction
 		public OffsetRange getInitialRestriction(KV<String, ReadableFile> file) throws IOException {
-			int totalBytes = file.getValue().readFullyAsBytes().length;
+			long totalBytes = file.getValue().getMetadata().sizeBytes();
 			LOG.info("Initial Restriction range from 1 to: {}", totalBytes);
-				return new OffsetRange(0, totalBytes);
-			
+			return new OffsetRange(0, totalBytes);
+
 		}
-		
+
 		@SplitRestriction
 		public void splitRestriction(KV<String, ReadableFile> csvFile, OffsetRange range,
 				OutputReceiver<OffsetRange> out) {
-			
-			List<OffsetRange> splits = range.split(BATCH_SIZE, 1);
-			LOG.info("Number of Split {}", splits.size());
+
+			List<OffsetRange> splits = range.split(BATCH_SIZE, BATCH_SIZE);
+			LOG.info("Number of Split {}", splits.size());  
 			for (final OffsetRange p : splits) {
 				out.output(p);
 			}
 		}
-		
+
 		@NewTracker
 		public OffsetRangeTracker newTracker(OffsetRange range) {
 			return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
@@ -254,5 +256,5 @@ public class S3CSVImport {
 		return channel;
 
 	}
-	
+
 }

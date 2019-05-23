@@ -10,16 +10,15 @@ public class AWSOptionParser {
 	private static final String AWS_S3_PREFIX = "s3";
 
 	public static void formatOptions(S3ImportOptions options) {
-		options.setS3ThreadPoolSize(10000);
+
+		
 		 ClientConfiguration configuration = new ClientConfiguration()
-				 .withMaxConnections(1000000)
-				 .withConnectionTTL(1000);
+		 .withMaxConnections(options.getMaxConnections())
+		 .withConnectionTimeout(options.getConnectionTimeout())
+		 .withSocketTimeout(options.getSocketTimeout());
 		
-		 options.setClientConfiguration(configuration);
-		 
-		
-		
-		if (options.getBucketUrl().toLowerCase().startsWith(AWS_S3_PREFIX)) {
+		options.setClientConfiguration(configuration);
+		if (options.getBucketUrl().get().toLowerCase().startsWith(AWS_S3_PREFIX)) {
 			setAwsCredentials(options);
 		}
 
@@ -30,7 +29,7 @@ public class AWSOptionParser {
 
 	private static void setAwsCredentials(S3ImportOptions options) {
 		options.setAwsCredentialsProvider(new AWSStaticCredentialsProvider(
-				new BasicAWSCredentials(options.getAwsAccessKey(), options.getAwsSecretKey())));
+				new BasicAWSCredentials(options.getAwsAccessKey().get(), options.getAwsSecretKey().get())));
 	}
 
 	private static void setAwsDefaultRegion(S3ImportOptions options) {

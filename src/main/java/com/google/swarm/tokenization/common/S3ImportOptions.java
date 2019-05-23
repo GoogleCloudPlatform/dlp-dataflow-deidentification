@@ -16,26 +16,26 @@
 package com.google.swarm.tokenization.common;
 
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
+import org.apache.beam.sdk.io.aws.options.AwsOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
-import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.ValueProvider;
 
-public interface S3ImportOptions extends DataflowPipelineOptions, S3Options {
+public interface S3ImportOptions extends DataflowPipelineOptions, AwsOptions, S3Options {
 	@Description("Import location in the format s3://<BUCKET_NAME>")
-	String getBucketUrl();
+	ValueProvider<String> getBucketUrl();
 
-	void setBucketUrl(String bucketUrl);
+	void setBucketUrl(ValueProvider<String> bucketUrl);
 
 	@Description("AWS S3 Key ID")
-	String getAwsAccessKey();
+	ValueProvider<String> getAwsAccessKey();
 
-	void setAwsAccessKey(String awsAccessKey);
+	void setAwsAccessKey(ValueProvider<String> awsAccessKey);
 
 	@Description("AWS S3 Secret Key")
-	String getAwsSecretKey();
+	ValueProvider<String> getAwsSecretKey();
 
-	void setAwsSecretKey(String awsSecretKey);
+	void setAwsSecretKey(ValueProvider<String> awsSecretKey);
 
 	@Description("Template to DeIdentiy")
 	ValueProvider<String> getDeidentifyTemplateName();
@@ -56,10 +56,20 @@ public interface S3ImportOptions extends DataflowPipelineOptions, S3Options {
 	ValueProvider<Integer> getBatchSize();
 
 	void setBatchSize(ValueProvider<Integer> value);
-	
-	  @Default.Integer(50)
-	  int getS3ThreadPoolSize();
 
-	  void setS3ThreadPoolSize(int value);
+	
+	@Description("AWS Client Configuration")
+	int getMaxConnections();
+	
+	void setMaxConnections(int maxConnections);
+	
+	int getConnectionTimeout();
+	
+	void setConnectionTimeout(int connectionTimeout);
+	
+	int getSocketTimeout();
+	
+	void setSocketTimeout(int socketTimeout);
+	
 
 }
