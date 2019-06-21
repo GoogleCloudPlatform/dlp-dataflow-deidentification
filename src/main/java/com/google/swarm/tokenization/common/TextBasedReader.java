@@ -29,7 +29,7 @@ import com.google.protobuf.ByteString;
 import com.google.swarm.tokenization.S3Import;
 
 public class TextBasedReader {
-	public static final Logger LOG = LoggerFactory.getLogger(S3Import.class);
+	public static final Logger LOG = LoggerFactory.getLogger(TextBasedReader.class);
 	private static final int READ_BUFFER_SIZE = 524000;
 	private final ByteBuffer readBuffer = ByteBuffer.allocate(READ_BUFFER_SIZE);
 	private ByteString buffer;
