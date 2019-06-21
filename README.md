@@ -515,26 +515,105 @@ DLP Inspect template:
 
 ### AWS S3 Import to GCS for Non Structured Data
 
-If you have some non structured text or log files that you would like to inspect or deidentify and upload the result to GCS bucket, please clone the repo in cloud shell and execute following gradle command. Please update the arguments as required for your project.
+This PoC can be used to inspect large scale contents stored in AWS S3 bucket from GCP using DLP and Dataflow. In highlevel it works as follows:
+
+### How it works?
+1. Build and Run the pipline in a GCS project using Dataflow. Please ensure you have enabled DLP and DF apis before executing. Also please create the gcs bucket as required from the gradle run command below. e.g: path of the bucket to store inspected files. DLP deid and inspect template.
+ 
+2. This PoC provides ability to scale horizontally (numofWorkers and numOfMaxWorkers) to meet large number of inspection requests. It process the files in parallel. If a file is large, it offsets the file by batchSize to process the contents in parallel using Datadlow's Split DoFn features (batchSize=524200) and delimeter character ("\n"). 
+
+3. PoC has been tested with 100 concurrent workers with unlimited DLP quotas. It was successfully able to process contents around 20GB/minute rate. 
+
+4. Below gradle run command disable autoscaling e.g: --autoscalingAlgorithm=NONE for faster ramp up. Please notice both numWorkers and maxNumWorkers are set to same size. In order to avoid extremly first ramp up (False DDoS alert), please start with a lower number of workers and have auto scaling enabled.
+
+### Before Start
+
+1. Please ensure you have increased the quotas in GCP project. e.g: DLP, Number of Cores, In Use IPs, Storage. 
+2. DLP Tempaltes created in the project. Template that was used for PoC is shared below. 
+3. Understand the data processing requriement to tune the AWS client based on the gradle run mparams. e,g: maxNumberofConnnections, s3ThreadPool
+
+### Build and Run 
 
 ```
+To Build :
 
-gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streaming --project=<id> --runner=DataflowRunner --awsAccessKey=<key> --awsSecretKey=<key> --bucketUrl=s3://<bucket>/*.txt --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --inspectTemplateName=projects/<id>>/inspectTemplates/<id> --awsRegion=us-east-2 --outputFile=gs://<> --numWorkers=9 --workerMachineType=n1-standard-8 --maxNumWorkers=9 --autoscalingAlgorithm=NONE --experiments=shuffle_mode=service --tempLocation=gs://<bucket>>/temp --batchSize=51200"
+gradle build -DmainClass=com.google.swarm.tokenization.S3Import --x test
 
+To Run: 
+
+gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streaming --project=<id> --runner=DataflowRunner --numWorkers=<n> --workerMachineType=n1-highmem-8 --maxNumWorkers=<n> --autoscalingAlgorithm=NONE --experiments=shuffle_mode=service --tempLocation=gs://<bucket>/temp --batchSize=524000 --s3ThreadPoolSize=1000 --maxConnections=1000000 --socketTimeout=10 --connectionTimeout=10 --awsRegion=ca-central-1 --awsAccessKey=<key> --awsSecretKey=<key> --bucketUrl=s3://<bucket>/*.* --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --inspectTemplateName=projects/<id>/inspectTemplates/<id> --outputFile=gs://<bucket>/"
 
 
 ```
+### Some Screenshots from the PoC run
+
 ![AWS S3 Bucket](aws-s3-bucket.png)
 
 After Tokenization in GCS: 
 
 ![GCS Bucket](gcs-bucket.png)
 
+Use of DLP Unlimited Quotas(Default is 600 calls /min) 
+![DLP Quotas](dlp-quotas.png)
+
+Bytes Processed from Dataflow stats
+![Bytes Processed](bytes-processed.png)
+
+AWS Request Count during the 10 mins Run
+![AWS-Request Count](aws-request-min.png)
+
+### DLP templates used
+
+Deidentify Template:
+
+```
+ "deidentifyConfig": {
+  "infoTypeTransformations": {
+   "transformations": [
+    {
+     "primitiveTransformation": {
+      "replaceWithInfoTypeConfig": {
+      }
+     }
+    }
+   ]
+  }
+ }
+
+```
+Inspect template:
+```
+inspectConfig": {
+  "infoTypes": [
+   {
+    "name": "EMAIL_ADDRESS"
+   },
+   {
+    "name": "CREDIT_CARD_NUMBER"
+   },
+   {
+    "name": "US_SOCIAL_SECURITY_NUMBER"
+   },
+   {
+    "name": "PHONE_NUMBER"
+   },
+   {
+    "name": "IP_ADDRESS"
+   }
+  ],
+  "minLikelihood": "POSSIBLE",
+  "limits": {
+  }
+ }
+
+```
+
 
 
 ### To Do
-
-- Unit Test and Code Coverage - in progress
-- Rate Limiter
-- Dynamic BQ dataset creation
+- Error handling in S3 import.
+- Unit Test and Code Coverage.
+- Rate Limiter.
+- Dynamic BQ dataset creation.
+- Automatic Provisioning. 
 
