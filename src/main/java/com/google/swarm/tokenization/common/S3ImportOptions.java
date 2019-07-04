@@ -23,9 +23,14 @@ import org.apache.beam.sdk.options.ValueProvider;
 
 public interface S3ImportOptions extends DataflowPipelineOptions, AwsOptions, S3Options {
 	@Description("Import location in the format s3://<BUCKET_NAME>")
-	ValueProvider<String> getBucketUrl();
+	ValueProvider<String> getS3BucketUrl();
 
-	void setBucketUrl(ValueProvider<String> bucketUrl);
+	void setS3BucketUrl(ValueProvider<String> bucketUrl);
+
+	@Description("Import location in the format s3://<BUCKET_NAME>")
+	ValueProvider<String> getGcsBucketUrl();
+
+	void setGcsBucketUrl(ValueProvider<String> bucketUrl);
 
 	@Description("AWS S3 Key ID")
 	ValueProvider<String> getAwsAccessKey();

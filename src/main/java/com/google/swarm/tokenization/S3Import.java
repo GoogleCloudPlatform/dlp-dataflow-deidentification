@@ -16,13 +16,8 @@
 package com.google.swarm.tokenization;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
-
-import javax.annotation.Nullable;
 
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -34,13 +29,14 @@ import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.ValueProvider;
-import org.apache.beam.sdk.options.ValueProvider.NestedValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
+import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
@@ -48,17 +44,21 @@ import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionList;
+import org.apache.beam.sdk.values.PCollectionTuple;
+import org.apache.beam.sdk.values.TupleTag;
+import org.apache.beam.sdk.values.TupleTagList;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.cloud.dlp.v2.DlpServiceClient;
+import com.google.common.collect.ImmutableList;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.DeidentifyContentRequest;
 import com.google.privacy.dlp.v2.DeidentifyContentRequest.Builder;
 import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.ProjectName;
-import com.google.protobuf.ByteString;
 import com.google.swarm.tokenization.common.AWSOptionParser;
 import com.google.swarm.tokenization.common.S3ImportOptions;
 import com.google.swarm.tokenization.common.TextBasedReader;
@@ -67,9 +67,19 @@ import com.google.swarm.tokenization.common.TextSink;
 public class S3Import {
 
 	public static final Logger LOG = LoggerFactory.getLogger(S3Import.class);
-	private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(300);
+	private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardDays(1);
 	public static Integer BATCH_SIZE = 524288;
 	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(30);
+
+	public static TupleTag<KV<String, String>> textReaderSuccessElements = new TupleTag<KV<String, String>>() {
+	};
+	public static TupleTag<String> textReaderFailedElements = new TupleTag<String>() {
+	};
+
+	public static TupleTag<KV<String, String>> apiResponseSuccessElements = new TupleTag<KV<String, String>>() {
+	};
+	public static TupleTag<String> apiResponseFailedElements = new TupleTag<String>() {
+	};
 
 	public static void main(String[] args) {
 		S3ImportOptions options = PipelineOptionsFactory.fromArgs(args).withValidation().as(S3ImportOptions.class);
@@ -77,65 +87,89 @@ public class S3Import {
 		AWSOptionParser.formatOptions(options);
 
 		Pipeline p = Pipeline.create(options);
-		PCollection<KV<String, ReadableFile>> files = p
-				.apply("Poll Input Files",
-						FileIO.match().filepattern(options.getBucketUrl()).continuously(DEFAULT_POLL_INTERVAL,
+		// s3
+		PCollection<KV<String, ReadableFile>> s3Files = p
+				.apply("Poll S3 Files",
+						FileIO.match().filepattern(options.getS3BucketUrl()).continuously(DEFAULT_POLL_INTERVAL,
 								Watch.Growth.never()))
-				.apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
-				.apply(WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
+				.apply("S3 File Match", FileIO.readMatches().withCompression(Compression.AUTO))
+				.apply("Add S3 File Name as Key",
+						WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
 				.setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()));
 
-		files.apply(ParDo.of(new S3CSVFileReader(NestedValueProvider.of(options.getBatchSize(), batchSize -> {
-			if (batchSize != null) {
-				return batchSize;
-			} else {
-				return BATCH_SIZE;
+		// gcs
+		PCollection<KV<String, ReadableFile>> gcsFiles = p
+				.apply("Poll GCS Files",
+						FileIO.match().filepattern(options.getGcsBucketUrl()).continuously(DEFAULT_POLL_INTERVAL,
+								Watch.Growth.never()))
+				.apply("GCS File Match", FileIO.readMatches().withCompression(Compression.AUTO))
+				.apply("Add GCS File Name As Key",
+						WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
+				.setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()));
 
-			}
-		})))).apply(ParDo.of(new TokenizeData(options.getProject(), options.getDeidentifyTemplateName(),
-				options.getInspectTemplateName())))
-				.apply("Fixed Window",
-						Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL))
-								.triggering(AfterWatermark.pastEndOfWindow()
-										.withEarlyFirings(AfterProcessingTime.pastFirstElementInPane()
-												.plusDelayOf(Duration.standardSeconds(1)))
-										.withLateFirings(AfterPane.elementCountAtLeast(1)))
-								.discardingFiredPanes().withAllowedLateness(Duration.ZERO))
+		PCollectionList<KV<String, ReadableFile>> pcs = PCollectionList.of(s3Files).and(gcsFiles);
+		PCollection<KV<String, ReadableFile>> files = pcs.apply("Combine List of Files",Flatten.<KV<String, ReadableFile>>pCollections());
 
+		PCollectionTuple contents = files.apply("Read File Contents", ParDo.of(new TextFileReader())
+				.withOutputTags(textReaderSuccessElements, TupleTagList.of(textReaderFailedElements)));
+
+		PCollectionTuple inspectedContents = contents.get(textReaderSuccessElements).apply(
+				"DLP API",
+				ParDo.of(new TokenizeData(options.getProject(), options.getDeidentifyTemplateName(),
+						options.getInspectTemplateName()))
+						.withOutputTags(apiResponseSuccessElements, TupleTagList.of(apiResponseFailedElements)));
+
+		inspectedContents.get(apiResponseSuccessElements).apply("Fixed Window", Window
+				.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL))
+				.triggering(AfterWatermark.pastEndOfWindow()
+						.withEarlyFirings(
+								AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.standardSeconds(10)))
+						.withLateFirings(AfterPane.elementCountAtLeast(1)))
+				.discardingFiredPanes().withAllowedLateness(Duration.ZERO))
 				.apply("WriteToGCS", FileIO.<String, KV<String, String>>writeDynamic()
-						.by((SerializableFunction<KV<String, String>, String>) contents -> {
-							return contents.getKey();
+						.by((SerializableFunction<KV<String, String>, String>) contentMap -> {
+							return contentMap.getKey();
 						}).via(new TextSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
 						.withNumShards(1).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
 
+		PCollectionList
+		.of(ImmutableList.of(contents.get(textReaderFailedElements),
+				inspectedContents.get(apiResponseFailedElements)))
+		.apply("Combine Error Logs", Flatten.pCollections())
+		.apply("Write Error Logs", ParDo.of(new DoFn<String, String>() {
+			@ProcessElement
+			public void processElement(ProcessContext c) {
+				LOG.error("***ERROR*** {}", c.element().toString());
+				c.output(c.element());
+			}
+		}));
+		
 		p.run();
 	}
 
 	@SuppressWarnings("serial")
-	public static class S3CSVFileReader extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
-
-		private ValueProvider<Integer> batchSize;
-
-		public S3CSVFileReader(ValueProvider<Integer> batchSize) {
-
-			this.batchSize = batchSize;
-
-		}
+	public static class TextFileReader extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
 
 		@ProcessElement
-		public void processElement(ProcessContext c, OffsetRangeTracker tracker) throws IOException {
+		public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker) throws IOException {
 			// create the channel
 			String fileName = c.element().getKey();
 
 			try (SeekableByteChannel channel = getReader(c.element().getValue())) {
-				TextBasedReader reader = new TextBasedReader(channel, tracker.currentRestriction().getFrom(),
-						"\n".getBytes());
+				TextBasedReader reader = new TextBasedReader(channel, 
+						tracker.currentRestriction().getFrom(),null);
+			
 				while (tracker.tryClaim(reader.getStartOfNextRecord())) {
-
 					reader.readNextRecord();
-					c.output(KV.of(fileName, reader.getCurrent()));
+					String data = reader.getCurrent();
+					LOG.info("Current Restriction Range {}, Data {}", 
+							tracker.currentRestriction(),data);
+					c.output(textReaderSuccessElements, KV.of(fileName, data));
 
 				}
+
+			} catch (Exception e) {
+				c.output(textReaderFailedElements, e.toString());
 
 			}
 
@@ -144,7 +178,7 @@ public class S3Import {
 		@GetInitialRestriction
 		public OffsetRange getInitialRestriction(KV<String, ReadableFile> file) throws IOException {
 			long totalBytes = file.getValue().getMetadata().sizeBytes();
-			LOG.debug("Initial Restriction range from 1 to: {}", totalBytes);
+			LOG.info("Initial Restriction range from 0 to: {} bytes", totalBytes);
 			return new OffsetRange(0, totalBytes);
 
 		}
@@ -153,8 +187,8 @@ public class S3Import {
 		public void splitRestriction(KV<String, ReadableFile> csvFile, OffsetRange range,
 				OutputReceiver<OffsetRange> out) {
 
-			List<OffsetRange> splits = range.split(BATCH_SIZE, BATCH_SIZE);
-			LOG.debug("Number of Split {}", splits.size());
+			List<OffsetRange> splits = range.split(BATCH_SIZE,1);
+			LOG.info("Number of Split 1 to {}", splits.size());
 			for (final OffsetRange p : splits) {
 				out.output(p);
 			}
@@ -228,32 +262,30 @@ public class S3Import {
 		@ProcessElement
 		public void processElement(ProcessContext c) throws IOException {
 
-			if (!c.element().getValue().isEmpty()) {
+			try {
+				if (!c.element().getValue().isEmpty()) {
 
-				ContentItem contentItem = ContentItem.newBuilder().setValue(c.element().getValue()).build();
-				this.requestBuilder.setItem(contentItem);
-				DeidentifyContentResponse response = dlpServiceClient.deidentifyContent(this.requestBuilder.build());
+					ContentItem contentItem = ContentItem.newBuilder().setValue(c.element().getValue()).build();
+					this.requestBuilder.setItem(contentItem);
+					DeidentifyContentResponse response = dlpServiceClient
+							.deidentifyContent(this.requestBuilder.build());
 
-				String encryptedData = response.getItem().getValue();
-				LOG.info("Successfully tokenized request size {} bytes for File {}", response.getSerializedSize(),
-						c.element().getKey());
-				c.output(KV.of(c.element().getKey(), encryptedData));
-			} else {
-				LOG.error("Content Item is empty for the request {}", c.element().getKey());
+					String encryptedData = response.getItem().getValue();
+					LOG.info("Successfully tokenized request size {} bytes for File {}", response.getSerializedSize(),
+							c.element().getKey());
+					c.output(apiResponseSuccessElements, KV.of(c.element().getKey(), encryptedData));
+				} 
+
+			} catch (Exception e) {
+				c.output(apiResponseFailedElements, e.toString());
+
 			}
-
 		}
 	}
 
-	private static SeekableByteChannel getReader(ReadableFile eventFile) {
+	private static SeekableByteChannel getReader(ReadableFile eventFile) throws IOException {
 		SeekableByteChannel channel = null;
-		try {
-			channel = eventFile.openSeekable();
-
-		} catch (IOException e) {
-			LOG.error("Failed to Open File {}", e.getMessage());
-			throw new RuntimeException(e);
-		}
+		channel = eventFile.openSeekable();
 		return channel;
 
 	}

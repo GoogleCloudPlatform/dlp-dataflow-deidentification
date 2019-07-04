@@ -30,7 +30,7 @@ import com.google.swarm.tokenization.S3Import;
 
 public class TextBasedReader {
 	public static final Logger LOG = LoggerFactory.getLogger(TextBasedReader.class);
-	private static final int READ_BUFFER_SIZE = 524000;
+	private int READ_BUFFER_SIZE = 8192;//524288;
 	private final ByteBuffer readBuffer = ByteBuffer.allocate(READ_BUFFER_SIZE);
 	private ByteString buffer;
 	private int startOfDelimiterInBuffer;
@@ -49,6 +49,7 @@ public class TextBasedReader {
 		this.delimiter = delimiter;
 		this.inChannel = channel;
 		this.startOfRecord = startOfRecord;
+		
 		startReading();
 
 	}
