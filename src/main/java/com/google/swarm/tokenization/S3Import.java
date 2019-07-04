@@ -16,8 +16,8 @@
 package com.google.swarm.tokenization;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
-import java.util.List;
 
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -59,16 +59,17 @@ import com.google.privacy.dlp.v2.DeidentifyContentRequest;
 import com.google.privacy.dlp.v2.DeidentifyContentRequest.Builder;
 import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.ProjectName;
+import com.google.protobuf.ByteString;
 import com.google.swarm.tokenization.common.AWSOptionParser;
 import com.google.swarm.tokenization.common.S3ImportOptions;
-import com.google.swarm.tokenization.common.TextBasedReader;
 import com.google.swarm.tokenization.common.TextSink;
 
 public class S3Import {
 
 	public static final Logger LOG = LoggerFactory.getLogger(S3Import.class);
 	private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardDays(1);
-	public static Integer BATCH_SIZE = 524288;
+	public static Integer BATCH_SIZE = 520000;
+	public static Integer DLP_PAYLOAD_LIMIT = 524288;
 	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(30);
 
 	public static TupleTag<KV<String, String>> textReaderSuccessElements = new TupleTag<KV<String, String>>() {
@@ -130,7 +131,7 @@ public class S3Import {
 						.by((SerializableFunction<KV<String, String>, String>) contentMap -> {
 							return contentMap.getKey();
 						}).via(new TextSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
-						.withNumShards(1).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
+						.withNumShards(10).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
 
 		PCollectionList
 		.of(ImmutableList.of(contents.get(textReaderFailedElements),
@@ -151,47 +152,64 @@ public class S3Import {
 	public static class TextFileReader extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
 
 		@ProcessElement
-		public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker) throws IOException {
+		public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker) {
 			// create the channel
 			String fileName = c.element().getKey();
-
 			try (SeekableByteChannel channel = getReader(c.element().getValue())) {
-				TextBasedReader reader = new TextBasedReader(channel, 
-						tracker.currentRestriction().getFrom(),null);
-			
-				while (tracker.tryClaim(reader.getStartOfNextRecord())) {
-					reader.readNextRecord();
-					String data = reader.getCurrent();
-					LOG.info("Current Restriction Range {}, Data {}", 
-							tracker.currentRestriction(),data);
-					c.output(textReaderSuccessElements, KV.of(fileName, data));
-
+				for (long i = tracker.currentRestriction().getFrom(); tracker.tryClaim(i); ++i) {
+						long startOffset= (i*BATCH_SIZE)-BATCH_SIZE;
+						channel.position(startOffset);
+						ByteBuffer readBuffer = ByteBuffer.allocate(BATCH_SIZE);
+						ByteString buffer = ByteString.EMPTY;
+						channel.read(readBuffer);
+						readBuffer.flip();
+						buffer = ByteString.copyFrom(readBuffer);
+						readBuffer.clear();
+						LOG.info("Current Restriction {}, Content Size{}",
+								tracker.currentRestriction(),buffer.size());
+						c.output(KV.of(fileName,buffer.toStringUtf8().trim()));		
+				
 				}
+			}catch (Exception e) {
+				
+				c.output(textReaderFailedElements, e.getMessage());
+		
+			}	
 
-			} catch (Exception e) {
-				c.output(textReaderFailedElements, e.toString());
-
-			}
 
 		}
+	
+
+		
 
 		@GetInitialRestriction
 		public OffsetRange getInitialRestriction(KV<String, ReadableFile> file) throws IOException {
 			long totalBytes = file.getValue().getMetadata().sizeBytes();
-			LOG.info("Initial Restriction range from 0 to: {} bytes", totalBytes);
-			return new OffsetRange(0, totalBytes);
+			long totalSplit = 0;
+			if (totalBytes<BATCH_SIZE) {
+				totalSplit =2;
+			}else {
+				totalSplit = totalSplit +(totalBytes / BATCH_SIZE);
+				long remaining = totalBytes % BATCH_SIZE;
+				if (remaining > 0) {
+			          totalSplit = totalSplit + 2;
+
+			    } 
+				
+			}
+			
+			LOG.info("Total Bytes {} for File {} -Initial Restriction range from 1 to: {}",totalBytes, file.getKey(), totalSplit);
+			return new OffsetRange(1, totalSplit);
 
 		}
 
 		@SplitRestriction
-		public void splitRestriction(KV<String, ReadableFile> csvFile, OffsetRange range,
+		public void splitRestriction(KV<String, ReadableFile> file, OffsetRange range,
 				OutputReceiver<OffsetRange> out) {
 
-			List<OffsetRange> splits = range.split(BATCH_SIZE,1);
-			LOG.info("Number of Split 1 to {}", splits.size());
-			for (final OffsetRange p : splits) {
-				out.output(p);
-			}
+			 for (final OffsetRange p : range.split(1, 1)) {
+			        out.output(p);
+			      }
 		}
 
 		@NewTracker
@@ -267,6 +285,14 @@ public class S3Import {
 
 					ContentItem contentItem = ContentItem.newBuilder().setValue(c.element().getValue()).build();
 					this.requestBuilder.setItem(contentItem);
+					
+					if (this.requestBuilder.build().getSerializedSize()>DLP_PAYLOAD_LIMIT) {
+						String errorMessage = String.format("Payload Size %s Exceeded Batch Size %s",this.requestBuilder.build().getSerializedSize(),
+								DLP_PAYLOAD_LIMIT);
+						c.output(apiResponseFailedElements, errorMessage);
+					}else {
+						
+		
 					DeidentifyContentResponse response = dlpServiceClient
 							.deidentifyContent(this.requestBuilder.build());
 
@@ -275,6 +301,8 @@ public class S3Import {
 							c.element().getKey());
 					c.output(apiResponseSuccessElements, KV.of(c.element().getKey(), encryptedData));
 				} 
+				
+				}		
 
 			} catch (Exception e) {
 				c.output(apiResponseFailedElements, e.toString());
