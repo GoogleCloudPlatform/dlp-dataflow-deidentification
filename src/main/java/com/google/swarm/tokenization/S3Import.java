@@ -156,11 +156,13 @@ public class S3Import {
 			// create the channel
 			String fileName = c.element().getKey();
 			try (SeekableByteChannel channel = getReader(c.element().getValue())) {
+				ByteBuffer readBuffer = ByteBuffer.allocate(BATCH_SIZE);
+				ByteString buffer = ByteString.EMPTY;
 				for (long i = tracker.currentRestriction().getFrom(); tracker.tryClaim(i); ++i) {
-						long startOffset= (i*BATCH_SIZE)-BATCH_SIZE;
+						long startOffset = (i*BATCH_SIZE)-BATCH_SIZE;
 						channel.position(startOffset);
-						ByteBuffer readBuffer = ByteBuffer.allocate(BATCH_SIZE);
-						ByteString buffer = ByteString.EMPTY;
+						readBuffer = ByteBuffer.allocate(BATCH_SIZE);
+						buffer = ByteString.EMPTY;
 						channel.read(readBuffer);
 						readBuffer.flip();
 						buffer = ByteString.copyFrom(readBuffer);
@@ -300,6 +302,11 @@ public class S3Import {
 					LOG.info("Successfully tokenized request size {} bytes for File {}", response.getSerializedSize(),
 							c.element().getKey());
 					c.output(apiResponseSuccessElements, KV.of(c.element().getKey(), encryptedData));
+
+					response.findInitializationErrors().forEach(error->{
+						c.output(apiResponseFailedElements, error.toString());
+											
+					});
 				} 
 				
 				}		
