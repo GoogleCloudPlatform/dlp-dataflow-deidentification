@@ -286,6 +286,7 @@ public class S3Import {
 					c.output(apiResponseSuccessElements, KV.of(c.element().getKey(), encryptedData));
 
 					response.findInitializationErrors().forEach(error->{
+						dlpServiceClient.close();
 						c.output(apiResponseFailedElements, error.toString());
 											
 					});
@@ -294,6 +295,7 @@ public class S3Import {
 				}		
 
 			} catch (Exception e) {
+				
 				c.output(apiResponseFailedElements, e.toString());
 
 			}
