@@ -71,6 +71,7 @@ public class S3Import {
 	public static Integer BATCH_SIZE = 520000;
 	public static Integer DLP_PAYLOAD_LIMIT = 524288;
 	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(30);
+	private static final Integer NUM_OF_SHARDS=10;
 
 	public static TupleTag<KV<String, String>> textReaderSuccessElements = new TupleTag<KV<String, String>>() {
 	};
@@ -109,8 +110,15 @@ public class S3Import {
 				.setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()));
 
 		PCollectionList<KV<String, ReadableFile>> pcs = PCollectionList.of(s3Files).and(gcsFiles);
-		PCollection<KV<String, ReadableFile>> files = pcs.apply("Combine List of Files",Flatten.<KV<String, ReadableFile>>pCollections());
-
+		PCollection<KV<String, ReadableFile>> files = pcs.apply("Combine List of Files",Flatten.<KV<String, ReadableFile>>pCollections())
+				.apply("Fixed Window", Window
+				.<KV<String, ReadableFile>>into(FixedWindows.of(WINDOW_INTERVAL))
+				.triggering(AfterWatermark.pastEndOfWindow()
+						.withEarlyFirings(
+								AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.standardSeconds(10)))
+						.withLateFirings(AfterPane.elementCountAtLeast(1)))
+				.discardingFiredPanes().withAllowedLateness(Duration.ZERO));
+		
 		PCollectionTuple contents = files.apply("Read File Contents", ParDo.of(new TextFileReader())
 				.withOutputTags(textReaderSuccessElements, TupleTagList.of(textReaderFailedElements)));
 
@@ -120,18 +128,12 @@ public class S3Import {
 						options.getInspectTemplateName()))
 						.withOutputTags(apiResponseSuccessElements, TupleTagList.of(apiResponseFailedElements)));
 
-		inspectedContents.get(apiResponseSuccessElements).apply("Fixed Window", Window
-				.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL))
-				.triggering(AfterWatermark.pastEndOfWindow()
-						.withEarlyFirings(
-								AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.standardSeconds(10)))
-						.withLateFirings(AfterPane.elementCountAtLeast(1)))
-				.discardingFiredPanes().withAllowedLateness(Duration.ZERO))
+		inspectedContents.get(apiResponseSuccessElements)
 				.apply("WriteToGCS", FileIO.<String, KV<String, String>>writeDynamic()
 						.by((SerializableFunction<KV<String, String>, String>) contentMap -> {
 							return contentMap.getKey();
 						}).via(new TextSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
-						.withNumShards(10).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
+						.withNumShards(NUM_OF_SHARDS).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
 
 		PCollectionList
 		.of(ImmutableList.of(contents.get(textReaderFailedElements),
