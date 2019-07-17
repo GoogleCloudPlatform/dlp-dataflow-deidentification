@@ -224,7 +224,6 @@ public class S3Import {
 	@SuppressWarnings("serial")
 	public static class TokenizeData extends DoFn<KV<String, String>, KV<String, String>> {
 		private String projectId;
-		private DlpServiceClient dlpServiceClient;
 		private ValueProvider<String> deIdentifyTemplateName;
 		private ValueProvider<String> inspectTemplateName;
 		private boolean inspectTemplateExist;
@@ -234,7 +233,6 @@ public class S3Import {
 		public TokenizeData(String projectId, ValueProvider<String> deIdentifyTemplateName,
 				ValueProvider<String> inspectTemplateName) {
 			this.projectId = projectId;
-			this.dlpServiceClient = null;
 			this.deIdentifyTemplateName = deIdentifyTemplateName;
 			this.inspectTemplateName = inspectTemplateName;
 			this.inspectTemplateExist = false;
@@ -260,29 +258,11 @@ public class S3Import {
 			}
 		}
 
-		@StartBundle
-		public void startBundle() {
-
-			try {
-				this.dlpServiceClient = DlpServiceClient.create();
-
-			} catch (IOException e) {
-				LOG.error("Failed to create DLP Service Client", e.getMessage());
-				throw new RuntimeException(e);
-			}
-		}
-
-		@FinishBundle
-		public void finishBundle() throws Exception {
-			if (this.dlpServiceClient != null) {
-				this.dlpServiceClient.close();
-			}
-		}
-
+		
 		@ProcessElement
 		public void processElement(ProcessContext c) throws IOException {
 
-			try {
+			try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
 				if (!c.element().getValue().isEmpty()) {
 
 					ContentItem contentItem = ContentItem.newBuilder().setValue(c.element().getValue()).build();
