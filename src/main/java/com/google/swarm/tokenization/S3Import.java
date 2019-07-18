@@ -33,7 +33,6 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SerializableFunction;
-import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
@@ -49,6 +48,7 @@ import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.sdk.values.TupleTagList;
 import org.joda.time.Duration;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,11 +67,10 @@ import com.google.swarm.tokenization.common.TextSink;
 public class S3Import {
 
 	public static final Logger LOG = LoggerFactory.getLogger(S3Import.class);
-	private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardDays(1);
 	public static Integer BATCH_SIZE = 520000;
 	public static Integer DLP_PAYLOAD_LIMIT = 524288;
-	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(30);
-	private static final Integer NUM_OF_SHARDS=10;
+	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(5);
+	private static final Integer NUM_OF_SHARDS=100;
 
 	public static TupleTag<KV<String, String>> textReaderSuccessElements = new TupleTag<KV<String, String>>() {
 	};
@@ -92,8 +91,7 @@ public class S3Import {
 		// s3
 		PCollection<KV<String, ReadableFile>> s3Files = p
 				.apply("Poll S3 Files",
-						FileIO.match().filepattern(options.getS3BucketUrl()).continuously(DEFAULT_POLL_INTERVAL,
-								Watch.Growth.never()))
+						FileIO.match().filepattern(options.getS3BucketUrl()))
 				.apply("S3 File Match", FileIO.readMatches().withCompression(Compression.AUTO))
 				.apply("Add S3 File Name as Key",
 						WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
@@ -102,15 +100,22 @@ public class S3Import {
 		// gcs
 		PCollection<KV<String, ReadableFile>> gcsFiles = p
 				.apply("Poll GCS Files",
-						FileIO.match().filepattern(options.getGcsBucketUrl()).continuously(DEFAULT_POLL_INTERVAL,
-								Watch.Growth.never()))
+						FileIO.match().filepattern(options.getGcsBucketUrl()))
 				.apply("GCS File Match", FileIO.readMatches().withCompression(Compression.AUTO))
 				.apply("Add GCS File Name As Key",
 						WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
 				.setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()));
 
 		PCollectionList<KV<String, ReadableFile>> pcs = PCollectionList.of(s3Files).and(gcsFiles);
-		PCollection<KV<String, ReadableFile>> files = pcs.apply("Combine List of Files",Flatten.<KV<String, ReadableFile>>pCollections())
+		PCollection<KV<String, ReadableFile>> files = pcs.apply("Combine List of Files",
+				Flatten.<KV<String, ReadableFile>>pCollections())
+				.apply("Add Timestamp",ParDo.of(new DoFn<KV<String, ReadableFile>,KV<String, ReadableFile>>(){
+					
+					@ProcessElement
+					public void processElement(ProcessContext c) {
+						c.outputWithTimestamp(c.element(), Instant.now());
+					}
+				}))
 				.apply("Fixed Window", Window
 				.<KV<String, ReadableFile>>into(FixedWindows.of(WINDOW_INTERVAL))
 				.triggering(AfterWatermark.pastEndOfWindow()
@@ -171,7 +176,9 @@ public class S3Import {
 						readBuffer.clear();
 						LOG.info("Current Restriction {}, Content Size{}",
 								tracker.currentRestriction(),buffer.size());
-						c.output(KV.of(fileName,buffer.toStringUtf8().trim()));		
+						String key = String.format("%d_%d_%s", 
+								tracker.currentRestriction().getFrom(), tracker.currentRestriction().getTo(),fileName);
+						c.output(KV.of(key,buffer.toStringUtf8().trim()));		
 				
 				}
 			}catch (Exception e) {
@@ -286,7 +293,6 @@ public class S3Import {
 					c.output(apiResponseSuccessElements, KV.of(c.element().getKey(), encryptedData));
 
 					response.findInitializationErrors().forEach(error->{
-						dlpServiceClient.close();
 						c.output(apiResponseFailedElements, error.toString());
 											
 					});
