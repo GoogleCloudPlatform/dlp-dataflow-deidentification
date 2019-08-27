@@ -537,21 +537,20 @@ DLP Inspect template:
 
 ### AWS S3 Import to GCS for Non Structured Data
 
-This PoC can be used to inspect large scale stuructured and unstructured data (CSV, txt extensions) stored in AWS S3 bucket. It uses Dataflow S3 connector to integrate with S3 bucket passed as a parameter, call DLP Inspect API to inspect data specified in DLP inspect template and store the inspectino result in BigQuery.  
+This PoC can be used to inspect large scale dataset (csv, txt) stored in AWS S3 bucket. It uses Dataflow S3 connector, invoke DLP Inspect API to inspect data based on some configuration specified in a DLP inspect template. It stores the result in BQ.   
 ### How it works?
-1. Build and Run the pipline in a GCS project using Dataflow. Please ensure you have enabled DLP and DF apis before executing. Also please create the gcs bucket as required from the gradle run command below. e.g: path of the bucket to store inspected files. DLP inspect template.
+1. Build and Run the pipline in a GCP project using Dataflow. Please ensure you have enabled DLP and DF apis before executing.
  
-2. This PoC provides ability to scale horizontally (numofWorkers and numOfMaxWorkers) to meet large number of inspection requests. It processes the files in parallel. If a file is large, it offsets the file by batchSize to process the contents in parallel using Datadlow's Split DoFn features (batchSize=524200) and delimeter character ("\n"). 
-
-3. PoC has been tested with 100 concurrent workers with unlimited DLP quotas. It was successfully able to process contents around 20GB/minute rate. 
+2. This PoC provides ability to scale horizontally (numofWorkers and numOfMaxWorkers) to meet large number of inspection requests in parallel. It uses Dataflow's streaming engine by default to process. 
 
 4. Below gradle run command disable autoscaling e.g: --autoscalingAlgorithm=NONE for faster ramp up. Please notice both numWorkers and maxNumWorkers are set to same size. In order to avoid extremly first ramp up (False DDoS alert), please start with a lower number of workers and have auto scaling enabled.
 
 ### Before Start
 
 1. Please ensure you have increased the quotas in GCP project. e.g: DLP, Number of Cores, In Use IPs, Storage. 
-2. DLP Templates created in the project. Template that was used for PoC is shared below. 
+2. DLP Inspection Template created in the project. Template that was used for PoC is shared below. 
 3. Understand the data processing requriement to tune the AWS client based on the gradle run mparams. e,g: maxNumberofConnnections, s3ThreadPool
+4. Create a BQ dataset.
 
 ### Build and Run 
 
@@ -566,7 +565,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streami
 
 ```
 ### Testing Configuration
-This PoC was built to process large scale data by scaling number of workers horizontally. Below are two type of configurations used. Successfully inspected 1.3 TB of data in less than 10 minutes. Recommended to use n1-highmem-16 machines  as it allows Dataflow to reserve more JVM heap memory.
+This PoC was built to process large scale data by scaling number of workers horizontally. During our test run, we have successfully inspected 1.3 TB of data in less than 10 minutes. It's recommended to use n1-highmem-16 machines as it allows Dataflow to reserve more JVM heap memory.
 
 TEST DATA SIZE:   1.3 TB  of CSV and text files.
 
@@ -581,6 +580,7 @@ Below configurations are common for both setup:
 
 
 ### Some Screenshots from the PoC run
+
 #### S3 Bucket
 
 ![AWS S3 Bucket](aws-s3-bucket.png)
@@ -600,24 +600,7 @@ Below configurations are common for both setup:
 
 ### DLP templates used
 
-Deidentify Template:
-
-```
- "deidentifyConfig": {
-  "infoTypeTransformations": {
-   "transformations": [
-    {
-     "primitiveTransformation": {
-      "replaceWithInfoTypeConfig": {
-      }
-     }
-    }
-   ]
-  }
- }
-
-```
-Inspect template:
+#### Inspect template:
 ```
 inspectConfig": {
   "infoTypes": [
