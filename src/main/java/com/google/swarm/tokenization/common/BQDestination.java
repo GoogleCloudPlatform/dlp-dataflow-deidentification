@@ -33,7 +33,6 @@ import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
 
-
 public class BQDestination extends DynamicDestinations<KV<String, TableRow>, KV<String, TableRow>> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(BQDestination.class);

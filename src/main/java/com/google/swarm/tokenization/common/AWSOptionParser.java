@@ -30,17 +30,18 @@ public class AWSOptionParser {
 				.withConnectionTimeout(options.getConnectionTimeout()).withSocketTimeout(options.getSocketTimeout());
 
 		options.setClientConfiguration(configuration);
-		//if (options.getS3BucketUrl()!=null && options.getS3BucketUrl().isAccessible()) {
-			if (options.getS3BucketUrl().get().toLowerCase().startsWith(AWS_S3_PREFIX)) {
-				setAwsCredentials(options);
-			}
-
-			if (options.getAwsRegion() == null) {
-				setAwsDefaultRegion(options);
-			}
+		// if (options.getS3BucketUrl()!=null &&
+		// options.getS3BucketUrl().isAccessible()) {
+		if (options.getS3BucketUrl().get().toLowerCase().startsWith(AWS_S3_PREFIX)) {
+			setAwsCredentials(options);
 		}
-		
-	//}
+
+		if (options.getAwsRegion() == null) {
+			setAwsDefaultRegion(options);
+		}
+	}
+
+	// }
 
 	private static void setAwsCredentials(S3ImportOptions options) {
 		options.setAwsCredentialsProvider(new AWSStaticCredentialsProvider(

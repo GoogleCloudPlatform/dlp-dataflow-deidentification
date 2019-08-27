@@ -144,7 +144,7 @@ public class Util {
 		});
 
 	}
-	
+
 	private static boolean isTimestamp(String value) {
 		try {
 			Instant.parse(value);
@@ -155,12 +155,8 @@ public class Util {
 
 	}
 
-	
-
 	public static boolean isNumeric(String value) {
-	
-		
-		
+
 		if (StringUtils.isNumeric(value)) {
 			return true;
 		}
@@ -175,7 +171,7 @@ public class Util {
 
 	public static String typeCheck(String value) {
 
-		if(value ==null ||value.isEmpty()) {
+		if (value == null || value.isEmpty()) {
 			return "String";
 		}
 		if (isNumeric(value)) {
@@ -189,5 +185,5 @@ public class Util {
 			return "STRING";
 		}
 	}
-	
+
 }

@@ -182,8 +182,9 @@ public class S3Import {
 					buffer = ByteString.copyFrom(readBuffer);
 					readBuffer.clear();
 					LOG.debug("Current Restriction {}, Content Size{}", tracker.currentRestriction(), buffer.size());
-					//String key = String.format("%d_%d_%s", tracker.currentRestriction().getFrom(),
-					//		tracker.currentRestriction().getTo(), fileName);
+					// String key = String.format("%d_%d_%s",
+					// tracker.currentRestriction().getFrom(),
+					// tracker.currentRestriction().getTo(), fileName);
 					c.output(KV.of(fileName, buffer.toStringUtf8().trim()));
 
 				}
@@ -238,8 +239,7 @@ public class S3Import {
 		private String projectId;
 		private ValueProvider<String> inspectTemplateName;
 		private Builder requestBuilder;
-		private final Counter numberOfBytesInspected =
-		        Metrics.counter(TokenizeData.class, "NumberOfBytesInspected");
+		private final Counter numberOfBytesInspected = Metrics.counter(TokenizeData.class, "NumberOfBytesInspected");
 
 		public TokenizeData(String projectId, ValueProvider<String> inspectTemplateName) {
 			this.projectId = projectId;
@@ -271,8 +271,6 @@ public class S3Import {
 
 						InspectContentResponse response = dlpServiceClient.inspectContent(this.requestBuilder.build());
 
-					 
-	
 						String timestamp = TIMESTAMP_FORMATTER.print(Instant.now().toDateTime(DateTimeZone.UTC));
 
 						response.getResult().getFindingsList().forEach(finding -> {
@@ -282,7 +280,7 @@ public class S3Import {
 
 							cells.add(new TableCell().set("file_name", c.element().getKey()));
 							row.set("file_name", c.element().getKey());
-							
+
 							cells.add(new TableCell().set("inspection_timestamp", timestamp));
 							row.set("inspection_timestamp", timestamp);
 
@@ -293,7 +291,6 @@ public class S3Import {
 							row.set("likelihood", finding.getLikelihood().name());
 
 							row.setF(cells);
-							
 
 							c.output(apiResponseSuccessElements, KV.of(BQ_TABLE_NAME, row));
 
