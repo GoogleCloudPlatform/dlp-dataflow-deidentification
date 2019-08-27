@@ -19,6 +19,10 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+
 public class AWSOptionParser {
 
 	private static final String AWS_DEFAULT_REGION = "us-east-1";
@@ -30,7 +34,8 @@ public class AWSOptionParser {
 				.withConnectionTimeout(options.getConnectionTimeout()).withSocketTimeout(options.getSocketTimeout());
 
 		options.setClientConfiguration(configuration);
-		if (options.getBucketUrl().get().toLowerCase().startsWith(AWS_S3_PREFIX)) {
+
+		if (options.getS3BucketUrl().get().toLowerCase().startsWith(AWS_S3_PREFIX)) {
 			setAwsCredentials(options);
 		}
 

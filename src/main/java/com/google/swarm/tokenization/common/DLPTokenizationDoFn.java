@@ -77,19 +77,19 @@ public class DLPTokenizationDoFn extends DoFn<KV<String, Table>, Row> {
 		}
 	}
 
-	public void setInspectTemplateExist(){
+	public void setInspectTemplateExist() {
 		if (this.inspectTemplateName.isAccessible()) {
 			if (this.inspectTemplateName.get() != null)
 				this.inspectTemplateExist = true;
 		}
 	}
 
-	public Boolean getInspectTemplateExist(){
+	public Boolean getInspectTemplateExist() {
 		return this.inspectTemplateExist;
 
 	}
 
-	public DeidentifyContentRequest buildDeidentifyContentRequest(ContentItem tableItem){
+	public DeidentifyContentRequest buildDeidentifyContentRequest(ContentItem tableItem) {
 		DeidentifyContentRequest request;
 		if (this.inspectTemplateExist) {
 			request = DeidentifyContentRequest.newBuilder().setParent(ProjectName.of(this.projectId).toString())
@@ -103,14 +103,13 @@ public class DLPTokenizationDoFn extends DoFn<KV<String, Table>, Row> {
 		return request;
 	}
 
-	public Row convertTableRowToRow(String[] header, String key, Table.Row outputRow){
+	public Row convertTableRowToRow(String[] header, String key, Table.Row outputRow) {
 		String dlpRow = outputRow.getValuesList().stream().map(value -> value.getStringValue())
 				.collect(Collectors.joining(","));
 		String[] values = dlpRow.split(",");
 		Row row = new Row(key, header, values);
 		return row;
 	}
-
 
 	@ProcessElement
 	public void processElement(ProcessContext c) {
