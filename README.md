@@ -535,7 +535,7 @@ DLP Inspect template:
 
 ```
 
-### AWS S3 Import to GCS for Non Structured Data
+### DLP Inspection for Data Stored in AWS S3 Bucket
 
 This PoC can be used to inspect large scale dataset (csv, txt) stored in AWS S3 bucket. It uses Dataflow S3 connector, invoke DLP Inspect API to inspect data based on some configuration specified in a DLP inspect template. It stores the result in BQ.   
 ### How it works?
