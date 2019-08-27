@@ -28,6 +28,7 @@ import java.util.List;
 
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.options.ValueProvider;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,10 +39,12 @@ import com.google.api.services.storage.Storage;
 import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
+import org.apache.commons.lang.StringUtils;
 
 public class Util {
 
 	public static final Logger LOG = LoggerFactory.getLogger(Util.class);
+	private static final String NESTED_SCHEMA_REGEX = ".*[^=]=(.*[^ ]), .*[^=]=(.*[^ ])";
 
 	public static String parseBucketName(String value) {
 		return value.substring(5, value.length() - 1);
@@ -141,4 +144,46 @@ public class Util {
 		});
 
 	}
+
+	private static boolean isTimestamp(String value) {
+		try {
+			Instant.parse(value);
+			return true;
+		} catch (IllegalArgumentException e) {
+			return false;
+		}
+
+	}
+
+	public static boolean isNumeric(String value) {
+
+		if (StringUtils.isNumeric(value)) {
+			return true;
+		}
+		try {
+			Float.parseFloat(value);
+			return true;
+		} catch (NumberFormatException e) {
+			return false;
+		}
+
+	}
+
+	public static String typeCheck(String value) {
+
+		if (value == null || value.isEmpty()) {
+			return "String";
+		}
+		if (isNumeric(value)) {
+			return "FLOAT";
+		} else if (isTimestamp(value)) {
+			return "TIMESTAMP";
+
+		} else if (value.matches(NESTED_SCHEMA_REGEX)) {
+			return "RECORD";
+		} else {
+			return "STRING";
+		}
+	}
+
 }

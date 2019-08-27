@@ -23,9 +23,14 @@ import org.apache.beam.sdk.options.ValueProvider;
 
 public interface S3ImportOptions extends DataflowPipelineOptions, AwsOptions, S3Options {
 	@Description("Import location in the format s3://<BUCKET_NAME>")
-	ValueProvider<String> getBucketUrl();
+	ValueProvider<String> getS3BucketUrl();
 
-	void setBucketUrl(ValueProvider<String> bucketUrl);
+	void setS3BucketUrl(ValueProvider<String> bucketUrl);
+
+	@Description("Import location in the format s3://<BUCKET_NAME>")
+	ValueProvider<String> getGcsBucketUrl();
+
+	void setGcsBucketUrl(ValueProvider<String> bucketUrl);
 
 	@Description("AWS S3 Key ID")
 	ValueProvider<String> getAwsAccessKey();
@@ -37,25 +42,10 @@ public interface S3ImportOptions extends DataflowPipelineOptions, AwsOptions, S3
 
 	void setAwsSecretKey(ValueProvider<String> awsSecretKey);
 
-	@Description("Template to DeIdentiy")
-	ValueProvider<String> getDeidentifyTemplateName();
-
-	void setDeidentifyTemplateName(ValueProvider<String> value);
-
 	@Description("Template to Inspect")
 	ValueProvider<String> getInspectTemplateName();
 
 	void setInspectTemplateName(ValueProvider<String> value);
-
-	@Description("Path of the file to write to")
-	ValueProvider<String> getOutputFile();
-
-	void setOutputFile(ValueProvider<String> value);
-
-	@Description("batch Size")
-	ValueProvider<Integer> getBatchSize();
-
-	void setBatchSize(ValueProvider<Integer> value);
 
 	@Description("AWS Client Configuration")
 	int getMaxConnections();
@@ -69,5 +59,10 @@ public interface S3ImportOptions extends DataflowPipelineOptions, AwsOptions, S3
 	int getSocketTimeout();
 
 	void setSocketTimeout(int socketTimeout);
+
+	@Description("Table spec to write the output to")
+	ValueProvider<String> getDataSetId();
+
+	void setDataSetId(ValueProvider<String> value);
 
 }

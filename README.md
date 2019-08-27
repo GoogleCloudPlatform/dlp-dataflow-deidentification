@@ -324,7 +324,8 @@ Example KMS Wrapped key:
 
 
 ### DLP template used in the use cases
-#####Example 1: Fully Structured Data 
+##### Example 1: Fully Structured Data 
+
 Sample input format in CSV:
 UserId,Password,PhoneNumber,CreditCard,SIN,AccountNumber
 dfellowes0@answers.com,dYmeZB,413-686-1509,374283210039640,878-44-9652,182001096-2
@@ -373,7 +374,7 @@ DLP Deidentify Template Used:
  }
 }
 ```
-#####Example 2: Semi Structured Data 
+##### Example 2: Semi Structured Data 
 Sample input format in CSV:
 UserId,SIN,AccountNumber,Password,CreditCard,Comments
 ofakeley0@elpais.com,607-82-9963,679647039-7,5433c541-a735-4783-ac1b-bdb1f95ba7b5,6706970503473868,Please change my number to. Thanks
@@ -475,7 +476,7 @@ DLP Inspect template:
 
 ```
 
-#####Example 3: Non Structured Data 
+##### Example 3: Non Structured Data 
 Sed ante. Vivamus tortor. Duis mattis egestas metus.".SI84 7084 7501 2230 378.Operative dynamic frame.5602235457198185.non-volatile.innovate collaborative supply-chains
 Selma Jade.407-24-8213."Morbi non lectus. Aliquam sit amet diam in magna bibendum imperdiet. Nullam orci pede, venenatis non, sodales sed, tincidunt eu, felis.".MD88 XCZD GPMR JX8X 8BN8 9RTA.Mandatory attitude-oriented migration.5285030805458686.function.harness 24/365 markets
 Helga Lane.870-09-7239."Suspendisse potenti. In eleifend quam a odio. In hac habitasse platea dictumst.
@@ -536,12 +537,11 @@ DLP Inspect template:
 
 ### AWS S3 Import to GCS for Non Structured Data
 
-This PoC can be used to inspect large scale contents stored in AWS S3 bucket from GCP using DLP and Dataflow. In highlevel it works as follows:
-
+This PoC can be used to inspect large scale stuructured and unstructured data (CSV, txt extensions) stored in AWS S3 bucket. It uses Dataflow S3 connector to integrate with S3 bucket passed as a parameter, call DLP Inspect API to inspect data specified in DLP inspect template and store the inspectino result in BigQuery.  
 ### How it works?
-1. Build and Run the pipline in a GCS project using Dataflow. Please ensure you have enabled DLP and DF apis before executing. Also please create the gcs bucket as required from the gradle run command below. e.g: path of the bucket to store inspected files. DLP deid and inspect template.
+1. Build and Run the pipline in a GCS project using Dataflow. Please ensure you have enabled DLP and DF apis before executing. Also please create the gcs bucket as required from the gradle run command below. e.g: path of the bucket to store inspected files. DLP inspect template.
  
-2. This PoC provides ability to scale horizontally (numofWorkers and numOfMaxWorkers) to meet large number of inspection requests. It process the files in parallel. If a file is large, it offsets the file by batchSize to process the contents in parallel using Datadlow's Split DoFn features (batchSize=524200) and delimeter character ("\n"). 
+2. This PoC provides ability to scale horizontally (numofWorkers and numOfMaxWorkers) to meet large number of inspection requests. It processes the files in parallel. If a file is large, it offsets the file by batchSize to process the contents in parallel using Datadlow's Split DoFn features (batchSize=524200) and delimeter character ("\n"). 
 
 3. PoC has been tested with 100 concurrent workers with unlimited DLP quotas. It was successfully able to process contents around 20GB/minute rate. 
 
@@ -550,7 +550,7 @@ This PoC can be used to inspect large scale contents stored in AWS S3 bucket fro
 ### Before Start
 
 1. Please ensure you have increased the quotas in GCP project. e.g: DLP, Number of Cores, In Use IPs, Storage. 
-2. DLP Tempaltes created in the project. Template that was used for PoC is shared below. 
+2. DLP Templates created in the project. Template that was used for PoC is shared below. 
 3. Understand the data processing requriement to tune the AWS client based on the gradle run mparams. e,g: maxNumberofConnnections, s3ThreadPool
 
 ### Build and Run 
@@ -562,25 +562,40 @@ gradle build -DmainClass=com.google.swarm.tokenization.S3Import --x test
 
 To Run: 
 
-gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streaming --project=<id> --runner=DataflowRunner --numWorkers=<n> --workerMachineType=n1-highmem-8 --maxNumWorkers=<n> --autoscalingAlgorithm=NONE --experiments=shuffle_mode=service --tempLocation=gs://<bucket>/temp --batchSize=524000 --s3ThreadPoolSize=1000 --maxConnections=1000000 --socketTimeout=10 --connectionTimeout=10 --awsRegion=ca-central-1 --awsAccessKey=<key> --awsSecretKey=<key> --bucketUrl=s3://<bucket>/*.* --deidentifyTemplateName=projects/<id>/deidentifyTemplates/<id> --inspectTemplateName=projects/<id>/inspectTemplates/<id> --outputFile=gs://<bucket>/"
-
+gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streaming --project=<id> --runner=DataflowRunner --awsAccessKey=<key>--awsSecretKey=<key>--s3BucketUrl=s3://<bucket>/*.* --inspectTemplateName=projects/<id>/inspectTemplates/<template_id> --awsRegion=ca-central-1 --numWorkers=50 --workerMachineType=n1-highmem-16 --maxNumWorkers=50 --autoscalingAlgorithm=NONE --enableStreamingEngine --tempLocation=gs://<bucket>/temp --dataSetId=<dataset_id> --s3ThreadPoolSize=1000 --maxConnections=1000000 --socketTimeout=100 --connectionTimeout=100"
 
 ```
+### Testing Configuration
+This PoC was built to process large scale data by scaling number of workers horizontally. Below are two type of configurations used. Successfully inspected 1.3 TB of data in less than 10 minutes. Recommended to use n1-highmem-16 machines  as it allows Dataflow to reserve more JVM heap memory.
+
+TEST DATA SIZE:   1.3 TB  of CSV and text files.
+
+1. Type 1: 50 n1-standard-16 machines. (800 vCPU, 2.93 TB memory)
+2. Type 2: 50 n1-highmem-16 machines (800 vCPU, 5.08 TB memory)
+
+Below configurations are common for both setup:
+
+1. Unlimited DLP quotas
+2. Use of Dataflow streaming engine 
+3. Default (100k/sec) BigQuery streaming inserts. 
+
+
 ### Some Screenshots from the PoC run
+#### S3 Bucket
 
 ![AWS S3 Bucket](aws-s3-bucket.png)
 
-After Tokenization in GCS: 
+#### Use of DLP Unlimited Quotas(Default is 600 calls /min) 
 
-![GCS Bucket](gcs-bucket.png)
+![DLP Quotas](number_of_quotas_used.png)
 
-Use of DLP Unlimited Quotas(Default is 600 calls /min) 
-![DLP Quotas](dlp-quotas.png)
+#### Inspection Result in BQ
 
-Bytes Processed from Dataflow stats
-![Bytes Processed](bytes-processed.png)
+![BQ Schema](BQ-schema.png)
 
-AWS Request Count during the 10 mins Run
+![BQ Table](scan_data.png)
+
+#### AWS Request Count during the 10 mins Run
 ![AWS-Request Count](aws-request-min.png)
 
 ### DLP templates used

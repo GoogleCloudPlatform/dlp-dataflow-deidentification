@@ -17,12 +17,10 @@ package com.google.swarm.tokenization;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
-
-import javax.annotation.Nullable;
+import java.util.Map;
 
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -31,16 +29,22 @@ import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.ReadableFileCoder;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
+import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
+import org.apache.beam.sdk.io.gcp.bigquery.InsertRetryPolicy;
+import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
 import org.apache.beam.sdk.io.range.OffsetRange;
+import org.apache.beam.sdk.metrics.Counter;
+import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.ValueProvider;
-import org.apache.beam.sdk.options.ValueProvider.NestedValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
+import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
@@ -48,28 +52,55 @@ import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionList;
+import org.apache.beam.sdk.values.PCollectionTuple;
+import org.apache.beam.sdk.values.TupleTag;
+import org.apache.beam.sdk.values.TupleTagList;
+import org.apache.beam.sdk.values.ValueInSingleWindow;
+import org.joda.time.DateTimeZone;
 import org.joda.time.Duration;
+import org.joda.time.Instant;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.api.services.bigquery.model.TableCell;
+import com.google.api.services.bigquery.model.TableFieldSchema;
+import com.google.api.services.bigquery.model.TableRow;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.dlp.v2.DlpServiceClient;
+import com.google.common.collect.ImmutableList;
 import com.google.privacy.dlp.v2.ContentItem;
-import com.google.privacy.dlp.v2.DeidentifyContentRequest;
-import com.google.privacy.dlp.v2.DeidentifyContentRequest.Builder;
-import com.google.privacy.dlp.v2.DeidentifyContentResponse;
+import com.google.privacy.dlp.v2.InspectContentRequest;
+import com.google.privacy.dlp.v2.InspectContentRequest.Builder;
+import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.protobuf.ByteString;
 import com.google.swarm.tokenization.common.AWSOptionParser;
 import com.google.swarm.tokenization.common.S3ImportOptions;
-import com.google.swarm.tokenization.common.TextBasedReader;
-import com.google.swarm.tokenization.common.TextSink;
+import com.google.swarm.tokenization.common.Util;
 
 public class S3Import {
 
-	public static final Logger LOG = LoggerFactory.getLogger(S3Import.class);
-	private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(300);
-	public static Integer BATCH_SIZE = 524288;
-	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(30);
+	private static final Logger LOG = LoggerFactory.getLogger(S3Import.class);
+	private static Integer BATCH_SIZE = 520000;
+	private static Integer DLP_PAYLOAD_LIMIT = 524288;
+	private static final String BQ_TABLE_NAME = String.valueOf("S3_DLP_INSPECT_FINDINGS");
+	private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(30);
+	private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(5);
+	private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat
+			.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
+
+	public static TupleTag<KV<String, String>> textReaderSuccessElements = new TupleTag<KV<String, String>>() {
+	};
+	public static TupleTag<String> textReaderFailedElements = new TupleTag<String>() {
+	};
+
+	public static TupleTag<KV<String, TableRow>> apiResponseSuccessElements = new TupleTag<KV<String, TableRow>>() {
+	};
+	public static TupleTag<String> apiResponseFailedElements = new TupleTag<String>() {
+	};
 
 	public static void main(String[] args) {
 		S3ImportOptions options = PipelineOptionsFactory.fromArgs(args).withValidation().as(S3ImportOptions.class);
@@ -77,65 +108,79 @@ public class S3Import {
 		AWSOptionParser.formatOptions(options);
 
 		Pipeline p = Pipeline.create(options);
-		PCollection<KV<String, ReadableFile>> files = p
-				.apply("Poll Input Files",
-						FileIO.match().filepattern(options.getBucketUrl()).continuously(DEFAULT_POLL_INTERVAL,
+		// s3
+		PCollection<KV<String, ReadableFile>> s3Files = p
+				.apply("Poll S3 Files",
+						FileIO.match().filepattern(options.getS3BucketUrl()).continuously(DEFAULT_POLL_INTERVAL,
 								Watch.Growth.never()))
-				.apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
-				.apply(WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
+				.apply("S3 File Match", FileIO.readMatches().withCompression(Compression.AUTO))
+				.apply("Add S3 File Name as Key",
+						WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
 				.setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()));
 
-		files.apply(ParDo.of(new S3CSVFileReader(NestedValueProvider.of(options.getBatchSize(), batchSize -> {
-			if (batchSize != null) {
-				return batchSize;
-			} else {
-				return BATCH_SIZE;
+		PCollection<KV<String, ReadableFile>> files = s3Files.apply("Fixed Window", Window
+				.<KV<String, ReadableFile>>into(FixedWindows.of(WINDOW_INTERVAL))
+				.triggering(AfterWatermark.pastEndOfWindow()
+						.withEarlyFirings(
+								AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.standardSeconds(10)))
+						.withLateFirings(AfterPane.elementCountAtLeast(1)))
+				.discardingFiredPanes().withAllowedLateness(Duration.ZERO));
 
-			}
-		})))).apply(ParDo.of(new TokenizeData(options.getProject(), options.getDeidentifyTemplateName(),
-				options.getInspectTemplateName())))
-				.apply("Fixed Window",
-						Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL))
-								.triggering(AfterWatermark.pastEndOfWindow()
-										.withEarlyFirings(AfterProcessingTime.pastFirstElementInPane()
-												.plusDelayOf(Duration.standardSeconds(1)))
-										.withLateFirings(AfterPane.elementCountAtLeast(1)))
-								.discardingFiredPanes().withAllowedLateness(Duration.ZERO))
+		PCollectionTuple contents = files.apply("Read File Contents", ParDo.of(new TextFileReader())
+				.withOutputTags(textReaderSuccessElements, TupleTagList.of(textReaderFailedElements)));
 
-				.apply("WriteToGCS", FileIO.<String, KV<String, String>>writeDynamic()
-						.by((SerializableFunction<KV<String, String>, String>) contents -> {
-							return contents.getKey();
-						}).via(new TextSink()).to(options.getOutputFile()).withDestinationCoder(StringUtf8Coder.of())
-						.withNumShards(1).withNaming(key -> FileIO.Write.defaultNaming(key, ".txt")));
+		PCollectionTuple inspectedContents = contents.get(textReaderSuccessElements).apply("DLP Inspection",
+				ParDo.of(new TokenizeData(options.getProject(), options.getInspectTemplateName()))
+						.withOutputTags(apiResponseSuccessElements, TupleTagList.of(apiResponseFailedElements)));
+
+		inspectedContents.get(apiResponseSuccessElements).apply("BQ Write", BigQueryIO.<KV<String, TableRow>>write()
+				.to(new BQDestination(options.getDataSetId(), options.getProject())).withFormatFunction(element -> {
+					return element.getValue();
+				}).withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND).withoutValidation()
+				.withFailedInsertRetryPolicy(InsertRetryPolicy.retryTransientErrors())
+				.withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED));
+
+		PCollectionList
+				.of(ImmutableList.of(contents.get(textReaderFailedElements),
+						inspectedContents.get(apiResponseFailedElements)))
+				.apply("Combine Error Logs", Flatten.pCollections())
+				.apply("Write Error Logs", ParDo.of(new DoFn<String, String>() {
+					@ProcessElement
+					public void processElement(ProcessContext c) {
+						LOG.error("***ERROR*** {}", c.element().toString());
+						c.output(c.element());
+					}
+				}));
 
 		p.run();
 	}
 
 	@SuppressWarnings("serial")
-	public static class S3CSVFileReader extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
-
-		private ValueProvider<Integer> batchSize;
-
-		public S3CSVFileReader(ValueProvider<Integer> batchSize) {
-
-			this.batchSize = batchSize;
-
-		}
+	public static class TextFileReader extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
 
 		@ProcessElement
-		public void processElement(ProcessContext c, OffsetRangeTracker tracker) throws IOException {
+		public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker) {
 			// create the channel
 			String fileName = c.element().getKey();
-
 			try (SeekableByteChannel channel = getReader(c.element().getValue())) {
-				TextBasedReader reader = new TextBasedReader(channel, tracker.currentRestriction().getFrom(),
-						"\n".getBytes());
-				while (tracker.tryClaim(reader.getStartOfNextRecord())) {
-
-					reader.readNextRecord();
-					c.output(KV.of(fileName, reader.getCurrent()));
+				ByteBuffer readBuffer = ByteBuffer.allocate(BATCH_SIZE);
+				ByteString buffer = ByteString.EMPTY;
+				for (long i = tracker.currentRestriction().getFrom(); tracker.tryClaim(i); ++i) {
+					long startOffset = (i * BATCH_SIZE) - BATCH_SIZE;
+					channel.position(startOffset);
+					readBuffer = ByteBuffer.allocate(BATCH_SIZE);
+					buffer = ByteString.EMPTY;
+					channel.read(readBuffer);
+					readBuffer.flip();
+					buffer = ByteString.copyFrom(readBuffer);
+					readBuffer.clear();
+					LOG.debug("Current Restriction {}, Content Size{}", tracker.currentRestriction(), buffer.size());
+					c.output(KV.of(fileName, buffer.toStringUtf8().trim()));
 
 				}
+			} catch (Exception e) {
+
+				c.output(textReaderFailedElements, e.getMessage());
 
 			}
 
@@ -144,18 +189,30 @@ public class S3Import {
 		@GetInitialRestriction
 		public OffsetRange getInitialRestriction(KV<String, ReadableFile> file) throws IOException {
 			long totalBytes = file.getValue().getMetadata().sizeBytes();
-			LOG.debug("Initial Restriction range from 1 to: {}", totalBytes);
-			return new OffsetRange(0, totalBytes);
+			long totalSplit = 0;
+			if (totalBytes < BATCH_SIZE) {
+				totalSplit = 2;
+			} else {
+				totalSplit = totalSplit + (totalBytes / BATCH_SIZE);
+				long remaining = totalBytes % BATCH_SIZE;
+				if (remaining > 0) {
+					totalSplit = totalSplit + 2;
+
+				}
+
+			}
+
+			LOG.debug("Total Bytes {} for File {} -Initial Restriction range from 1 to: {}", totalBytes, file.getKey(),
+					totalSplit);
+			return new OffsetRange(1, totalSplit);
 
 		}
 
 		@SplitRestriction
-		public void splitRestriction(KV<String, ReadableFile> csvFile, OffsetRange range,
+		public void splitRestriction(KV<String, ReadableFile> file, OffsetRange range,
 				OutputReceiver<OffsetRange> out) {
 
-			List<OffsetRange> splits = range.split(BATCH_SIZE, BATCH_SIZE);
-			LOG.debug("Number of Split {}", splits.size());
-			for (final OffsetRange p : splits) {
+			for (final OffsetRange p : range.split(1, 1)) {
 				out.output(p);
 			}
 		}
@@ -168,94 +225,159 @@ public class S3Import {
 	}
 
 	@SuppressWarnings("serial")
-	public static class TokenizeData extends DoFn<KV<String, String>, KV<String, String>> {
+	public static class TokenizeData extends DoFn<KV<String, String>, KV<String, TableRow>> {
 		private String projectId;
-		private DlpServiceClient dlpServiceClient;
-		private ValueProvider<String> deIdentifyTemplateName;
 		private ValueProvider<String> inspectTemplateName;
-		private boolean inspectTemplateExist;
-
 		private Builder requestBuilder;
+		private final Counter numberOfBytesInspected = Metrics.counter(TokenizeData.class, "NumberOfBytesInspected");
 
-		public TokenizeData(String projectId, ValueProvider<String> deIdentifyTemplateName,
-				ValueProvider<String> inspectTemplateName) {
+		public TokenizeData(String projectId, ValueProvider<String> inspectTemplateName) {
 			this.projectId = projectId;
-			this.dlpServiceClient = null;
-			this.deIdentifyTemplateName = deIdentifyTemplateName;
 			this.inspectTemplateName = inspectTemplateName;
-			this.inspectTemplateExist = false;
 
 		}
 
 		@Setup
 		public void setup() {
-			if (this.inspectTemplateName.isAccessible()) {
-				if (this.inspectTemplateName.get() != null) {
-					this.inspectTemplateExist = true;
-				}
-			}
-			if (this.deIdentifyTemplateName.isAccessible()) {
-				if (this.deIdentifyTemplateName.get() != null) {
-					this.requestBuilder = DeidentifyContentRequest.newBuilder()
-							.setParent(ProjectName.of(this.projectId).toString())
-							.setDeidentifyTemplateName(this.deIdentifyTemplateName.get());
-					if (this.inspectTemplateExist) {
-						this.requestBuilder.setInspectTemplateName(this.inspectTemplateName.get());
-					}
-				}
-			}
-		}
-
-		@StartBundle
-		public void startBundle() {
-
-			try {
-				this.dlpServiceClient = DlpServiceClient.create();
-
-			} catch (IOException e) {
-				LOG.error("Failed to create DLP Service Client", e.getMessage());
-				throw new RuntimeException(e);
-			}
-		}
-
-		@FinishBundle
-		public void finishBundle() throws Exception {
-			if (this.dlpServiceClient != null) {
-				this.dlpServiceClient.close();
-			}
+			this.requestBuilder = InspectContentRequest.newBuilder()
+					.setParent(ProjectName.of(this.projectId).toString())
+					.setInspectTemplateName(this.inspectTemplateName.get());
 		}
 
 		@ProcessElement
 		public void processElement(ProcessContext c) throws IOException {
 
-			if (!c.element().getValue().isEmpty()) {
+			try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
+				if (!c.element().getValue().isEmpty()) {
 
-				ContentItem contentItem = ContentItem.newBuilder().setValue(c.element().getValue()).build();
-				this.requestBuilder.setItem(contentItem);
-				DeidentifyContentResponse response = dlpServiceClient.deidentifyContent(this.requestBuilder.build());
+					ContentItem contentItem = ContentItem.newBuilder().setValue(c.element().getValue()).build();
+					this.requestBuilder.setItem(contentItem);
 
-				String encryptedData = response.getItem().getValue();
-				LOG.info("Successfully tokenized request size {} bytes for File {}", response.getSerializedSize(),
-						c.element().getKey());
-				c.output(KV.of(c.element().getKey(), encryptedData));
-			} else {
-				LOG.error("Content Item is empty for the request {}", c.element().getKey());
+					if (this.requestBuilder.build().getSerializedSize() > DLP_PAYLOAD_LIMIT) {
+						String errorMessage = String.format("Payload Size %s Exceeded Batch Size %s",
+								this.requestBuilder.build().getSerializedSize(), DLP_PAYLOAD_LIMIT);
+						c.output(apiResponseFailedElements, errorMessage);
+					} else {
+
+						InspectContentResponse response = dlpServiceClient.inspectContent(this.requestBuilder.build());
+
+						String timestamp = TIMESTAMP_FORMATTER.print(Instant.now().toDateTime(DateTimeZone.UTC));
+
+						response.getResult().getFindingsList().forEach(finding -> {
+
+							List<TableCell> cells = new ArrayList<>();
+							TableRow row = new TableRow();
+
+							cells.add(new TableCell().set("file_name", c.element().getKey()));
+							row.set("file_name", c.element().getKey());
+
+							cells.add(new TableCell().set("inspection_timestamp", timestamp));
+							row.set("inspection_timestamp", timestamp);
+
+							cells.add(new TableCell().set("infoType", finding.getInfoType().getName()));
+							row.set("infoType", finding.getInfoType().getName());
+
+							cells.add(new TableCell().set("likelihood", finding.getLikelihood().name()));
+							row.set("likelihood", finding.getLikelihood().name());
+
+							row.setF(cells);
+
+							c.output(apiResponseSuccessElements, KV.of(BQ_TABLE_NAME, row));
+
+						});
+
+						numberOfBytesInspected.inc(contentItem.getSerializedSize());
+						response.findInitializationErrors().forEach(error -> {
+							c.output(apiResponseFailedElements, error.toString());
+
+						});
+					}
+
+				}
+
+			} catch (Exception e) {
+
+				c.output(apiResponseFailedElements, e.toString());
+
 			}
-
 		}
 	}
 
-	private static SeekableByteChannel getReader(ReadableFile eventFile) {
+	private static SeekableByteChannel getReader(ReadableFile eventFile) throws IOException {
 		SeekableByteChannel channel = null;
-		try {
-			channel = eventFile.openSeekable();
-
-		} catch (IOException e) {
-			LOG.error("Failed to Open File {}", e.getMessage());
-			throw new RuntimeException(e);
-		}
+		channel = eventFile.openSeekable();
 		return channel;
 
 	}
 
+	public static class BQDestination extends DynamicDestinations<KV<String, TableRow>, KV<String, TableRow>> {
+
+		private static final long serialVersionUID = 1L;
+		private ValueProvider<String> datasetName;
+		private String projectId;
+
+		public BQDestination(ValueProvider<String> datasetName, String projectId) {
+			this.datasetName = datasetName;
+			this.projectId = projectId;
+
+		}
+
+		@Override
+		public KV<String, TableRow> getDestination(ValueInSingleWindow<KV<String, TableRow>> element) {
+			String key = element.getValue().getKey();
+			String tableName = String.format("%s:%s.%s", projectId, datasetName.get(), key);
+			LOG.debug("Table Name {}", tableName);
+			return KV.of(tableName, element.getValue().getValue());
+		}
+
+		@Override
+		public TableDestination getTable(KV<String, TableRow> destination) {
+			TableDestination dest = new TableDestination(destination.getKey(),
+					"pii-tokenized output data from dataflow");
+			LOG.debug("Table Destination {}", dest.getTableSpec());
+			return dest;
+		}
+
+		@Override
+		public TableSchema getSchema(KV<String, TableRow> destination) {
+
+			TableRow bqRow = destination.getValue();
+			TableSchema schema = new TableSchema();
+			List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
+			// When TableRow is created in earlier steps, setF() was
+			// used to setup TableCells so that Table Schema can be constructed
+
+			List<TableCell> cells = bqRow.getF();
+			for (int i = 0; i < cells.size(); i++) {
+
+				Map<String, Object> object = cells.get(i);
+				String header = object.keySet().iterator().next();
+				String type = Util.typeCheck(object.get(header).toString());
+				LOG.debug("Type {}, header {}, value {}", type, header, object.get(header).toString());
+				if (type.equals("RECORD")) {
+					String keyValuePair = object.get(header).toString();
+					String[] records = keyValuePair.split(",");
+					List<TableFieldSchema> nestedFields = new ArrayList<TableFieldSchema>();
+
+					for (int j = 0; j < records.length; j++) {
+						String[] element = records[j].substring(1).split("=");
+						String elementValue = element[1].substring(0, element[1].length() - 1);
+						String elementType = Util.typeCheck(elementValue.trim());
+						LOG.debug("element header {} , element type {}, element Value {}", element[0], elementType,
+								elementValue);
+						nestedFields.add(new TableFieldSchema().setName(element[0]).setType(elementType));
+					}
+					fields.add(new TableFieldSchema().setName(header).setType(type).setFields(nestedFields));
+
+				} else {
+					fields.add(new TableFieldSchema().setName(header).setType(type));
+
+				}
+
+			}
+			schema.setFields(fields);
+			return schema;
+		}
+
+	}
 }
