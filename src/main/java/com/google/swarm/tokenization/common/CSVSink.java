@@ -23,52 +23,47 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.apache.beam.sdk.io.FileIO.Sink;
 import org.apache.beam.sdk.values.KV;
 
 @SuppressWarnings("serial")
 public class CSVSink implements Sink<KV<String, Iterable<Row>>> {
 
-	private PrintWriter writer;
+  private PrintWriter writer;
 
-	@Override
-	public void open(WritableByteChannel channel) throws IOException {
-		writer = new PrintWriter(Channels.newOutputStream(channel));
+  @Override
+  public void open(WritableByteChannel channel) throws IOException {
+    writer = new PrintWriter(Channels.newOutputStream(channel));
+  }
 
-	}
+  @Override
+  public void write(KV<String, Iterable<Row>> element) throws IOException {
 
-	@Override
-	public void write(KV<String, Iterable<Row>> element) throws IOException {
+    Iterator<Row> valueIterator = element.getValue().iterator();
+    StringBuilder csvRows = new StringBuilder();
+    String csvHeader = getHeader(element.getValue().iterator().next());
+    if (csvHeader != null) csvRows.append(csvHeader + "\n");
+    while (valueIterator.hasNext()) {
+      Row row = valueIterator.next();
+      List<String> value = Arrays.asList(row.getValue());
+      String csvRow = value.stream().collect(Collectors.joining(","));
+      csvRows.append(csvRow + "\n");
+    }
 
-		Iterator<Row> valueIterator = element.getValue().iterator();
-		StringBuilder csvRows = new StringBuilder();
-		String csvHeader = getHeader(element.getValue().iterator().next());
-		if (csvHeader != null)
-			csvRows.append(csvHeader + "\n");
-		while (valueIterator.hasNext()) {
-			Row row = valueIterator.next();
-			List<String> value = Arrays.asList(row.getValue());
-			String csvRow = value.stream().collect(Collectors.joining(","));
-			csvRows.append(csvRow + "\n");
+    writer.println(csvRows);
+  }
 
-		}
+  @Override
+  public void flush() throws IOException {
+    writer.flush();
+  }
 
-		writer.println(csvRows);
-	}
-
-	@Override
-	public void flush() throws IOException {
-		writer.flush();
-	}
-
-	private String getHeader(Row row) {
-		String csvHeader = null;
-		if (row != null) {
-			List<String> headers = Arrays.asList(row.getHeader());
-			csvHeader = headers.stream().collect(Collectors.joining(","));
-
-		}
-		return csvHeader;
-	}
+  private String getHeader(Row row) {
+    String csvHeader = null;
+    if (row != null) {
+      List<String> headers = Arrays.asList(row.getHeader());
+      csvHeader = headers.stream().collect(Collectors.joining(","));
+    }
+    return csvHeader;
+  }
 }

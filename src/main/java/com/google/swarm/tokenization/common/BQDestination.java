@@ -15,9 +15,9 @@
  */
 package com.google.swarm.tokenization.common;
 
+import com.google.api.services.bigquery.model.TableSchema;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
 import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
 import org.apache.beam.sdk.options.ValueProvider;
@@ -26,46 +26,43 @@ import org.apache.beam.sdk.values.ValueInSingleWindow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.api.services.bigquery.model.TableSchema;
-
 @SuppressWarnings("serial")
 public class BQDestination extends DynamicDestinations<Row, KV<String, List<String>>> {
 
-	private static final Logger LOG = LoggerFactory.getLogger(BQDestination.class);
+  private static final Logger LOG = LoggerFactory.getLogger(BQDestination.class);
 
-	private ValueProvider<String> datasetName;
-	private String projectId;
+  private ValueProvider<String> datasetName;
+  private String projectId;
 
-	public BQDestination(ValueProvider<String> datasetName, String projectId) {
-		this.datasetName = datasetName;
-		this.projectId = projectId;
+  public BQDestination(ValueProvider<String> datasetName, String projectId) {
+    this.datasetName = datasetName;
+    this.projectId = projectId;
+  }
 
-	}
+  @Override
+  public KV<String, List<String>> getDestination(ValueInSingleWindow<Row> element) {
 
-	@Override
-	public KV<String, List<String>> getDestination(ValueInSingleWindow<Row> element) {
+    String key = element.getValue().getTableId();
+    String[] headers = element.getValue().getHeader();
+    String table_name = String.format("%s:%s.%s", this.projectId, this.datasetName, key);
+    LOG.debug("Table Destination {}, {}", table_name, headers.length);
+    return KV.of(table_name, Arrays.asList(headers));
+  }
 
-		String key = element.getValue().getTableId();
-		String[] headers = element.getValue().getHeader();
-		String table_name = String.format("%s:%s.%s", this.projectId, this.datasetName, key);
-		LOG.debug("Table Destination {}, {}", table_name, headers.length);
-		return KV.of(table_name, Arrays.asList(headers));
-	}
+  @Override
+  public TableDestination getTable(KV<String, List<String>> destination) {
 
-	@Override
-	public TableDestination getTable(KV<String, List<String>> destination) {
+    TableDestination dest =
+        new TableDestination(destination.getKey(), "pii-tokenized output data from dataflow");
+    LOG.debug("Table Destination {}", dest.toString());
+    return dest;
+  }
 
-		TableDestination dest = new TableDestination(destination.getKey(), "pii-tokenized output data from dataflow");
-		LOG.debug("Table Destination {}", dest.toString());
-		return dest;
-	}
+  @Override
+  public TableSchema getSchema(KV<String, List<String>> destination) {
 
-	@Override
-	public TableSchema getSchema(KV<String, List<String>> destination) {
-
-		TableSchema schema = Util.getSchema(destination.getValue());
-		LOG.debug("***Schema {}", schema.toString());
-		return schema;
-	}
-
+    TableSchema schema = Util.getSchema(destination.getValue());
+    LOG.debug("***Schema {}", schema.toString());
+    return schema;
+  }
 }
