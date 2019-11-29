@@ -19,34 +19,31 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
-
 import org.apache.beam.sdk.io.FileIO.Sink;
 import org.apache.beam.sdk.values.KV;
 
 @SuppressWarnings("serial")
-
 public class TextSink implements Sink<KV<String, String>> {
-	private PrintWriter writer;
+  private PrintWriter writer;
 
-	@Override
-	public void open(WritableByteChannel channel) throws IOException {
-		writer = new PrintWriter(Channels.newOutputStream(channel));
+  @Override
+  public void open(WritableByteChannel channel) throws IOException {
+    writer = new PrintWriter(Channels.newOutputStream(channel));
+  }
 
-	}
+  @Override
+  public void write(KV<String, String> element) {
+    // Iterator<String> valueIterator = element.getValue().iterator();
+    // StringBuilder contents = new StringBuilder();
+    //		while (valueIterator.hasNext()) {
+    //			contents.append(valueIterator.next());
+    //
+    //		}
+    writer.println(element.getValue());
+  }
 
-	@Override
-	public void write(KV<String, String> element) {
-		// Iterator<String> valueIterator = element.getValue().iterator();
-		// StringBuilder contents = new StringBuilder();
-//		while (valueIterator.hasNext()) {
-//			contents.append(valueIterator.next());
-//
-//		}
-		writer.println(element.getValue());
-	}
-
-	@Override
-	public void flush() throws IOException {
-		writer.flush();
-	}
+  @Override
+  public void flush() throws IOException {
+    writer.flush();
+  }
 }

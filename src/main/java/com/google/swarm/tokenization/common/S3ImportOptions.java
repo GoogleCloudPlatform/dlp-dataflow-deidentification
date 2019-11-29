@@ -22,47 +22,46 @@ import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.ValueProvider;
 
 public interface S3ImportOptions extends DataflowPipelineOptions, AwsOptions, S3Options {
-	@Description("Import location in the format s3://<BUCKET_NAME>")
-	ValueProvider<String> getS3BucketUrl();
+  @Description("Import location in the format s3://<BUCKET_NAME>")
+  ValueProvider<String> getS3BucketUrl();
 
-	void setS3BucketUrl(ValueProvider<String> bucketUrl);
+  void setS3BucketUrl(ValueProvider<String> bucketUrl);
 
-	@Description("Import location in the format s3://<BUCKET_NAME>")
-	ValueProvider<String> getGcsBucketUrl();
+  @Description("Import location in the format s3://<BUCKET_NAME>")
+  ValueProvider<String> getGcsBucketUrl();
 
-	void setGcsBucketUrl(ValueProvider<String> bucketUrl);
+  void setGcsBucketUrl(ValueProvider<String> bucketUrl);
 
-	@Description("AWS S3 Key ID")
-	ValueProvider<String> getAwsAccessKey();
+  @Description("AWS S3 Key ID")
+  ValueProvider<String> getAwsAccessKey();
 
-	void setAwsAccessKey(ValueProvider<String> awsAccessKey);
+  void setAwsAccessKey(ValueProvider<String> awsAccessKey);
 
-	@Description("AWS S3 Secret Key")
-	ValueProvider<String> getAwsSecretKey();
+  @Description("AWS S3 Secret Key")
+  ValueProvider<String> getAwsSecretKey();
 
-	void setAwsSecretKey(ValueProvider<String> awsSecretKey);
+  void setAwsSecretKey(ValueProvider<String> awsSecretKey);
 
-	@Description("Template to Inspect")
-	ValueProvider<String> getInspectTemplateName();
+  @Description("Template to Inspect")
+  ValueProvider<String> getInspectTemplateName();
 
-	void setInspectTemplateName(ValueProvider<String> value);
+  void setInspectTemplateName(ValueProvider<String> value);
 
-	@Description("AWS Client Configuration")
-	int getMaxConnections();
+  @Description("AWS Client Configuration")
+  int getMaxConnections();
 
-	void setMaxConnections(int maxConnections);
+  void setMaxConnections(int maxConnections);
 
-	int getConnectionTimeout();
+  int getConnectionTimeout();
 
-	void setConnectionTimeout(int connectionTimeout);
+  void setConnectionTimeout(int connectionTimeout);
 
-	int getSocketTimeout();
+  int getSocketTimeout();
 
-	void setSocketTimeout(int socketTimeout);
+  void setSocketTimeout(int socketTimeout);
 
-	@Description("Table spec to write the output to")
-	ValueProvider<String> getDataSetId();
+  @Description("Table spec to write the output to")
+  ValueProvider<String> getDataSetId();
 
-	void setDataSetId(ValueProvider<String> value);
-
+  void setDataSetId(ValueProvider<String> value);
 }

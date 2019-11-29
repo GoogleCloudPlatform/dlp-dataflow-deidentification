@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2018 Google LLC
  *
@@ -24,66 +23,65 @@ import org.apache.beam.sdk.options.ValueProvider;
 
 public interface TokenizePipelineOptions extends PipelineOptions {
 
-	@Description("Windowed interval")
-	@Default.Integer(10)
-	Integer getInterval();
+  @Description("Windowed interval")
+  @Default.Integer(10)
+  Integer getInterval();
 
-	void setInterval(Integer seconds);
+  void setInterval(Integer seconds);
 
-	@Description("Pollinginterval")
-	@Default.Integer(300)
-	Integer getPollingInterval();
+  @Description("Pollinginterval")
+  @Default.Integer(300)
+  Integer getPollingInterval();
 
-	void setPollingInterval(Integer seconds);
+  void setPollingInterval(Integer seconds);
 
-	@Description("Path of the file to read from")
-	ValueProvider<String> getInputFile();
+  @Description("Path of the file to read from")
+  ValueProvider<String> getInputFile();
 
-	void setInputFile(ValueProvider<String> value);
+  void setInputFile(ValueProvider<String> value);
 
-	@Description("Path of the file to write to")
-	ValueProvider<String> getOutputFile();
+  @Description("Path of the file to write to")
+  ValueProvider<String> getOutputFile();
 
-	void setOutputFile(ValueProvider<String> value);
+  void setOutputFile(ValueProvider<String> value);
 
-	@Description("Template to DeIdentiy")
-	ValueProvider<String> getDeidentifyTemplateName();
+  @Description("Template to DeIdentiy")
+  ValueProvider<String> getDeidentifyTemplateName();
 
-	void setDeidentifyTemplateName(ValueProvider<String> value);
+  void setDeidentifyTemplateName(ValueProvider<String> value);
 
-	@Description("Template to Inspect")
-	ValueProvider<String> getInspectTemplateName();
+  @Description("Template to Inspect")
+  ValueProvider<String> getInspectTemplateName();
 
-	void setInspectTemplateName(ValueProvider<String> value);
+  void setInspectTemplateName(ValueProvider<String> value);
 
-	@Description("batch Size")
-	ValueProvider<Integer> getBatchSize();
+  @Description("batch Size")
+  ValueProvider<Integer> getBatchSize();
 
-	void setBatchSize(ValueProvider<Integer> value);
+  void setBatchSize(ValueProvider<Integer> value);
 
-	@Description("encryption_key (CSEK) to decrypt the bucket")
-	ValueProvider<String> getCsek();
+  @Description("encryption_key (CSEK) to decrypt the bucket")
+  ValueProvider<String> getCsek();
 
-	void setCsek(ValueProvider<String> value);
+  void setCsek(ValueProvider<String> value);
 
-	@Description("CSEK hash to decrypt the bucket")
-	ValueProvider<String> getCsekhash();
+  @Description("CSEK hash to decrypt the bucket")
+  ValueProvider<String> getCsekhash();
 
-	void setCsekhash(ValueProvider<String> value);
+  void setCsekhash(ValueProvider<String> value);
 
-	@Description("GCS File Decryption Key Name")
-	ValueProvider<String> getFileDecryptKey();
+  @Description("GCS File Decryption Key Name")
+  ValueProvider<String> getFileDecryptKey();
 
-	void setFileDecryptKey(ValueProvider<String> value);
+  void setFileDecryptKey(ValueProvider<String> value);
 
-	@Description("GCS File Decryption Key Ring Name")
-	ValueProvider<String> getFileDecryptKeyName();
+  @Description("GCS File Decryption Key Ring Name")
+  ValueProvider<String> getFileDecryptKeyName();
 
-	void setFileDecryptKeyName(ValueProvider<String> value);
+  void setFileDecryptKeyName(ValueProvider<String> value);
 
-	@Description("DataSet Spec")
-	ValueProvider<String> getDataset();
+  @Description("DataSet Spec")
+  ValueProvider<String> getDataset();
 
-	void setDataset(ValueProvider<String> value);
-
+  void setDataset(ValueProvider<String> value);
 }

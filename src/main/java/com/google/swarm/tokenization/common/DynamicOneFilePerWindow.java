@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2018 Google LLC
  *
@@ -19,7 +18,6 @@ package com.google.swarm.tokenization.common;
 import static com.google.common.base.MoreObjects.firstNonNull;
 
 import javax.annotation.Nullable;
-
 import org.apache.beam.sdk.io.FileBasedSink;
 import org.apache.beam.sdk.io.FileBasedSink.FilenamePolicy;
 import org.apache.beam.sdk.io.FileBasedSink.OutputFileHints;
@@ -43,79 +41,95 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
 public class DynamicOneFilePerWindow extends PTransform<PCollection<KV<String, String>>, PDone> {
-	public static final Logger LOG = LoggerFactory.getLogger(DynamicOneFilePerWindow.class);
+  public static final Logger LOG = LoggerFactory.getLogger(DynamicOneFilePerWindow.class);
 
-	public static final DateTimeFormatter FORMATTER = ISODateTimeFormat.hourMinute();
+  public static final DateTimeFormatter FORMATTER = ISODateTimeFormat.hourMinute();
 
-	public String filenamePrefix;
-	@Nullable
-	private Integer numShards;
+  public String filenamePrefix;
+  @Nullable private Integer numShards;
 
-	public DynamicOneFilePerWindow(ValueProvider<String> filenamePrefix, Integer numShards) {
-		if (filenamePrefix.isAccessible())
-			this.filenamePrefix = filenamePrefix.get();
-		else
-			this.filenamePrefix = "output";
-		this.numShards = numShards;
-	}
+  public DynamicOneFilePerWindow(ValueProvider<String> filenamePrefix, Integer numShards) {
+    if (filenamePrefix.isAccessible()) this.filenamePrefix = filenamePrefix.get();
+    else this.filenamePrefix = "output";
+    this.numShards = numShards;
+  }
 
-	@Override
-	public PDone expand(PCollection<KV<String, String>> input) {
+  @Override
+  public PDone expand(PCollection<KV<String, String>> input) {
 
-		PCollection<String> contents = input.apply(ParDo.of(new DoFn<KV<String, String>, String>() {
-			@ProcessElement
-			public void processElement(ProcessContext c) {
-				filenamePrefix = String.format("%s%s", filenamePrefix, c.element().getKey());
-				LOG.info("File Prefix {}", filenamePrefix);
+    PCollection<String> contents =
+        input.apply(
+            ParDo.of(
+                new DoFn<KV<String, String>, String>() {
+                  @ProcessElement
+                  public void processElement(ProcessContext c) {
+                    filenamePrefix = String.format("%s%s", filenamePrefix, c.element().getKey());
+                    LOG.info("File Prefix {}", filenamePrefix);
 
-				c.output(c.element().getValue());
-			}
-		}));
+                    c.output(c.element().getValue());
+                  }
+                }));
 
-		ResourceId resource = FileBasedSink.convertToFileResourceIfPossible(filenamePrefix);
-		TextIO.Write write = TextIO.write().to(new PerWindowFiles(resource))
-				.withTempDirectory(resource.getCurrentDirectory()).withWindowedWrites();
+    ResourceId resource = FileBasedSink.convertToFileResourceIfPossible(filenamePrefix);
+    TextIO.Write write =
+        TextIO.write()
+            .to(new PerWindowFiles(resource))
+            .withTempDirectory(resource.getCurrentDirectory())
+            .withWindowedWrites();
 
-		if (numShards != null) {
-			write = write.withNumShards(numShards);
+    if (numShards != null) {
+      write = write.withNumShards(numShards);
+    }
 
-		}
+    return contents.apply(write);
+  }
 
-		return contents.apply(write);
-	}
+  /**
+   * A {@link FilenamePolicy} produces a base file name for a write based on metadata about the data
+   * being written. This always includes the shard number and the total number of shards. For
+   * windowed writes, it also includes the window and pane index (a sequence number assigned to each
+   * trigger firing).
+   */
+  public static class PerWindowFiles extends FilenamePolicy {
 
-	/**
-	 * A {@link FilenamePolicy} produces a base file name for a write based on
-	 * metadata about the data being written. This always includes the shard number
-	 * and the total number of shards. For windowed writes, it also includes the
-	 * window and pane index (a sequence number assigned to each trigger firing).
-	 */
-	public static class PerWindowFiles extends FilenamePolicy {
+    private final ResourceId baseFilename;
 
-		private final ResourceId baseFilename;
+    public PerWindowFiles(ResourceId baseFilename) {
+      this.baseFilename = baseFilename;
+    }
 
-		public PerWindowFiles(ResourceId baseFilename) {
-			this.baseFilename = baseFilename;
-		}
+    public String filenamePrefixForWindow(IntervalWindow window) {
+      String prefix =
+          baseFilename.isDirectory() ? "" : firstNonNull(baseFilename.getFilename(), "");
 
-		public String filenamePrefixForWindow(IntervalWindow window) {
-			String prefix = baseFilename.isDirectory() ? "" : firstNonNull(baseFilename.getFilename(), "");
+      return String.format(
+          "%s-%s-%s", prefix, FORMATTER.print(window.start()), FORMATTER.print(window.end()));
+    }
 
-			return String.format("%s-%s-%s", prefix, FORMATTER.print(window.start()), FORMATTER.print(window.end()));
-		}
+    @Override
+    public ResourceId windowedFilename(
+        int shardNumber,
+        int numShards,
+        BoundedWindow window,
+        PaneInfo paneInfo,
+        OutputFileHints outputFileHints) {
+      IntervalWindow intervalWindow = (IntervalWindow) window;
+      String filename =
+          String.format(
+              "%s-%s-of-%s%s",
+              filenamePrefixForWindow(intervalWindow),
+              shardNumber,
+              numShards,
+              outputFileHints.getSuggestedFilenameSuffix());
+      return baseFilename
+          .getCurrentDirectory()
+          .resolve(filename, StandardResolveOptions.RESOLVE_FILE);
+    }
 
-		@Override
-		public ResourceId windowedFilename(int shardNumber, int numShards, BoundedWindow window, PaneInfo paneInfo,
-				OutputFileHints outputFileHints) {
-			IntervalWindow intervalWindow = (IntervalWindow) window;
-			String filename = String.format("%s-%s-of-%s%s", filenamePrefixForWindow(intervalWindow), shardNumber,
-					numShards, outputFileHints.getSuggestedFilenameSuffix());
-			return baseFilename.getCurrentDirectory().resolve(filename, StandardResolveOptions.RESOLVE_FILE);
-		}
-
-		@Override
-		public ResourceId unwindowedFilename(int shardNumber, int numShards, OutputFileHints outputFileHints) {
-			throw new UnsupportedOperationException("Unsupported.");
-		}
-	}
+    @Override
+    public ResourceId unwindowedFilename(
+        int shardNumber, int numShards, OutputFileHints outputFileHints) {
+      throw new UnsupportedOperationException("Unsupported.");
+    }
+  }
 }
