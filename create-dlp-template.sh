@@ -26,23 +26,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
  
-set -x
-echo "please to use glocud make sure you completed authentication"
-echo "gcloud config set project templates-user"
-echo "gcloud auth application-default login"
- 
+set -x 
 PROJECT_ID=$1
-KEY_RING_NAME=$2
-KEY_NAME=$3
-TEK=$4
-KEK=$5
-API_KEY=$6
-API_ROOT_URL="https://cloudkms.googleapis.com"
-KEK_API="${API_ROOT_URL}/v1/projects/${PROJECT_ID}/locations/global/keyRings/${KEY_RING_NAME}/cryptoKeys/${KEY_NAME}:encrypt"
+DEID_CONFIG="@de-identify-config.json"
+DEID_TEMPLATE_OUTPUT="deid-template.json"
+INSPECT_CONFIG="@inspect-config.json"
+INSPECT_TEMPLATE_OUTPUT="inspect-template.json"
+API_KEY=$2
+API_ROOT_URL="https://dlp.googleapis.com"
+DEID_TEMPLATE_API="${API_ROOT_URL}/v2/projects/${PROJECT_ID}/deidentifyTemplates"
+INSPECT_TEMPLATE_API="${API_ROOT_URL}/v2/projects/${PROJECT_ID}/inspectTemplates"
+
 curl -X POST -H "Content-Type: application/json" \
  -H "Authorization: Bearer ${API_KEY}" \
- "${KEK_API}"`` \
- -d '{"plaintext":"'${TEK}'"}' \
- -o "${KEK}"	 
+ "${DEID_TEMPLATE_API}"`` \
+ -d "${DEID_CONFIG}"\
+ -o "${DEID_TEMPLATE_OUTPUT}"
+
+curl -X POST -H "Content-Type: application/json" \
+ -H "Authorization: Bearer ${API_KEY}" \
+ "${INSPECT_TEMPLATE_API}"`` \
+ -d "${INSPECT_CONFIG}"\
+ -o "${INSPECT_TEMPLATE_OUTPUT}"
 
 

@@ -1,0 +1,27 @@
+ # Copyright 2019 Google Inc.
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+ # You may obtain a copy of the License at
+ #
+ #     http://www.apache.org/licenses/LICENSE-2.0
+ #
+ # Unless required by applicable law or agreed to in writing, software
+ # distributed under the License is distributed on an "AS IS" BASIS,
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+steps:
+- name: 'gcr.io/cloud-builders/gradle'
+  args: ['run', '-DmainClass=com.google.swarm.tokenization.tool.DLPTemplateHelper', '--x', 'test', '-Pargs=${_KEK_CONFIG_FILE}']
+- name: gcr.io/cloud-builders/gsutil
+  args: ['cp', '${_GCS_BUCKET_NAME}/de-identify-config.json', '.']
+- name: gcr.io/cloud-builders/gsutil
+  args: ['cp', '${_GCS_BUCKET_NAME}/inspect-config.json', '.']  
+- name: 'gcr.io/cloud-builders/docker'
+  entrypoint: 'bash'
+  args: ['-c', 'sh create-dlp-template.sh ${PROJECT_ID} ${_API_KEY}']
+- name: gcr.io/cloud-builders/gsutil
+  args: ['cp', 'deid-template.json','${_GCS_BUCKET_NAME}/deid-template.json'] 
+- name: gcr.io/cloud-builders/gsutil
+  args: ['cp', 'inspect-template.json','${_GCS_BUCKET_NAME}/inspect-template.json']       
