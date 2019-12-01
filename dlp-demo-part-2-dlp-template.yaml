@@ -1,4 +1,14 @@
 steps:
 - name: 'gcr.io/cloud-builders/gradle'
   args: ['run', '-DmainClass=com.google.swarm.tokenization.tool.DLPTemplateHelper', '--x', 'test', '-Pargs=${_KEK_CONFIG_FILE}']
-
+- name: gcr.io/cloud-builders/gsutil
+  args: ['cp', '${_GCS_BUCKET_NAME}/de-identify-config.json', '.']
+- name: gcr.io/cloud-builders/gsutil
+  args: ['cp', '${_GCS_BUCKET_NAME}/inspect-config.json', '.']  
+- name: 'gcr.io/cloud-builders/docker'
+  entrypoint: 'bash'
+  args: ['-c', 'sh create-dlp-template.sh ${PROJECT_ID} ${_API_KEY}']
+- name: gcr.io/cloud-builders/gsutil
+  args: ['cp', 'deid-template.json','${_GCS_BUCKET_NAME}/deid-template.json'] 
+- name: gcr.io/cloud-builders/gsutil
+  args: ['cp', 'inspect-template.json','${_GCS_BUCKET_NAME}/inspect-template.json']       

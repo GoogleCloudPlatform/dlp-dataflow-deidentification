@@ -29,6 +29,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import java.net.URI;
 import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +41,8 @@ public class DLPTemplateHelper {
   public static final Gson gson = new Gson();
 
   public static void main(String[] args) {
-    String deidDlpConfiig = getDLPConfigJson(DLP_DEID_CONFIG_FILE);
+    long timeStamp = Instant.now().getMillis();
+    String deidDlpConfig = getDLPConfigJson(DLP_DEID_CONFIG_FILE);
     String gcsBucket = args[0];
     JsonObject kekConfig =
         gson.fromJson(getKekDetails(gcsBucket), new TypeToken<JsonObject>() {}.getType());
@@ -49,13 +51,17 @@ public class DLPTemplateHelper {
     String keyName =
         gson.toJson((kekConfig.get("name").getAsString().split("/cryptoKeyVersions/")[0]));
 
-    String updatedDeidConfig = String.format(deidDlpConfiig, keyName, kek, keyName, kek);
+    String updatedDeidConfig = String.format(deidDlpConfig, kek, keyName, kek, keyName, timeStamp);
     LOG.info(
         "*****Successfully Updated DLP De-Identification Configuration With KEK {} *****",
-        uploadConfig(updatedDeidConfig.trim(), gcsBucket, "de-identify-config.json"));
+        uploadConfig(updatedDeidConfig, gcsBucket, "de-identify-config.json"));
+
     LOG.info(
         "*****Successfully Uploaded DLP Inspect Configuration With Info Types {} *****",
-        uploadConfig(getDLPConfigJson(DLP_INSPECT_CONFIG_FILE), gcsBucket, "inspect-config.json"));
+        uploadConfig(
+            String.format(getDLPConfigJson(DLP_INSPECT_CONFIG_FILE), timeStamp),
+            gcsBucket,
+            "inspect-config.json"));
   }
 
   public static String getKekDetails(String gcsPath) {
