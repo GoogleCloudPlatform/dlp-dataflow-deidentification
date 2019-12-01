@@ -1,6 +1,4 @@
 steps:
 - name: 'gcr.io/cloud-builders/gradle'
-  args: ['build','-DmainClass=com.google.swarm.tokenization.tool.DLPTemplateHelper']
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '--tag=gcr.io/$PROJECT_ID/dlp-template-tool', '.']
-images: ['gcr.io/$PROJECT_ID/dlp-template-tool']
+  args: ['run', '-DmainClass=com.google.swarm.tokenization.tool.DLPTemplateHelper', '--x', 'test', '-Pargs=${_KEK_CONFIG_FILE}']
+

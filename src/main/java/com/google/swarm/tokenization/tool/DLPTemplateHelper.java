@@ -35,27 +35,27 @@ import org.slf4j.LoggerFactory;
 public class DLPTemplateHelper {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTemplateHelper.class);
   public static final String DLP_DEID_CONFIG_FILE = "de-identify-config.config";
+  public static final String DLP_INSPECT_CONFIG_FILE = "inspect-config.config";
+
   public static final Gson gson = new Gson();
 
   public static void main(String[] args) {
-    String deidDlpConfiig = getDeidConfigJson();
+    String deidDlpConfiig = getDLPConfigJson(DLP_DEID_CONFIG_FILE);
     String gcsBucket = args[0];
     JsonObject kekConfig =
         gson.fromJson(getKekDetails(gcsBucket), new TypeToken<JsonObject>() {}.getType());
     JsonElement kek = kekConfig.get("ciphertext");
     // take out version -DLP template does not allow
-    String keyName= gson.toJson((kekConfig.get("name").getAsString().split("/cryptoKeyVersions/")[0]));
-    
-    String updatedDeidConfig =
-        String.format(
-            deidDlpConfiig,
-            keyName,
-            kek,
-            keyName,
-            kek);
+    String keyName =
+        gson.toJson((kekConfig.get("name").getAsString().split("/cryptoKeyVersions/")[0]));
+
+    String updatedDeidConfig = String.format(deidDlpConfiig, keyName, kek, keyName, kek);
     LOG.info(
-        "Successfully Updated DLP De-Identification Configuration With KEK {}",
-        uploadConfig(updatedDeidConfig.trim(), gcsBucket));
+        "*****Successfully Updated DLP De-Identification Configuration With KEK {} *****",
+        uploadConfig(updatedDeidConfig.trim(), gcsBucket, "de-identify-config.json"));
+    LOG.info(
+        "*****Successfully Uploaded DLP Inspect Configuration With Info Types {} *****",
+        uploadConfig(getDLPConfigJson(DLP_INSPECT_CONFIG_FILE), gcsBucket, "inspect-config.json"));
   }
 
   public static String getKekDetails(String gcsPath) {
@@ -64,23 +64,22 @@ public class DLPTemplateHelper {
     BlobId blobId = BlobId.of(path.getBucket(), path.getObject());
     byte[] content = storage.readAllBytes(blobId);
     String contentString = new String(content, UTF_8);
-    LOG.debug("KEK {}", contentString);
     return contentString;
   }
 
-  public static BlobId uploadConfig(String contents, String gcsPath) {
+  public static BlobId uploadConfig(String contents, String gcsPath, String fileName) {
     GcsPath path = GcsPath.fromUri(URI.create(gcsPath));
     Storage storage = StorageOptions.getDefaultInstance().getService();
-    BlobId blobId = BlobId.of(path.getBucket(), "de-identify-config.json");
+    BlobId blobId = BlobId.of(path.getBucket(), fileName);
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).setContentType("application/json").build();
     Blob blob = storage.create(blobInfo, contents.getBytes(UTF_8));
     return blob.getBlobId();
   }
 
-  public static String getDeidConfigJson() {
+  public static String getDLPConfigJson(String filePath) {
     String schemaJson = null;
     try {
-      schemaJson = Resources.toString(Resources.getResource(DLP_DEID_CONFIG_FILE), UTF_8);
+      schemaJson = Resources.toString(Resources.getResource(filePath), UTF_8);
     } catch (Exception e) {
       LOG.error("Unable to read {} file from the resources folder!", DLP_DEID_CONFIG_FILE, e);
     }
