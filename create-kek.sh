@@ -26,11 +26,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
  
-set -x
-echo "please to use glocud make sure you completed authentication"
-echo "gcloud config set project templates-user"
-echo "gcloud auth application-default login"
- 
+set -x 
 PROJECT_ID=$1
 KEY_RING_NAME=$2
 KEY_NAME=$3
