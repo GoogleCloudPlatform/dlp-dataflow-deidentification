@@ -198,7 +198,7 @@ public class DLPTextToBigQueryStreaming {
                     .filepattern(options.getInputFilePattern())
                     .continuously(DEFAULT_POLL_INTERVAL, Watch.Growth.never()))
             .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
-            // [START loadSnippet_2]
+            // [END loadSnippet_1]
             .apply("Add File Name as Key", WithKeys.of(file -> getFileName(file)))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()))
             .apply(
@@ -699,7 +699,7 @@ public class DLPTextToBigQueryStreaming {
       return schema;
     }
   }
-  // [START loadSnippet_4]
+  // [END loadSnippet_4]
   private static String getFileName(ReadableFile file) {
     String csvFileName = file.getMetadata().resourceId().getFilename().toString();
     /** taking out .csv extension from file name e.g fileName.csv->fileName */
