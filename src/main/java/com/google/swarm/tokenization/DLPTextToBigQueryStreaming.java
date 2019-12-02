@@ -191,12 +191,14 @@ public class DLPTextToBigQueryStreaming {
              *     - Setup a window for 30 secs to capture the list of files emited.
              *     - Group by file name as key and ReadableFile as a value.
              */
+            // [START loadSnippet_1]
             .apply(
                 "Poll Input Files",
                 FileIO.match()
                     .filepattern(options.getInputFilePattern())
                     .continuously(DEFAULT_POLL_INTERVAL, Watch.Growth.never()))
             .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
+            // [START loadSnippet_2]
             .apply("Add File Name as Key", WithKeys.of(file -> getFileName(file)))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()))
             .apply(
@@ -212,6 +214,7 @@ public class DLPTextToBigQueryStreaming {
      * Side input for the window to capture list of headers for each file emited so that it can be
      * used in the next transform.
      */
+    // [START loadSnippet_2]
     final PCollectionView<List<KV<String, List<String>>>> headerMap =
         csvFiles
 
@@ -239,7 +242,7 @@ public class DLPTextToBigQueryStreaming {
                       }
                     }))
             .apply("View As List", View.asList());
-
+    // [END loadSnippet_2]
     PCollection<KV<String, TableRow>> bqDataMap =
         csvFiles
 
@@ -352,7 +355,7 @@ public class DLPTextToBigQueryStreaming {
 
     void setDlpProjectId(ValueProvider<String> value);
   }
-
+  // [START loadSnippet_3]
   /**
    * The {@link CSVReader} class uses experimental Split DoFn to split each csv file contents in
    * chunks and process it in non-monolithic fashion. For example: if a CSV file has 100 rows and
@@ -440,6 +443,7 @@ public class DLPTextToBigQueryStreaming {
      *
      * @throws IOException
      */
+    //
     @GetInitialRestriction
     public OffsetRange getInitialRestriction(KV<String, ReadableFile> csvFile) throws IOException {
 
@@ -486,6 +490,7 @@ public class DLPTextToBigQueryStreaming {
     public OffsetRangeTracker newTracker(OffsetRange range) {
       return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
     }
+    // [END loadSnippet_3]
 
     private Table.Row convertCsvRowToTableRow(CSVRecord csvRow) {
       /** convert from CSV row to DLP Table Row */
@@ -643,6 +648,7 @@ public class DLPTextToBigQueryStreaming {
     }
   }
 
+  // [START loadSnippet_4]
   /**
    * The {@link BQDestination} class creates BigQuery table destination and table schema based on
    * the CSV file processed in earlier transformations. Table id is same as filename Table schema is
@@ -693,7 +699,7 @@ public class DLPTextToBigQueryStreaming {
       return schema;
     }
   }
-
+  // [START loadSnippet_4]
   private static String getFileName(ReadableFile file) {
     String csvFileName = file.getMetadata().resourceId().getFilename().toString();
     /** taking out .csv extension from file name e.g fileName.csv->fileName */
