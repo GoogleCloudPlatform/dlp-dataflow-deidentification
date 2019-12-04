@@ -59,8 +59,6 @@ import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
-import org.apache.beam.sdk.transforms.windowing.AfterPane;
-import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
@@ -85,8 +83,8 @@ public class S3Import {
   private static Integer BATCH_SIZE = 520000;
   private static Integer DLP_PAYLOAD_LIMIT = 524288;
   private static final String BQ_TABLE_NAME = String.valueOf("S3_DLP_INSPECT_FINDINGS");
-  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(30);
-  private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(5);
+  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(60);
+  private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(10);
   private static final DateTimeFormatter TIMESTAMP_FORMATTER =
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
 
@@ -122,12 +120,7 @@ public class S3Import {
         s3Files.apply(
             "Fixed Window",
             Window.<KV<String, ReadableFile>>into(FixedWindows.of(WINDOW_INTERVAL))
-                .triggering(
-                    AfterWatermark.pastEndOfWindow()
-                        .withEarlyFirings(
-                            AfterProcessingTime.pastFirstElementInPane()
-                                .plusDelayOf(Duration.standardSeconds(10)))
-                        .withLateFirings(AfterPane.elementCountAtLeast(1)))
+                .triggering(AfterWatermark.pastEndOfWindow())
                 .discardingFiredPanes()
                 .withAllowedLateness(Duration.ZERO));
 
@@ -200,7 +193,7 @@ public class S3Import {
           readBuffer.flip();
           buffer = ByteString.copyFrom(readBuffer);
           readBuffer.clear();
-          LOG.debug(
+          LOG.info(
               "Current Restriction {}, Content Size{}",
               tracker.currentRestriction(),
               buffer.size());
@@ -208,6 +201,7 @@ public class S3Import {
         }
       } catch (Exception e) {
 
+        LOG.error("ERROR:{}", e.getStackTrace().toString());
         c.output(textReaderFailedElements, e.getMessage());
       }
     }
@@ -275,7 +269,6 @@ public class S3Import {
 
       try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
         if (!c.element().getValue().isEmpty()) {
-
           ContentItem contentItem =
               ContentItem.newBuilder().setValue(c.element().getValue()).build();
           this.requestBuilder.setItem(contentItem);
