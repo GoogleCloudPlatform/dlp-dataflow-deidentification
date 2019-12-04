@@ -193,7 +193,7 @@ public class S3Import {
           readBuffer.flip();
           buffer = ByteString.copyFrom(readBuffer);
           readBuffer.clear();
-          LOG.info(
+          LOG.debug(
               "Current Restriction {}, Content Size{}",
               tracker.currentRestriction(),
               buffer.size());
@@ -201,7 +201,6 @@ public class S3Import {
         }
       } catch (Exception e) {
 
-        LOG.error("ERROR:{}", e.getStackTrace().toString());
         c.output(textReaderFailedElements, e.getMessage());
       }
     }
