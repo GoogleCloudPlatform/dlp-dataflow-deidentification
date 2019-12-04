@@ -1,0 +1,34 @@
+// [START inspect_template]
+{
+  "name": "projects/<project_id>/inspectTemplates/<template_id>",
+  "displayName": "Config to Inspect Additional Details Column",
+  "description": "Inspect template for built in info types EMAIL_ADDRESS, PHONE_NUMBER, IBAN_CODE and custom Info type ONLINE_USER_ID",
+  "createTime": "2019-12-01T19:21:08.063415Z",
+  "updateTime": "2019-12-01T19:21:08.063415Z",
+  "inspectConfig": {
+    "infoTypes": [
+      {
+        "name": "IBAN_CODE"
+      },
+      {
+        "name": "EMAIL_ADDRESS"
+      },
+      {
+        "name": "PHONE_NUMBER"
+      }
+    ],
+    "minLikelihood": "LIKELY",
+    "limits": {},
+    "customInfoTypes": [
+      {
+        "infoType": {
+          "name": "ONLINE_USER_ID"
+        },
+        "regex": {
+          "pattern": "\\b:\\d{16}"
+        }
+      }
+    ]
+  }
+}
+// [END inspect_template]

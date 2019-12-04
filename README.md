@@ -1,7 +1,7 @@
 # Data Tokenization PoC Using Dataflow/Beam & DLP API  
 Use case for fully structure data from GCS (CSV Files) to Big Query Dataset has been successfully migrated to standard dataflow template. You can use this template for data tokenization  with just few clicks. Please see the [code](https://github.com/GoogleCloudPlatform/DataflowTemplates/blob/master/src/main/java/com/google/cloud/teleport/templates/DLPTextToBigQueryStreaming.java) and [document](https://cloud.google.com/dataflow/docs/guides/templates/provided-templates#dlptexttobigquerystreaming).   
 
-![standard dataflow template](dataflow-template-ss.png)
+![standard dataflow template](diagrams/dataflow-template-ss.png)
 
 If your use case required encryption using customer supplied key (CSEK) and multiple sinks like GCS and BQ, then you can still use this repo going forward. 
 There is also a new pipeline that supports import non structured data from AWS S3 bucket to GCS. Please see details below. 
@@ -535,7 +535,7 @@ DLP Inspect template:
 
 ```
 
-### AWS S3 Import to GCS for Non Structured Data
+### DLP Inspection for Data Stored in AWS S3 Bucket
 
 This PoC can be used to inspect large scale dataset (csv, txt) stored in AWS S3 bucket. It uses Dataflow S3 connector, invoke DLP Inspect API to inspect data based on some configuration specified in a DLP inspect template. It stores the result in BQ.   
 ### How it works?
@@ -583,20 +583,20 @@ Below configurations are common for both setup:
 
 #### S3 Bucket
 
-![AWS S3 Bucket](aws-s3-bucket.png)
+![AWS S3 Bucket](diagrams/aws-s3-bucket.png)
 
 #### Use of DLP Unlimited Quotas(Default is 600 calls /min) 
 
-![DLP Quotas](number_of_quotas_used.png)
+![DLP Quotas](diagrams/number_of_quotas_used.png)
 
 #### Inspection Result in BQ
 
-![BQ Schema](BQ-schema.png)
+![BQ Schema](diagrams/BQ-schema.png)
 
-![BQ Table](scan_data.png)
+![BQ Table](diagrams/scan_data.png)
 
 #### AWS Request Count during the 10 mins Run
-![AWS-Request Count](aws-request-min.png)
+![AWS-Request Count](diagrams/aws-request-min.png)
 
 ### DLP templates used
 
@@ -627,12 +627,11 @@ inspectConfig": {
 
 ```
 
-
-
 ### To Do
 - Error handling in S3 import.
+- Dynamic Dataflow template
 - Unit Test and Code Coverage.
 - Rate Limiter.
-- Dynamic BQ dataset creation.
-- Automatic Provisioning. 
+
+
 

@@ -15,28 +15,23 @@
  */
 package com.google.swarm.tokenization.common;
 
-import org.apache.beam.sdk.transforms.SimpleFunction;
-
 import com.google.api.services.bigquery.model.TableRow;
+import org.apache.beam.sdk.transforms.SimpleFunction;
 
 public class BQTableRowSF extends SimpleFunction<Row, TableRow> {
 
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 2479245991241032341L;
+  /** */
+  private static final long serialVersionUID = 2479245991241032341L;
 
-	@Override
-	public TableRow apply(Row row) {
+  @Override
+  public TableRow apply(Row row) {
 
-		TableRow bqRow = new TableRow();
-		String[] headers = row.getHeader();
-		String[] values = row.getValue();
-		for (int i = 0; i < values.length; i++) {
-			bqRow.set(headers[i], values[i]);
-
-		}
-		return bqRow;
-	}
-
+    TableRow bqRow = new TableRow();
+    String[] headers = row.getHeader();
+    String[] values = row.getValue();
+    for (int i = 0; i < values.length; i++) {
+      bqRow.set(headers[i], values[i]);
+    }
+    return bqRow;
+  }
 }
