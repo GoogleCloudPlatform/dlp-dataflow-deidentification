@@ -51,7 +51,6 @@ import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.ParDo;
@@ -116,13 +115,28 @@ public class S3Import {
                 WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()));
 
+    // gcs files
+    PCollection<KV<String, ReadableFile>> gcsFiles =
+        p.apply(
+                "Poll GCS Files",
+                FileIO.match()
+                    .filepattern(options.getGcsBucketUrl())
+                    .continuously(DEFAULT_POLL_INTERVAL, Watch.Growth.never()))
+            .apply("GCS File Match", FileIO.readMatches().withCompression(Compression.AUTO))
+            .apply(
+                "Add GCS File Name as Key",
+                WithKeys.of(file -> file.getMetadata().resourceId().getFilename().toString()))
+            .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()));
+
     PCollection<KV<String, ReadableFile>> files =
-        s3Files.apply(
-            "Fixed Window",
-            Window.<KV<String, ReadableFile>>into(FixedWindows.of(WINDOW_INTERVAL))
-                .triggering(AfterWatermark.pastEndOfWindow())
-                .discardingFiredPanes()
-                .withAllowedLateness(Duration.ZERO));
+        PCollectionList.of(ImmutableList.of(gcsFiles, s3Files))
+            .apply("File List", Flatten.pCollections())
+            .apply(
+                "Fixed Window",
+                Window.<KV<String, ReadableFile>>into(FixedWindows.of(WINDOW_INTERVAL))
+                    .triggering(AfterWatermark.pastEndOfWindow())
+                    .discardingFiredPanes()
+                    .withAllowedLateness(Duration.ZERO));
 
     PCollectionTuple contents =
         files.apply(
@@ -245,12 +259,12 @@ public class S3Import {
   @SuppressWarnings("serial")
   public static class TokenizeData extends DoFn<KV<String, String>, KV<String, TableRow>> {
     private String projectId;
-    private ValueProvider<String> inspectTemplateName;
+    private String inspectTemplateName;
     private Builder requestBuilder;
     private final Counter numberOfBytesInspected =
         Metrics.counter(TokenizeData.class, "NumberOfBytesInspected");
 
-    public TokenizeData(String projectId, ValueProvider<String> inspectTemplateName) {
+    public TokenizeData(String projectId, String inspectTemplateName) {
       this.projectId = projectId;
       this.inspectTemplateName = inspectTemplateName;
     }
@@ -260,7 +274,7 @@ public class S3Import {
       this.requestBuilder =
           InspectContentRequest.newBuilder()
               .setParent(ProjectName.of(this.projectId).toString())
-              .setInspectTemplateName(this.inspectTemplateName.get());
+              .setInspectTemplateName(this.inspectTemplateName);
     }
 
     @ProcessElement
@@ -338,10 +352,10 @@ public class S3Import {
       extends DynamicDestinations<KV<String, TableRow>, KV<String, TableRow>> {
 
     private static final long serialVersionUID = 1L;
-    private ValueProvider<String> datasetName;
+    private String datasetName;
     private String projectId;
 
-    public BQDestination(ValueProvider<String> datasetName, String projectId) {
+    public BQDestination(String datasetName, String projectId) {
       this.datasetName = datasetName;
       this.projectId = projectId;
     }
@@ -349,7 +363,7 @@ public class S3Import {
     @Override
     public KV<String, TableRow> getDestination(ValueInSingleWindow<KV<String, TableRow>> element) {
       String key = element.getValue().getKey();
-      String tableName = String.format("%s:%s.%s", projectId, datasetName.get(), key);
+      String tableName = String.format("%s:%s.%s", projectId, datasetName, key);
       LOG.debug("Table Name {}", tableName);
       return KV.of(tableName, element.getValue().getValue());
     }
