@@ -1,0 +1,17 @@
+
+ # Copyright 2019 Google Inc.
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+ # You may obtain a copy of the License at
+ #
+ #     http://www.apache.org/licenses/LICENSE-2.0
+ #
+ # Unless required by applicable law or agreed to in writing, software
+ # distributed under the License is distributed on an "AS IS" BASIS,
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License. 
+steps:
+- name: 'ubuntu'
+  args: ['bash', '-c','apt-get -q update && apt-get install -qqy curl && apt-get install -qqy jq;sh create-df-template.sh ${PROJECT_ID} ${_AWS_ACCESS_KEY} ${_API_KEY} ${_AWS_SECRET_KEY} ${_S3_BUCKET_URL} ${_GCS_BUCKET_URL} ${_AWS_REGION} ${_BQ_DATASET}']

@@ -535,9 +535,9 @@ DLP Inspect template:
 
 ```
 
-### DLP Inspection for Data Stored in AWS S3 Bucket
+### DLP Inspection for Data Stored in AWS S3 and GCS Bucket
 
-This PoC can be used to inspect large scale dataset (csv, txt) stored in AWS S3 bucket. It uses Dataflow S3 connector, invoke DLP Inspect API to inspect data based on some configuration specified in a DLP inspect template. It stores the result in BQ.   
+This PoC can be used to inspect large scale dataset (csv, txt) stored in AWS S3 and GCS buckets. It uses Dataflow S3 connector, invoke DLP Inspect API to inspect data based on some configuration specified in a DLP inspect template. It stores the result in BQ.   
 ### How it works?
 1. Build and Run the pipline in a GCP project using Dataflow. Please ensure you have enabled DLP and DF apis before executing.
  
@@ -561,9 +561,79 @@ gradle build -DmainClass=com.google.swarm.tokenization.S3Import --x test
 
 To Run: 
 
-gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streaming --project=<id> --runner=DataflowRunner --awsAccessKey=<key>--awsSecretKey=<key>--s3BucketUrl=s3://<bucket>/*.* --inspectTemplateName=projects/<id>/inspectTemplates/<template_id> --awsRegion=ca-central-1 --numWorkers=50 --workerMachineType=n1-highmem-16 --maxNumWorkers=50 --autoscalingAlgorithm=NONE --enableStreamingEngine --tempLocation=gs://<bucket>/temp --dataSetId=<dataset_id> --s3ThreadPoolSize=1000 --maxConnections=1000000 --socketTimeout=100 --connectionTimeout=100"
+gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streaming --project=<id> --runner=DataflowRunner --awsAccessKey=<key>--awsSecretKey=<key>--s3BucketUrl=s3://<bucket>/*.* --gcsBucketUrl=gs://<bucket>/*.* --inspectTemplateName=projects/<id>/inspectTemplates/<template_id> --awsRegion=ca-central-1 --numWorkers=50 --workerMachineType=n1-highmem-16 --maxNumWorkers=50 --autoscalingAlgorithm=NONE --enableStreamingEngine --tempLocation=gs://<bucket>/temp --dataSetId=<dataset_id> --s3ThreadPoolSize=1000 --maxConnections=1000000 --socketTimeout=100 --connectionTimeout=100"
 
 ```
+
+### Run Using Cloud Build 
+1. Modify inspect config file (gcs-s3-inspect-config.json) to add/update the info types you would lilke to use for scan. Below snippet is a sample config file used for demo.
+
+```
+{
+	"inspectTemplate": {
+		"displayName": "DLP Inspection Config For Demo",
+		"description": "DLP Config To Inspect GCS and S3 Bucket",
+		"inspectConfig": {
+			"infoTypes": [
+				{
+					"name": "EMAIL_ADDRESS"
+				},
+				{
+					"name": "CREDIT_CARD_NUMBER"
+				},
+				{
+					"name": "PHONE_NUMBER"
+				},
+				{
+					"name": "US_SOCIAL_SECURITY_NUMBER"
+				},
+				{
+					"name": "IP_ADDRESS"
+				}
+			],
+			"minLikelihood": "POSSIBLE",
+			"customInfoTypes": [
+				{
+					"infoType": {
+						"name": "ONLINE_USER_ID"
+					},
+					"regex": {
+						"pattern": "\\b:\\d{16}"
+					}
+				}
+			]
+		}
+	},
+}
+
+```
+
+2. Export Required Parameters
+
+```
+export AWS_ACCESS_KEY=<aws_access_key>
+export AWS_SECRET_KEY=<aws_secret_key>
+export S3_BUCKET_URL=<s3_bucket_url>
+export GCS_BUCKET_URL=<gcs_bucket_url>
+export AWS_REGION=<aws_region>
+export BQ_DATASET=<bq_dataset>
+    
+```
+
+3. Run Cloud Build command
+
+``` 
+gcloud builds submit . --config dlp-demo-s3-gcs-inspect.yaml \ 
+--substitutions _AWS_ACCESS_KEY=$AWS_ACCESS_KEY, \
+_API_KEY=$(gcloud auth print-access-token), \
+_AWS_SECRET_KEY=$AWS_SECRET_KEY, \ 
+_S3_BUCKET_URL=$S3_BUCKET_URL, \
+_GCS_BUCKET_URL=$GCS_BUCKET_URL, \ 
+_AWS_REGION=$AWS_REGION, \ 
+_BQ_DATASET=$BQ_DATASET
+
+```
+
 ### Testing Configuration
 This PoC was built to process large scale data by scaling number of workers horizontally. During our test run, we have successfully inspected 1.3 TB of data in less than 10 minutes. It's recommended to use n1-highmem-16 machines as it allows Dataflow to reserve more JVM heap memory.
 
@@ -580,6 +650,9 @@ Below configurations are common for both setup:
 
 
 ### Some Screenshots from the PoC run
+#### Dataflow Job
+![Dataflow_DAG](diagrams/s3_1.png)
+![Dataflow_DAG](diagrams/s3_2.png)
 
 #### S3 Bucket
 

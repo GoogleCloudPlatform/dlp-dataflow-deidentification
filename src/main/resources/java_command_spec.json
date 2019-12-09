@@ -1,0 +1,4 @@
+{
+  "mainClass": "com.google.swarm.tokenization.S3Import",
+  "classPath": "/template/df-dlp-inspect-template/libs/*:/template/df-dlp-inspect-template/classes"
+}

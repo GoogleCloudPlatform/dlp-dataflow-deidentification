@@ -19,33 +19,32 @@ import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.AwsOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
 import org.apache.beam.sdk.options.Description;
-import org.apache.beam.sdk.options.ValueProvider;
 
 public interface S3ImportOptions extends DataflowPipelineOptions, AwsOptions, S3Options {
   @Description("Import location in the format s3://<BUCKET_NAME>")
-  ValueProvider<String> getS3BucketUrl();
+  String getS3BucketUrl();
 
-  void setS3BucketUrl(ValueProvider<String> bucketUrl);
+  void setS3BucketUrl(String bucketUrl);
 
   @Description("Import location in the format s3://<BUCKET_NAME>")
-  ValueProvider<String> getGcsBucketUrl();
+  String getGcsBucketUrl();
 
-  void setGcsBucketUrl(ValueProvider<String> bucketUrl);
+  void setGcsBucketUrl(String bucketUrl);
 
   @Description("AWS S3 Key ID")
-  ValueProvider<String> getAwsAccessKey();
+  String getAwsAccessKey();
 
-  void setAwsAccessKey(ValueProvider<String> awsAccessKey);
+  void setAwsAccessKey(String awsAccessKey);
 
   @Description("AWS S3 Secret Key")
-  ValueProvider<String> getAwsSecretKey();
+  String getAwsSecretKey();
 
-  void setAwsSecretKey(ValueProvider<String> awsSecretKey);
+  void setAwsSecretKey(String awsSecretKey);
 
   @Description("Template to Inspect")
-  ValueProvider<String> getInspectTemplateName();
+  String getInspectTemplateName();
 
-  void setInspectTemplateName(ValueProvider<String> value);
+  void setInspectTemplateName(String value);
 
   @Description("AWS Client Configuration")
   int getMaxConnections();
@@ -61,7 +60,7 @@ public interface S3ImportOptions extends DataflowPipelineOptions, AwsOptions, S3
   void setSocketTimeout(int socketTimeout);
 
   @Description("Table spec to write the output to")
-  ValueProvider<String> getDataSetId();
+  String getDataSetId();
 
-  void setDataSetId(ValueProvider<String> value);
+  void setDataSetId(String value);
 }

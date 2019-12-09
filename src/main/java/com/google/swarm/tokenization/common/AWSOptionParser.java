@@ -34,7 +34,7 @@ public class AWSOptionParser {
 
     options.setClientConfiguration(configuration);
 
-    if (options.getS3BucketUrl().get().toLowerCase().startsWith(AWS_S3_PREFIX)) {
+    if (options.getS3BucketUrl().toLowerCase().startsWith(AWS_S3_PREFIX)) {
       setAwsCredentials(options);
     }
 
@@ -46,8 +46,7 @@ public class AWSOptionParser {
   private static void setAwsCredentials(S3ImportOptions options) {
     options.setAwsCredentialsProvider(
         new AWSStaticCredentialsProvider(
-            new BasicAWSCredentials(
-                options.getAwsAccessKey().get(), options.getAwsSecretKey().get())));
+            new BasicAWSCredentials(options.getAwsAccessKey(), options.getAwsSecretKey())));
   }
 
   private static void setAwsDefaultRegion(S3ImportOptions options) {

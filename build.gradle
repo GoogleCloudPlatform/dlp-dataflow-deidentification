@@ -45,7 +45,17 @@ apply plugin: "com.diffplug.gradle.spotless"
 
 mainClassName = System.getProperty("mainClass")
 //mainClassName = 'com.google.swarm.tokenization.tool.DLPTemplateHelper' 
-
+jib {
+  from {
+    image = 'gcr.io/dataflow-templates-base/java8-template-launcher-base:latest'
+  }
+  container {
+    appRoot = '/template/df-dlp-inspect-template'
+    entrypoint = 'INHERIT'
+	environment = [DATAFLOW_JAVA_COMMAND_SPEC:'/template/df-dlp-inspect-template/resources/java_command_spec.json']
+	
+  }
+}
 group 'com.google.swarm'
 version '0.1.0'
 
