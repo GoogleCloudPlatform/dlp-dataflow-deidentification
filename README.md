@@ -569,43 +569,43 @@ gradle run -DmainClass=com.google.swarm.tokenization.S3Import -Pargs=" --streami
 1. Modify inspect config file (gcs-s3-inspect-config.json) to add/update the info types you would lilke to use for scan. Below snippet is a sample config file used for demo.
 
 ```
-{
-	"inspectTemplate": {
-		"displayName": "DLP Inspection Config For Demo",
-		"description": "DLP Config To Inspect GCS and S3 Bucket",
-		"inspectConfig": {
-			"infoTypes": [
-				{
-					"name": "EMAIL_ADDRESS"
-				},
-				{
-					"name": "CREDIT_CARD_NUMBER"
-				},
-				{
-					"name": "PHONE_NUMBER"
-				},
-				{
-					"name": "US_SOCIAL_SECURITY_NUMBER"
-				},
-				{
-					"name": "IP_ADDRESS"
-				}
-			],
-			"minLikelihood": "POSSIBLE",
-			"customInfoTypes": [
-				{
-					"infoType": {
-						"name": "ONLINE_USER_ID"
-					},
-					"regex": {
-						"pattern": "\\b:\\d{16}"
-					}
-				}
-			]
-		}
-	},
-}
+{ 
+   "inspectTemplate":{ 
+      "displayName":"DLP Inspection Config For Demo",
+      "description":"DLP Config To Inspect GCS and S3 Bucket",
+      "inspectConfig":{ 
+         "infoTypes":[ 
+            { 
+               "name":"EMAIL_ADDRESS"
+            },
+            { 
+               "name":"CREDIT_CARD_NUMBER"
+            },
+            { 
+               "name":"PHONE_NUMBER"
+            },
+            { 
+               "name":"US_SOCIAL_SECURITY_NUMBER"
+            },
+            { 
+               "name":"IP_ADDRESS"
+            }
+         ],
+         "minLikelihood":"POSSIBLE",
+         "customInfoTypes":[ 
+            { 
+               "infoType":{ 
+                  "name":"ONLINE_USER_ID"
+               },
+               "regex":{ 
+                  "pattern":"\\b:\\d{16}"
+               }
+            }
+         ]
+      }
+   },
 
+}
 ```
 
 2. Export Required Parameters
