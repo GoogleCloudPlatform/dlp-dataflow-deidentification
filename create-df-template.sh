@@ -73,9 +73,7 @@ PARAMETERS_CONFIG='{
 	  "connectionTimeout":"100",
 	  "tempLocation":"'$TEMP_LOCATION'",
 	  "awsRegion":"'$AWS_REGION'",
-	  "dataSetId":"'$BQ_DATASET'",
-	  
-	  
+	  "dataSetId":"'$BQ_DATASET'",	  
 	}
 }'
 DF_API_ROOT_URL="https://dataflow.googleapis.com"
