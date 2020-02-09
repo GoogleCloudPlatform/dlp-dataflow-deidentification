@@ -7,10 +7,10 @@
 	* [Create & Manage Cloud DLP Configurations](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset).   
 	* [Automated Dataflow Pipeline to De-identify PII Dataset](https://cloud.google.com/solutions/running-automated-dataflow-pipeline-de-identify-pii-dataset).   
 	* [Validate Dataset in BigQuery and Re-identify using Dataflow](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data).   
-	* [Quick Start- Setup a Demo](#quick-start-to-deply).    	
+	* [Quick Start- Setup a Demo](#quick-start-to-deploy).    	
 
 * [Data Inspection Solution from AWS S3 to BigQuery for Generic Dataset(CSV,Text)](#quickstart-inspection-demo).  
-	* [Quickstart to setup a demo](#quickstart-to-s3-inspection-demo).     
+	* [Quickstart to setup a demo](#quick-start-to-s3-inspection-deploy).     
 
 ## Reference Architecture
 ![Reference Architecture](diagrams/ref_arch_solutions.png)	   	
