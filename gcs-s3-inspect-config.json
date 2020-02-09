@@ -5,32 +5,14 @@
 		"inspectConfig": {
 			"infoTypes": [
 				{
-					"name": "EMAIL_ADDRESS"
-				},
-				{
-					"name": "CREDIT_CARD_NUMBER"
-				},
-				{
-					"name": "PHONE_NUMBER"
-				},
-				{
 					"name": "US_SOCIAL_SECURITY_NUMBER"
 				},
 				{
-					"name": "IP_ADDRESS"
+					"name": "CREDIT_CARD_NUMBER"
 				}
+				
 			],
 			"minLikelihood": "POSSIBLE",
-			"customInfoTypes": [
-				{
-					"infoType": {
-						"name": "ONLINE_USER_ID"
-					},
-					"regex": {
-						"pattern": "\\b:\\d{16}"
-					}
-				}
-			]
 		}
 	},
 }

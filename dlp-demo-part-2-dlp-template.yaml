@@ -24,4 +24,4 @@ steps:
 - name: gcr.io/cloud-builders/gsutil
   args: ['cp', 'deid-template.json','${_GCS_BUCKET_NAME}/deid-template.json'] 
 - name: gcr.io/cloud-builders/gsutil
-  args: ['cp', 'inspect-template.json','${_GCS_BUCKET_NAME}/inspect-template.json']       
+  args: ['cp', 'inspect-template.json','${_GCS_BUCKET_NAME}/inspect-template.json']     
