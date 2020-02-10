@@ -45,9 +45,11 @@ sh deploy-data-tokeninzation-solution.sh
 For re-identification (getting back the original data in a Pub/Sub topic), please follow this instruction [here](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data#re-identifying_the_dataset_from_bigquery).  
 
 ## Quick Start To S3 Inspection Deploy
+This is a hybrid solution for customers who would like to use Cloud DLP to scan PII data stored in a S3 bucket. Solution stores the inspection result in a BigQuery table. 
 
 [![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git)
 
+* Note: Please modify the shell script below to update the required parameters to trigger the pipeline.
 ```
 gcloud config set project <project_id>
 sh deploy-s3-inspect-solution.sh
