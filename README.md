@@ -7,16 +7,16 @@
 4. [Validate Dataset in BigQuery and Re-identify using Dataflow](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data).   
 
 ## Table of Contents  
-* [Deploy an end to end data tokenization Solution](#quick-start-to-deploy).  
+* [Quick Start](#quick-start).  
 	 
 	* [Reference Architecture](#reference-architecture).  
-	* [Quick Start- Setup Data Tokenization Demo](#quick-start-to-deploy).    	
+	* [Quick Start- Setup Data Tokenization Demo](#quick-start).    	
 
-* [PII Data Inspection PoC from AWS S3 to BigQuery](#quickstart-inspection-demo).  
-	* [Quick Start- Setup a S3 & GCS inspection demo](#quick-start-to-s3-inspection-deploy).     
+* [Quick Start To S3 Inspection PoC](#quick-start-to-s3-inspection-poc).  
+   
 
 ## Reference Architecture
-![Reference Architecture](diagrams/ref_arch_solutions.png)	   	
+![Reference Architecture](diagrams/ref_arch_solution.png)	   	
 
 ## Quick Start
 [![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git)
