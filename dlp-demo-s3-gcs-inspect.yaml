@@ -13,5 +13,7 @@
  # See the License for the specific language governing permissions and
  # limitations under the License. 
 steps:
+- name: gcr.io/cloud-solutions-images/bq
+  args: ['mk', '-d', '--description', 'DLP Inspection', '--location=US', '${_BQ_DATASET}']
 - name: 'ubuntu'
   args: ['bash', '-c','apt-get -q update && apt-get install -qqy curl && apt-get install -qqy jq;sh create-df-template.sh ${PROJECT_ID} ${_AWS_ACCESS_KEY} ${_API_KEY} ${_AWS_SECRET_KEY} ${_S3_BUCKET_URL} ${_GCS_BUCKET_URL} ${_AWS_REGION} ${_BQ_DATASET}']

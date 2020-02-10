@@ -51,8 +51,8 @@ INSPECT_TEMPLATE_NAME=$(jq -c '.name' ${INSPECT_TEMPLATE_OUTPUT})
 DYNAMIC_TEMPLATE_BUCKET_SPEC=gs://dynamic-template/dynamic_template_dlp_inspect.json
 JOB_NAME="dlp-inspect-pipeline-`date +%Y%m%d-%H%M%S-%N`"
 echo $JOB_NAME
-GCS_STAGING_LOCATION=gs://dynamic-template/log
-TEMP_LOCATION=gs://dynamic-template/temp
+GCS_STAGING_LOCATION=$GCS_BUCKET_URL/log
+TEMP_LOCATION=$GCS_BUCKET_URL/temp
 PARAMETERS_CONFIG='{  
    "jobName":"'$JOB_NAME'",
    "parameters":{  
@@ -60,12 +60,12 @@ PARAMETERS_CONFIG='{
 	  "enableStreamingEngine":"true",
 	  "autoscalingAlgorithm":"NONE",
       "workerMachineType": "n1-standard-8",
-      "numWorkers":"50",
-      "maxNumWorkers":"50",
+      "numWorkers":"3",
+      "maxNumWorkers":"3",
       "awsAccessKey":"'$AWS_ACCESS_KEY'",
 	  "awsSecretKey":"'$AWS_SECRET_KEY'",
 	  "s3BucketUrl":"'$S3_BUCKET_URL'",
-	  "gcsBucketUrl":"'$GCS_BUCKET_URL'",
+	  "gcsBucketUrl":"'$GCS_BUCKET_URL'/*.csv",
 	  "inspectTemplateName":'$INSPECT_TEMPLATE_NAME',
 	  "s3ThreadPoolSize":"1000",
 	  "maxConnections":"1000000",
@@ -73,7 +73,7 @@ PARAMETERS_CONFIG='{
 	  "connectionTimeout":"100",
 	  "tempLocation":"'$TEMP_LOCATION'",
 	  "awsRegion":"'$AWS_REGION'",
-	  "dataSetId":"'$BQ_DATASET'",	  
+	  "dataSetId":"'$BQ_DATASET'"	  
 	}
 }'
 DF_API_ROOT_URL="https://dataflow.googleapis.com"
