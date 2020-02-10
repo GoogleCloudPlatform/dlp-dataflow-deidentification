@@ -12,13 +12,13 @@
 	* [Reference Architecture](#reference-architecture).  
 	* [Quick Start- Setup Data Tokenization Demo](#quick-start-to-deploy).    	
 
-* [Data Inspection Solution from AWS S3 to BigQuery for Generic Dataset(CSV,Text)](#quickstart-inspection-demo).  
+* [PII Data Inspection PoC from AWS S3 to BigQuery](#quickstart-inspection-demo).  
 	* [Quick Start- Setup a S3 & GCS inspection demo](#quick-start-to-s3-inspection-deploy).     
 
 ## Reference Architecture
 ![Reference Architecture](diagrams/ref_arch_solutions.png)	   	
 
-## Quick Start To Deploy
+## Quick Start
 [![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git)
 
   Run the following commands to trigger an automated deployment in your GCP project. Script handles following topics:   
@@ -44,7 +44,7 @@ sh deploy-data-tokeninzation-solution.sh
 
 For re-identification (getting back the original data in a Pub/Sub topic), please follow this instruction [here](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data#re-identifying_the_dataset_from_bigquery).  
 
-## Quick Start To S3 Inspection Deploy
+## Quick Start To S3 Inspection PoC
 This is a hybrid solution for customers who would like to use Cloud DLP to scan PII data stored in a S3 bucket. Solution stores the inspection result in a BigQuery table. 
 
 [![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git)
@@ -55,3 +55,7 @@ This is a hybrid solution for customers who would like to use Cloud DLP to scan 
 gcloud config set project <project_id>
 sh deploy-s3-inspect-solution.sh
 ```
+
+## To Do
+- S3 Scanner accuracy. 
+- Faul tolerant deployment scripts. 
