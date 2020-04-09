@@ -55,7 +55,20 @@ This is a hybrid solution for customers who would like to use Cloud DLP to scan 
 gcloud config set project <project_id>
 sh deploy-s3-inspect-solution.sh
 ```
+## New S3 Scanner Build and Run
+```
+export AWS_ACCESS_KEY="<access_key>"
+export AWS_SECRET_KEY="<secret_key>"
+export AWS_CRED="{\"@type\":\"AWSStaticCredentialsProvider\",\"awsAccessKeyId\":\"${AWS_ACCESS_KEY_ID}\"
+,\"awsSecretKey\":\"${AWS_SECRET_ACCESS_KEY}\"}"
+```
+```
+gradle spotLessApply -DmainClass=com.google.solutions.s3.scanner.DLPS3ScannerPipeline 
 
+gradle build -DmainClass=com.google.solutions.s3.scanner.DLPS3ScannerPipeline 
+
+gradle run -DmainClass=com.google.swarm.tokenization.DLPS3ScannerPipeline -Pargs="--streaming --runner=DataflowRunner --project=<id> --autoscalingAlgorithm=NONE --workerMachineType=n1-standard-4 --numWorkers=5 --maxNumWorkers=5 --region=us-central1 --awsCredentialsProvider=$AWS_CRED --awsRegion=ca-central-1 --CSVFilePattern=s3://<path>>  --inspectTemplateName=projects/{id}/inspectTemplates/{template_id} --tableSpec=<project_id>:<dataset>.dlp_s3_inspection_result"
+```
 ## To Do
 - S3 Scanner accuracy. 
 - Faul tolerant deployment scripts. 

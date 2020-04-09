@@ -15,7 +15,7 @@
  */
 buildscript {
     ext {
-        dataflowBeamVersion = '2.16.0'
+        dataflowBeamVersion = '2.19.0'
     }
     repositories {
         mavenCentral()
@@ -44,7 +44,7 @@ apply plugin: 'com.google.cloud.tools.jib'
 apply plugin: "com.diffplug.gradle.spotless"
 
 mainClassName = System.getProperty("mainClass")
-//mainClassName = 'com.google.swarm.tokenization.tool.DLPTemplateHelper' 
+//mainClassName = 'com.google.swarm.tokenization.DLPS3ScannerPipeline' 
 jib {
   from {
     image = 'gcr.io/dataflow-templates-base/java8-template-launcher-base:latest'

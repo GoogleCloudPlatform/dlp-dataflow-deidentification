@@ -16,6 +16,8 @@
 
 package com.google.swarm.tokenization.common;
 
+import static org.apache.beam.sdk.schemas.Schema.toSchema;
+
 import com.google.api.client.util.Charsets;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
@@ -32,16 +34,26 @@ import java.nio.channels.ReadableByteChannel;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.options.ValueProvider;
+import org.apache.beam.sdk.schemas.Schema;
+import org.apache.beam.sdk.schemas.Schema.FieldType;
 import org.apache.commons.lang.StringUtils;
+import org.joda.time.DateTimeZone;
 import org.joda.time.Instant;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Util {
 
   public static final Logger LOG = LoggerFactory.getLogger(Util.class);
+  public static Integer DLP_PAYLOAD_LIMIT = 52400;
+  public static final String BQ_TABLE_NAME = String.valueOf("dlp_s3_inspection_result");
+  public static final DateTimeFormatter TIMESTAMP_FORMATTER =
+      DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
   private static final String NESTED_SCHEMA_REGEX = ".*[^=]=(.*[^ ]), .*[^=]=(.*[^ ])";
 
   public static String parseBucketName(String value) {
@@ -181,5 +193,19 @@ public class Util {
     } else {
       return "STRING";
     }
+  }
+
+  public static final Schema dlpInspectionSchema =
+      Stream.of(
+              Schema.Field.of("source_file", FieldType.STRING).withNullable(true),
+              Schema.Field.of("transaction_time", FieldType.STRING).withNullable(true),
+              Schema.Field.of("info_type_name", FieldType.STRING).withNullable(true),
+              Schema.Field.of("likelihood", FieldType.STRING).withNullable(true),
+              Schema.Field.of("location_start_byte_range", FieldType.INT64).withNullable(true),
+              Schema.Field.of("location_end_byte_range", FieldType.INT64).withNullable(true))
+          .collect(toSchema());
+
+  public static String getTimeStamp() {
+    return TIMESTAMP_FORMATTER.print(Instant.now().toDateTime(DateTimeZone.UTC));
   }
 }
