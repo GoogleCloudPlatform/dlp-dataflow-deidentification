@@ -39,6 +39,8 @@ import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.Schema.FieldType;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Instant;
@@ -50,11 +52,13 @@ import org.slf4j.LoggerFactory;
 public class Util {
 
   public static final Logger LOG = LoggerFactory.getLogger(Util.class);
+  private static final String TABLE_REGEXP = "[-\\w$@]{1,1024}";
   public static Integer DLP_PAYLOAD_LIMIT = 52400;
   public static final String BQ_TABLE_NAME = String.valueOf("dlp_s3_inspection_result");
   public static final DateTimeFormatter TIMESTAMP_FORMATTER =
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
   private static final String NESTED_SCHEMA_REGEX = ".*[^=]=(.*[^ ]), .*[^=]=(.*[^ ])";
+  private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
 
   public static String parseBucketName(String value) {
     return value.substring(5, value.length() - 1);
@@ -201,11 +205,66 @@ public class Util {
               Schema.Field.of("transaction_time", FieldType.STRING).withNullable(true),
               Schema.Field.of("info_type_name", FieldType.STRING).withNullable(true),
               Schema.Field.of("likelihood", FieldType.STRING).withNullable(true),
+              Schema.Field.of("column_name", FieldType.STRING).withNullable(true),
+              Schema.Field.of("quote", FieldType.INT64).withNullable(true),
               Schema.Field.of("location_start_byte_range", FieldType.INT64).withNullable(true),
               Schema.Field.of("location_end_byte_range", FieldType.INT64).withNullable(true))
           .collect(toSchema());
 
   public static String getTimeStamp() {
     return TIMESTAMP_FORMATTER.print(Instant.now().toDateTime(DateTimeZone.UTC));
+  }
+
+  public static BufferedReader getReader(ReadableFile csvFile) {
+    BufferedReader br = null;
+    ReadableByteChannel channel = null;
+    /** read the file and create buffered reader */
+    try {
+      channel = csvFile.openSeekable();
+
+    } catch (IOException e) {
+      LOG.error("Failed to Read File {}", e.getMessage());
+      throw new RuntimeException(e);
+    }
+
+    if (channel != null) {
+
+      br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
+    }
+
+    return br;
+  }
+
+  public static List<String> getFileHeaders(BufferedReader reader) {
+    List<String> headers = new ArrayList<>();
+    try {
+      CSVRecord csvHeader = CSVFormat.DEFAULT.parse(reader).getRecords().get(0);
+      csvHeader.forEach(
+          headerValue -> {
+            headers.add(headerValue);
+          });
+    } catch (IOException e) {
+      LOG.error("Failed to get csv header values}", e.getMessage());
+      throw new RuntimeException(e);
+    }
+    return headers;
+  }
+
+  public static String getFileName(ReadableFile file) {
+    String csvFileName = file.getMetadata().resourceId().getFilename().toString();
+    /** taking out .csv extension from file name e.g fileName.csv->fileName */
+    String[] fileKey = csvFileName.split("\\.", 2);
+
+    if (!fileKey[1].equals(ALLOWED_FILE_EXTENSION) || !fileKey[0].matches(TABLE_REGEXP)) {
+      throw new RuntimeException(
+          "[Filename must contain a CSV extension "
+              + " BQ table name must contain only letters, numbers, or underscores ["
+              + fileKey[1]
+              + "], ["
+              + fileKey[0]
+              + "]");
+    }
+    /** returning file name without extension */
+    return fileKey[0];
   }
 }

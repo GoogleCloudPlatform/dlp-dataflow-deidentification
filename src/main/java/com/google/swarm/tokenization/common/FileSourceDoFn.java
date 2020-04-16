@@ -21,22 +21,27 @@ import org.apache.beam.sdk.values.KV;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class FileSourceDoFn extends DoFn<ReadableFile, KV<String, ReadableFile>> {
+public class FileSourceDoFn
+    extends DoFn<KV<String, Iterable<ReadableFile>>, KV<String, ReadableFile>> {
   public static final Logger LOG = LoggerFactory.getLogger(FileSourceDoFn.class);
   private static final String FILE_PATTERN = "([^\\s]+(\\.(?i)(csv))$)";
 
   @ProcessElement
   public void processElement(ProcessContext c) {
-    ReadableFile file = c.element();
-    String fileName = file.getMetadata().resourceId().getFilename().toString();
-    String bucketName = file.getMetadata().resourceId().getCurrentDirectory().toString();
-    String key = String.format("%s%s", bucketName, fileName);
-    LOG.info("File Name {}, BucketName {}", fileName, bucketName);
-    LOG.info("Key {}", key);
-    if (fileName.matches(FILE_PATTERN)) {
-      c.output(KV.of(key, file));
-    } else {
-      LOG.error("Only csv extension is currently supported");
-    }
+    c.element()
+        .getValue()
+        .forEach(
+            file -> {
+              String fileName = file.getMetadata().resourceId().getFilename().toString();
+              String bucketName = file.getMetadata().resourceId().getCurrentDirectory().toString();
+              String key = String.format("%s%s", bucketName, fileName);
+              LOG.info("File Name {}, BucketName {}", fileName, bucketName);
+              LOG.info("Key {}", key);
+              if (fileName.matches(FILE_PATTERN)) {
+                c.output(KV.of(key, file));
+              } else {
+                LOG.error("Only csv extension is currently supported");
+              }
+            });
   }
 }

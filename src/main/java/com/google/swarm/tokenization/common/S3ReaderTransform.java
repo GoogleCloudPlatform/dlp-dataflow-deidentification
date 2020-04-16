@@ -18,37 +18,27 @@ package com.google.swarm.tokenization.common;
 import com.google.auto.value.AutoValue;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
-import org.apache.beam.sdk.io.Compression;
-import org.apache.beam.sdk.io.FileIO;
+import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
-import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @AutoValue
 public abstract class S3ReaderTransform
-    extends PTransform<PBegin, PCollection<KV<String, String>>> {
+    extends PTransform<
+        PCollection<KV<String, Iterable<ReadableFile>>>, PCollection<KV<String, String>>> {
   public static final Logger LOG = LoggerFactory.getLogger(S3ReaderTransform.class);
-
-  public abstract String csvFilePattern();
-
-  public abstract Duration pollInterval();
 
   public abstract String delimeter();
 
   @AutoValue.Builder
   public abstract static class Builder {
-    public abstract Builder setCsvFilePattern(String csvFilePattern);
 
     public abstract Builder setDelimeter(String delimeter);
-
-    public abstract Builder setPollInterval(Duration pollInterval);
 
     public abstract S3ReaderTransform build();
   }
@@ -58,15 +48,10 @@ public abstract class S3ReaderTransform
   }
 
   @Override
-  public PCollection<KV<String, String>> expand(PBegin input) {
+  public PCollection<KV<String, String>> expand(
+      PCollection<KV<String, Iterable<ReadableFile>>> input) {
     return input
-        .apply(
-            "Poll Input CSV Files",
-            FileIO.match()
-                .filepattern(csvFilePattern())
-                .continuously(pollInterval(), Watch.Growth.never()))
-        .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
-        .apply("Add File Name as Key", ParDo.of(new FileSourceDoFn()))
+        .apply("GetFile", ParDo.of(new FileSourceDoFn()))
         .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()))
         .apply("Read File", ParDo.of(new FileReaderSplitDoFn(delimeter())));
   }
