@@ -36,11 +36,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
-import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.transforms.WithKeys;
-import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
-import org.apache.beam.sdk.transforms.windowing.FixedWindows;
-import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
@@ -66,20 +62,10 @@ public class DLPS3ScannerPipeline {
     Pipeline p = Pipeline.create(options);
 
     PCollection<KV<String, Iterable<ReadableFile>>> csvFile =
-        p.apply(
-                "Poll Input Files",
-                FileIO.match()
-                    .filepattern(options.getCSVFilePattern())
-                    .continuously(DEFAULT_POLL_INTERVAL, Watch.Growth.never()))
+        p.apply("Poll Input Files", FileIO.match().filepattern(options.getCSVFilePattern()))
             .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
             .apply("Add File Name as Key", WithKeys.of(file -> Util.getFileName(file)))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()))
-            .apply(
-                "Fixed Window(30 Sec)",
-                Window.<KV<String, ReadableFile>>into(FixedWindows.of(WINDOW_INTERVAL))
-                    .triggering(AfterWatermark.pastEndOfWindow())
-                    .discardingFiredPanes()
-                    .withAllowedLateness(Duration.ZERO))
             .apply(GroupByKey.create());
     PCollectionView<List<String>> header =
         csvFile

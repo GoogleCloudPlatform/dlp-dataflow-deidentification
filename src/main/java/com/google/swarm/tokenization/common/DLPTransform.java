@@ -15,11 +15,20 @@
  */
 package com.google.swarm.tokenization.common;
 
+import com.google.auto.value.AutoValue;
+import com.google.cloud.dlp.v2.DlpServiceClient;
+import com.google.privacy.dlp.v2.ContentItem;
+import com.google.privacy.dlp.v2.FieldId;
+import com.google.privacy.dlp.v2.InspectContentRequest;
+import com.google.privacy.dlp.v2.InspectContentResponse;
+import com.google.privacy.dlp.v2.ProjectName;
+import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.Value;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.state.BagState;
@@ -40,16 +49,6 @@ import org.apache.beam.sdk.values.Row;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.auto.value.AutoValue;
-import com.google.cloud.dlp.v2.DlpServiceClient;
-import com.google.privacy.dlp.v2.ContentItem;
-import com.google.privacy.dlp.v2.FieldId;
-import com.google.privacy.dlp.v2.InspectContentRequest;
-import com.google.privacy.dlp.v2.InspectContentResponse;
-import com.google.privacy.dlp.v2.ProjectName;
-import com.google.privacy.dlp.v2.Table;
-import com.google.privacy.dlp.v2.Value;
 
 @AutoValue
 public abstract class DLPTransform
@@ -134,7 +133,7 @@ public abstract class DLPTransform
       try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
         String fileName = c.element().getKey();
         Table table = c.element().getValue();
-        LOG.info("Row Count {}", table.getRowsCount());
+
         ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
         this.requestBuilder.setItem(contentItem);
         InspectContentResponse response =
@@ -144,8 +143,6 @@ public abstract class DLPTransform
             .getFindingsList()
             .forEach(
                 finding -> {
-                  LOG.info("Finding {}", finding.toString());
-
                   Row row =
                       Row.withSchema(Util.dlpInspectionSchema)
                           .addValues(
@@ -159,12 +156,13 @@ public abstract class DLPTransform
                                   .get(0)
                                   .getRecordLocation()
                                   .getFieldId()
-                                  .getName(),
+                                  .getName()
+                                  .toString()
+                                  .trim(),
                               finding.getQuote(),
                               finding.getLocation().getCodepointRange().getStart(),
                               finding.getLocation().getCodepointRange().getEnd())
                           .build();
-                  LOG.info("Row: {}", row);
                   c.output(row);
                 });
         numberOfBytesInspected.inc(contentItem.getSerializedSize());
@@ -213,7 +211,7 @@ public abstract class DLPTransform
           currentBufferSize);
       if (clearBuffer) {
         output.output(elementsBag.read());
-        LOG.debug("****CLEAR BUFFER **** Current Buffer Size {}", elementsSize.read());
+        LOG.info("****CLEAR BUFFER **** Current Buffer Size {}", elementsSize.read());
         clearState(elementsBag, elementsSize);
         clearBuffer = false;
         currentBufferSize = 0;
@@ -235,7 +233,7 @@ public abstract class DLPTransform
       else {
         LOG.error("Element Size {} is Larger than batch size {}", elementsSize.read(), batchSize);
       }
-      LOG.debug("****Timer Triggered **** Current Buffer Size {}", elementsSize.read(), batchSize);
+      LOG.info("****Timer Triggered **** Current Buffer Size {}", elementsSize.read(), batchSize);
     }
 
     private static void clearState(
@@ -261,12 +259,16 @@ public abstract class DLPTransform
 
       String row = c.element().getValue();
       String key = c.element().getKey();
-      Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
 
-      tableRowBuilder.addValues(Value.newBuilder().setStringValue(row));
+      List<String> rows = Arrays.asList(row.split(","));
+      Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
+      rows.forEach(
+          r -> {
+            tableRowBuilder.addValues(Value.newBuilder().setStringValue(r));
+          });
 
       Table.Row dlpRow = tableRowBuilder.build();
-      LOG.debug("Key {}, DLPRow {}", key, dlpRow);
+      LOG.info("Key {}, DLPRow {}", key, dlpRow);
       c.output(KV.of(key, dlpRow));
     }
   }
@@ -275,6 +277,10 @@ public abstract class DLPTransform
       Iterable<KV<String, Table.Row>> bufferData, List<String> csvHeaders) {
 
     List<Table.Row> rows = new ArrayList<>();
+    bufferData.forEach(
+        record -> {
+          rows.add(record.getValue());
+        });
     Table dlpTable = null;
 
     String fileName =
@@ -287,7 +293,7 @@ public abstract class DLPTransform
             .collect(Collectors.toList());
 
     dlpTable = Table.newBuilder().addAllHeaders(dlpTableHeaders).addAllRows(rows).build();
-    LOG.info("rows {}, header {}", rows.size(), dlpTableHeaders.size());
+
     return KV.of(fileName, dlpTable);
   }
 
@@ -301,7 +307,9 @@ public abstract class DLPTransform
 
     @ProcessElement
     public void processElement(ProcessContext c) {
-      c.output(emitTableResult(c.element(), c.sideInput(csvHeader)));
+
+      KV<String, Table> table = emitTableResult(c.element(), c.sideInput(csvHeader));
+      c.output(table);
     }
   }
 }
