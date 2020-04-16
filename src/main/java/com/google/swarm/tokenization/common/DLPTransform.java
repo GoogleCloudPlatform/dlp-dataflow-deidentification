@@ -61,6 +61,8 @@ public abstract class DLPTransform
 
   public abstract String projectId();
 
+  public abstract String columnDelimeter();
+
   public abstract PCollectionView<List<String>> csvHeader();
 
   @AutoValue.Builder
@@ -73,6 +75,8 @@ public abstract class DLPTransform
 
     public abstract Builder setCsvHeader(PCollectionView<List<String>> csvHeader);
 
+    public abstract Builder setColumnDelimeter(String columnDelimeter);
+
     public abstract DLPTransform build();
   }
 
@@ -83,7 +87,7 @@ public abstract class DLPTransform
   @Override
   public PCollection<Row> expand(PCollection<KV<String, String>> input) {
     return input
-        .apply("ConvertToDLPRow", ParDo.of(new ConvertToDLPRow()))
+        .apply("ConvertToDLPRow", ParDo.of(new ConvertToDLPRow(columnDelimeter())))
         .apply("Batch Contents", ParDo.of(new BatchTableRequest(batchSize())))
         .apply(
             "ConvertToDLPTable",
@@ -254,21 +258,25 @@ public abstract class DLPTransform
 
   public static class ConvertToDLPRow extends DoFn<KV<String, String>, KV<String, Table.Row>> {
 
+    private String columnDelimeter;
+
+    public ConvertToDLPRow(String columnDelimeter) {
+      this.columnDelimeter = columnDelimeter;
+    }
+
     @ProcessElement
     public void processElement(ProcessContext c) {
 
       String row = c.element().getValue();
       String key = c.element().getKey();
-
-      List<String> rows = Arrays.asList(row.split(","));
+      List<String> rows = Arrays.asList(row.split(columnDelimeter));
       Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
       rows.forEach(
           r -> {
-            tableRowBuilder.addValues(Value.newBuilder().setStringValue(r));
+        	  tableRowBuilder.addValues(Value.newBuilder().setStringValue(r));
           });
 
       Table.Row dlpRow = tableRowBuilder.build();
-      LOG.info("Key {}, DLPRow {}", key, dlpRow);
       c.output(KV.of(key, dlpRow));
     }
   }
