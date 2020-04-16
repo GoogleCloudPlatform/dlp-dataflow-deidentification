@@ -133,46 +133,39 @@ public abstract class DLPTransform
       try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
         String fileName = c.element().getKey();
         Table table = c.element().getValue();
-        if (table.getHeadersCount() != table.getRowsCount()){
-        	
-        	LOG.error("error row count");
-        	
-        } 
-          ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
-          this.requestBuilder.setItem(contentItem);
-          InspectContentResponse response =
-              dlpServiceClient.inspectContent(this.requestBuilder.build());
-          response
-              .getResult()
-              .getFindingsList()
-              .forEach(
-                  finding -> {
-                    LOG.info("Finding {}", finding.toString());
 
-                    Row row =
-                        Row.withSchema(Util.dlpInspectionSchema)
-                            .addValues(
-                                fileName,
-                                Util.getTimeStamp(),
-                                finding.getInfoType().getName(),
-                                finding.getLikelihood().name(),
-                                finding
-                                    .getLocation()
-                                    .getContentLocationsList()
-                                    .get(0)
-                                    .getRecordLocation()
-                                    .getFieldId()
-                                    .getName(),
-                                finding.getQuote(),
-                                finding.getLocation().getCodepointRange().getStart(),
-                                finding.getLocation().getCodepointRange().getEnd())
-                            .build();
-                    LOG.info("Row: {}", row);
-                    c.output(row);
-                  });
-          numberOfBytesInspected.inc(contentItem.getSerializedSize());
-
-        
+        ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
+        this.requestBuilder.setItem(contentItem);
+        InspectContentResponse response =
+            dlpServiceClient.inspectContent(this.requestBuilder.build());
+        response
+            .getResult()
+            .getFindingsList()
+            .forEach(
+                finding -> {
+                  Row row =
+                      Row.withSchema(Util.dlpInspectionSchema)
+                          .addValues(
+                              fileName,
+                              Util.getTimeStamp(),
+                              finding.getInfoType().getName(),
+                              finding.getLikelihood().name(),
+                              finding
+                                  .getLocation()
+                                  .getContentLocationsList()
+                                  .get(0)
+                                  .getRecordLocation()
+                                  .getFieldId()
+                                  .getName()
+                                  .toString()
+                                  .trim(),
+                              finding.getQuote(),
+                              finding.getLocation().getCodepointRange().getStart(),
+                              finding.getLocation().getCodepointRange().getEnd())
+                          .build();
+                  c.output(row);
+                });
+        numberOfBytesInspected.inc(contentItem.getSerializedSize());
       }
     }
   }
@@ -266,14 +259,13 @@ public abstract class DLPTransform
 
       String row = c.element().getValue();
       String key = c.element().getKey();
-      
-      List<String> rows =  Arrays.asList(row.split(","));
+
+      List<String> rows = Arrays.asList(row.split(","));
       Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
-      rows.forEach(r->{
-          tableRowBuilder.addValues(Value.newBuilder().setStringValue(r));
-
-      });
-
+      rows.forEach(
+          r -> {
+            tableRowBuilder.addValues(Value.newBuilder().setStringValue(r));
+          });
 
       Table.Row dlpRow = tableRowBuilder.build();
       LOG.info("Key {}, DLPRow {}", key, dlpRow);
@@ -301,7 +293,7 @@ public abstract class DLPTransform
             .collect(Collectors.toList());
 
     dlpTable = Table.newBuilder().addAllHeaders(dlpTableHeaders).addAllRows(rows).build();
-    
+
     return KV.of(fileName, dlpTable);
   }
 
