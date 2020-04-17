@@ -88,7 +88,7 @@ public abstract class DLPTransform
   public PCollection<Row> expand(PCollection<KV<String, String>> input) {
     return input
         .apply("ConvertToDLPRow", ParDo.of(new ConvertToDLPRow(columnDelimeter())))
-        .apply("Batch Contents", ParDo.of(new BatchTableRequest(batchSize())))
+        // .apply("Batch Contents", ParDo.of(new BatchTableRequest(batchSize())))
         .apply(
             "ConvertToDLPTable",
             ParDo.of(new ConvertToDLPTable(csvHeader())).withSideInputs(csvHeader()))
@@ -195,7 +195,8 @@ public abstract class DLPTransform
           "Status: Clear Buffer {}, Curret Elements Size {}, currentBufferSize {} , Key {}",
           clearBuffer,
           currentElementSize,
-          currentBufferSize, element.getKey());
+          currentBufferSize,
+          element.getKey());
       if (clearBuffer) {
         output.output(elementsBag.read());
         LOG.info("****CLEAR BUFFER **** Current Buffer Size {}", elementsSize.read());
@@ -264,17 +265,19 @@ public abstract class DLPTransform
   }
 
   private static KV<String, Table> emitTableResult(
-      Iterable<KV<String, Table.Row>> bufferData, List<String> csvHeaders) {
+      KV<String, Table.Row> bufferData, List<String> csvHeaders) {
 
     List<Table.Row> rows = new ArrayList<>();
-    bufferData.forEach(
-        record -> {
-          rows.add(record.getValue());
-        });
+    rows.add(bufferData.getValue());
+    //    bufferData.forEach(
+    //        record -> {
+    //          rows.add(record.getValue());
+    //        });
     Table dlpTable = null;
 
-    String fileName =
-        (bufferData.iterator().hasNext()) ? bufferData.iterator().next().getKey() : "UNKNOWN_FILE";
+    //    String fileName =
+    //        (bufferData.iterator().hasNext()) ? bufferData.iterator().next().getKey() :
+    // "UNKNOWN_FILE";
 
     // Building dlp Table Headers
     List<FieldId> dlpTableHeaders =
@@ -284,11 +287,10 @@ public abstract class DLPTransform
 
     dlpTable = Table.newBuilder().addAllHeaders(dlpTableHeaders).addAllRows(rows).build();
 
-    return KV.of(fileName, dlpTable);
+    return KV.of(bufferData.getKey(), dlpTable);
   }
 
-  public static class ConvertToDLPTable
-      extends DoFn<Iterable<KV<String, Table.Row>>, KV<String, Table>> {
+  public static class ConvertToDLPTable extends DoFn<KV<String, Table.Row>, KV<String, Table>> {
     private PCollectionView<List<String>> csvHeader;
 
     public ConvertToDLPTable(PCollectionView<List<String>> csvHeader) {

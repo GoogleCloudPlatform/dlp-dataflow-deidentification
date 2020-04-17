@@ -29,14 +29,10 @@ import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
-import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
-import org.apache.beam.sdk.transforms.windowing.FixedWindows;
-import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.Row;
-import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,14 +61,9 @@ public class DLPS3ScannerPipeline {
             .apply("ViewAsAList", View.asList());
 
     PCollection<KV<String, String>> nonInspectedContents =
-        csvFiles
-            .apply("CSVReaderTransform", S3ReaderTransform.newBuilder().setDelimeter("\n").build())
-            .apply(
-                "Fixed Window",
-                Window.<KV<String, String>>into(FixedWindows.of(Duration.standardSeconds(1)))
-                    .triggering(AfterWatermark.pastEndOfWindow())
-                    .discardingFiredPanes()
-                    .withAllowedLateness(Duration.ZERO));
+        csvFiles.apply(
+            "CSVReaderTransform", S3ReaderTransform.newBuilder().setDelimeter("\n").build());
+
     PCollection<Row> inspectedContents =
         nonInspectedContents
             .apply(
