@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
   public static final Logger LOG = LoggerFactory.getLogger(FileReaderSplitDoFn.class);
-  public static Integer SPLIT_SIZE = 100000;
+  public static Integer SPLIT_SIZE = 900000;
   private String delimeter;
 
   public FileReaderSplitDoFn(String delimeter) {
