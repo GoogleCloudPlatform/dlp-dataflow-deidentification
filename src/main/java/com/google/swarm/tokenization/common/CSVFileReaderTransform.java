@@ -10,9 +10,11 @@ import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.WithKeys;
+import org.apache.beam.sdk.transforms.WithTimestamps;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +43,7 @@ public abstract class CSVFileReaderTransform
         .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
         .apply("Add File Name as Key", WithKeys.of(file -> Util.getFileName(file)))
         .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()))
+        .apply("AssignEventTimestamp", WithTimestamps.of((KV<String,ReadableFile> rec) -> Instant.now()))
         .apply(GroupByKey.create());
   }
 }
