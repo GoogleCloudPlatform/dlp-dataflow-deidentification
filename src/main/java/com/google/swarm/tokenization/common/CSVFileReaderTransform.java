@@ -43,7 +43,9 @@ public abstract class CSVFileReaderTransform
         .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
         .apply("Add File Name as Key", WithKeys.of(file -> Util.getFileName(file)))
         .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()))
-        .apply("AssignEventTimestamp", WithTimestamps.of((KV<String,ReadableFile> rec) -> Instant.now()))
+        .apply(
+            "AssignEventTimestamp",
+            WithTimestamps.of((KV<String, ReadableFile> rec) -> Instant.now()))
         .apply(GroupByKey.create());
   }
 }

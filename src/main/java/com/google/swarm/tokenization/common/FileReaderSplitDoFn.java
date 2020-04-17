@@ -46,7 +46,7 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent();
-        c.output(KV.of(fileName, contents));
+        c.outputWithTimestamp(KV.of(fileName, contents), c.timestamp());
       }
     }
   }

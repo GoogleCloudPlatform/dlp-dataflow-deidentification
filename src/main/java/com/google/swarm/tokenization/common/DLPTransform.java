@@ -15,12 +15,20 @@
  */
 package com.google.swarm.tokenization.common;
 
+import com.google.auto.value.AutoValue;
+import com.google.cloud.dlp.v2.DlpServiceClient;
+import com.google.privacy.dlp.v2.ContentItem;
+import com.google.privacy.dlp.v2.FieldId;
+import com.google.privacy.dlp.v2.InspectContentRequest;
+import com.google.privacy.dlp.v2.InspectContentResponse;
+import com.google.privacy.dlp.v2.ProjectName;
+import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.Value;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.state.BagState;
@@ -41,16 +49,6 @@ import org.apache.beam.sdk.values.Row;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.auto.value.AutoValue;
-import com.google.cloud.dlp.v2.DlpServiceClient;
-import com.google.privacy.dlp.v2.ContentItem;
-import com.google.privacy.dlp.v2.FieldId;
-import com.google.privacy.dlp.v2.InspectContentRequest;
-import com.google.privacy.dlp.v2.InspectContentResponse;
-import com.google.privacy.dlp.v2.ProjectName;
-import com.google.privacy.dlp.v2.Table;
-import com.google.privacy.dlp.v2.Value;
 
 @AutoValue
 public abstract class DLPTransform
@@ -97,8 +95,6 @@ public abstract class DLPTransform
         .apply("DLPInspect", ParDo.of(new InspectData(projectId(), inspectTemplateName())));
   }
 
-  
-
   public static class InspectData extends DoFn<KV<String, Table>, Row> {
     private String projectId;
     private String inspectTemplateName;
@@ -129,33 +125,33 @@ public abstract class DLPTransform
         InspectContentResponse response =
             dlpServiceClient.inspectContent(this.requestBuilder.build());
         String timeStamp = Util.getTimeStamp();
-        if(response.hasResult()) {
-        response
-            .getResult()
-            .getFindingsList()
-            .forEach(
-                finding -> {
-                  Row row =
-                      Row.withSchema(Util.dlpInspectionSchema)
-                          .addValues(
-                              fileName,
-                              timeStamp,
-                              finding.getInfoType().getName(),
-                              finding.getLikelihood().name(),
-                              finding
-                                  .getLocation()
-                                  .getContentLocationsList()
-                                  .get(0)
-                                  .getRecordLocation()
-                                  .getFieldId()
-                                  .getName(),
-                              finding.getQuote(),
-                              finding.getLocation().getCodepointRange().getStart(),
-                              finding.getLocation().getCodepointRange().getEnd())
-                          .build();
-                  c.output(row);
-                });
-        	}
+        if (response.hasResult()) {
+          response
+              .getResult()
+              .getFindingsList()
+              .forEach(
+                  finding -> {
+                    Row row =
+                        Row.withSchema(Util.dlpInspectionSchema)
+                            .addValues(
+                                fileName,
+                                timeStamp,
+                                finding.getInfoType().getName(),
+                                finding.getLikelihood().name(),
+                                finding
+                                    .getLocation()
+                                    .getContentLocationsList()
+                                    .get(0)
+                                    .getRecordLocation()
+                                    .getFieldId()
+                                    .getName(),
+                                finding.getQuote(),
+                                finding.getLocation().getCodepointRange().getStart(),
+                                finding.getLocation().getCodepointRange().getEnd())
+                            .build();
+                    c.output(row);
+                  });
+        }
         numberOfBytesInspected.inc(contentItem.getSerializedSize());
       }
     }
@@ -196,10 +192,10 @@ public abstract class DLPTransform
       Integer currentBufferSize = (elementsSize.read() == null) ? 0 : elementsSize.read();
       boolean clearBuffer = (currentElementSize + currentBufferSize) > batchSize;
       LOG.debug(
-          "Clear Buffer {}, Curret Elements Size {}, currentBufferSize {}",
+          "Status: Clear Buffer {}, Curret Elements Size {}, currentBufferSize {} , Key {}",
           clearBuffer,
           currentElementSize,
-          currentBufferSize);
+          currentBufferSize, element.getKey());
       if (clearBuffer) {
         output.output(elementsBag.read());
         LOG.info("****CLEAR BUFFER **** Current Buffer Size {}", elementsSize.read());
@@ -207,7 +203,6 @@ public abstract class DLPTransform
         clearBuffer = false;
         currentBufferSize = 0;
         addState(elementsBag, elementsSize, element, currentElementSize + currentBufferSize);
-        
 
       } else {
         addState(elementsBag, elementsSize, element, currentElementSize + currentBufferSize);
@@ -260,7 +255,7 @@ public abstract class DLPTransform
       Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
       rows.forEach(
           r -> {
-        	  tableRowBuilder.addValues(Value.newBuilder().setStringValue(r));
+            tableRowBuilder.addValues(Value.newBuilder().setStringValue(r));
           });
 
       Table.Row dlpRow = tableRowBuilder.build();
