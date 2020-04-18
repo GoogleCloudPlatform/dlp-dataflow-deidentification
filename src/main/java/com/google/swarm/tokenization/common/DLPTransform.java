@@ -101,6 +101,8 @@ public abstract class DLPTransform
     private InspectContentRequest.Builder requestBuilder;
     private final Counter numberOfBytesInspected =
         Metrics.counter(InspectData.class, "NumberOfBytesInspected");
+    private final Counter numberOfRowsInspected =
+            Metrics.counter(InspectData.class, "NumberOfRowsInspected");
 
     public InspectData(String projectId, String inspectTemplateName) {
       this.projectId = projectId;
@@ -152,6 +154,7 @@ public abstract class DLPTransform
                     c.output(row);
                   });
         }
+        numberOfRowsInspected.inc(contentItem.getTable().getRowsCount());
         numberOfBytesInspected.inc(contentItem.getSerializedSize());
       }
     }

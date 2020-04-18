@@ -49,7 +49,7 @@ public abstract class CSVFileReaderTransform
             "Poll Input Files",
             FileIO.match()
                 .filepattern(csvFilePattern())
-                .continuously(DEFAULT_POLL_INTERVAL, Watch.Growth.never()))
+                .continuously(DEFAULT_POLL_INTERVAL, Watch.Growth.afterTimeSinceNewOutput(Duration.standardHours(1))))
         .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
         .apply("Add File Name as Key", WithKeys.of(file -> Util.getFileName(file)))
         .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()))
