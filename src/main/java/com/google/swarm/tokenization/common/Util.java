@@ -232,7 +232,6 @@ public class Util {
               Schema.Field.of("source_file", FieldType.STRING).withNullable(true),
               Schema.Field.of("transaction_time", FieldType.STRING).withNullable(true),
               Schema.Field.of("total_bytes_inspected", FieldType.INT64).withNullable(true),
-              Schema.Field.of("total_findings", FieldType.INT32).withNullable(true),
               Schema.Field.of("status", FieldType.STRING).withNullable(true))
           .collect(toSchema());
 

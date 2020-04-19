@@ -18,11 +18,7 @@
       "mode":"NULLABLE",
       "name":"total_bytes_inspected",
       "type":"INTEGER"
-   },
-   {
-      "mode":"NULLABLE",
-      "name":"total_findings",
-      "type":"NUMERIC"
-   }  
+   }
+   
    
 ]

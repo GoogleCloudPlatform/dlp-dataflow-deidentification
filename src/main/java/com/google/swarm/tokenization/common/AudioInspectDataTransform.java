@@ -30,8 +30,7 @@ public class AudioInspectDataTransform extends PTransform<PCollection<Row>, PCol
         .apply(
             "AggrAuditData",
             Group.<Row>byFieldNames("source_file")
-                .aggregateField("total_bytes_inspected", Sum.ofLongs(), "total_bytes_inspected")
-                .aggregateField("total_findings", Sum.ofIntegers(), "total_findings"))
+                .aggregateField("total_bytes_inspected", Sum.ofLongs(), "total_bytes_inspected"))
         .apply("MergePartialStatsRow", MapElements.via(new MergeLogAggrMap()));
   }
 
@@ -44,7 +43,6 @@ public class AudioInspectDataTransform extends PTransform<PCollection<Row>, PCol
                   input.getKey().getString("source_file"),
                   Util.getTimeStamp(),
                   input.getValue().getInt64("total_bytes_inspected").longValue(),
-                  input.getValue().getInt32("total_findings").intValue(),
                   Util.INSPECTED)
               .build();
       LOG.info("Audit Row {}", aggrRow.toString());

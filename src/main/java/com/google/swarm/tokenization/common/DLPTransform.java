@@ -134,7 +134,7 @@ public abstract class DLPTransform
               c.output(
                   Util.auditData,
                   Row.withSchema(Util.bqAuditSchema)
-                      .addValues(fileName, timeStamp, bytesInspected, totalFinding, Util.INSPECTED)
+                      .addValues(fileName, timeStamp, bytesInspected, Util.INSPECTED)
                       .build());
             }
           }
