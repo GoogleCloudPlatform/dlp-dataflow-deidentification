@@ -15,6 +15,7 @@
  */
 package com.google.swarm.tokenization;
 
+import com.google.swarm.tokenization.common.AudioInspectDataTransform;
 import com.google.swarm.tokenization.common.BQWriteTransform;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.FileReaderTransform;
@@ -67,15 +68,15 @@ public class DLPS3ScannerPipeline {
                     .discardingFiredPanes()
                     .withAllowedLateness(Duration.ZERO));
 
-    //    inspectedContents
-    //        .apply("MergeFileStats", new AudioInspectDataTransform())
-    //        .setRowSchema(Util.bqAuditSchema)
-    //        .apply(
-    //            "StreamInsrertToAuditData",
-    //            BQWriteTransform.newBuilder()
-    //                .setTableSpec(options.getAuditTableSpec())
-    //                .setMethod(options.getWriteMethod())
-    //                .build());
+    inspectedContents
+        .apply("MergeFileStats", new AudioInspectDataTransform())
+        .setRowSchema(Util.bqAuditSchema)
+        .apply(
+            "StreamInsrertToAuditData",
+            BQWriteTransform.newBuilder()
+                .setTableSpec(options.getAuditTableSpec())
+                .setMethod(options.getWriteMethod())
+                .build());
 
     inspectedContents
         .apply("ConvertBQSchema", DropFields.fields("bytes_inspected"))
