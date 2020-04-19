@@ -39,8 +39,8 @@ public class ByteValueCombineFn extends CombineFn<Long, ByteValueCombineFn.Accum
 
   @Override
   public Accum addInput(Accum mutableAccumulator, Long input) {
-    
-	mutableAccumulator.inspectBytes += input;
+
+    mutableAccumulator.inspectBytes += input;
     return mutableAccumulator;
   }
 

@@ -39,6 +39,8 @@ import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.Schema.FieldType;
+import org.apache.beam.sdk.values.Row;
+import org.apache.beam.sdk.values.TupleTag;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang.StringUtils;
@@ -60,6 +62,9 @@ public class Util {
   private static final String NESTED_SCHEMA_REGEX = ".*[^=]=(.*[^ ]), .*[^=]=(.*[^ ])";
   private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
   public static String INSPECTED = "INSPECTED";
+  public static TupleTag<Row> inspectData = new TupleTag<Row>() {};
+
+  public static TupleTag<Row> auditData = new TupleTag<Row>() {};
 
   public static String parseBucketName(String value) {
     return value.substring(5, value.length() - 1);

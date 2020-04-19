@@ -29,14 +29,17 @@ import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.Row;
+import org.apache.beam.sdk.values.TupleTagList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @AutoValue
 public abstract class DLPTransform
-    extends PTransform<PCollection<KV<String, String>>, PCollection<Row>> {
+    extends PTransform<PCollection<KV<String, String>>, PCollectionTuple> {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
+
   private static Integer DLP_PAYLOAD_LIMIT = 524288;
 
   public abstract String inspectTemplateName();
@@ -57,8 +60,11 @@ public abstract class DLPTransform
   }
 
   @Override
-  public PCollection<Row> expand(PCollection<KV<String, String>> input) {
-    return input.apply("DLPInspect", ParDo.of(new InspectData(projectId(), inspectTemplateName())));
+  public PCollectionTuple expand(PCollection<KV<String, String>> input) {
+    return input.apply(
+        "DLPInspect",
+        ParDo.of(new InspectData(projectId(), inspectTemplateName()))
+            .withOutputTags(Util.inspectData, TupleTagList.of(Util.auditData)));
   }
 
   public static class InspectData extends DoFn<KV<String, String>, Row> {
@@ -90,7 +96,6 @@ public abstract class DLPTransform
           ContentItem contentItem =
               ContentItem.newBuilder().setValue(c.element().getValue()).build();
           this.requestBuilder.setItem(contentItem);
-
           if (this.requestBuilder.build().getSerializedSize() > DLP_PAYLOAD_LIMIT) {
             String errorMessage =
                 String.format(
@@ -102,7 +107,9 @@ public abstract class DLPTransform
                 dlpServiceClient.inspectContent(this.requestBuilder.build());
             String timeStamp = Util.getTimeStamp();
             long bytesInspected = contentItem.getSerializedSize();
-            LOG.info("bytes inspected {}", bytesInspected);
+            int totalFinding =
+                Long.valueOf(response.getResult().getFindingsList().stream().count()).intValue();
+            LOG.debug("bytes inspected {}", bytesInspected);
             if (response.hasResult()) {
               response
                   .getResult()
@@ -110,10 +117,9 @@ public abstract class DLPTransform
                   .forEach(
                       finding -> {
                         Row row =
-                            Row.withSchema(Util.dlpInspectionSchema)
+                            Row.withSchema(Util.bqDataSchema)
                                 .addValues(
                                     fileName,
-                                    bytesInspected,
                                     timeStamp,
                                     finding.getInfoType().getName(),
                                     finding.getLikelihood().name(),
@@ -122,9 +128,14 @@ public abstract class DLPTransform
                                     finding.getLocation().getCodepointRange().getEnd())
                                 .build();
                         LOG.debug("Row {}", row);
-                        c.output(row);
+                        c.output(Util.inspectData, row);
                       });
               numberOfBytesInspected.inc(bytesInspected);
+              c.output(
+                  Util.auditData,
+                  Row.withSchema(Util.bqAuditSchema)
+                      .addValues(fileName, timeStamp, bytesInspected, totalFinding, Util.INSPECTED)
+                      .build());
             }
           }
         }

@@ -24,14 +24,10 @@ import com.google.swarm.tokenization.common.Util;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.schemas.transforms.DropFields;
-import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
-import org.apache.beam.sdk.transforms.windowing.FixedWindows;
-import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.Row;
-import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,41 +48,36 @@ public class DLPS3ScannerPipeline {
             "File Read Transforrm",
             FileReaderTransform.newBuilder().setFilePattern(options.getFilePattern()).build());
 
-    PCollection<Row> inspectedContents =
-        nonInspectedContents
-            .apply(
-                "DLPScanner",
-                DLPTransform.newBuilder()
-                    .setInspectTemplateName(options.getInspectTemplateName())
-                    .setProjectId(options.getProject())
-                    .build())
-            .setRowSchema(Util.dlpInspectionSchema)
-            .apply(
-                "Fixed Window",
-                Window.<Row>into(FixedWindows.of(Duration.standardSeconds(10)))
-                    .triggering(AfterWatermark.pastEndOfWindow())
-                    .discardingFiredPanes()
-                    .withAllowedLateness(Duration.ZERO));
+    PCollectionTuple inspectedData =
+        nonInspectedContents.apply(
+            "DLPScanner",
+            DLPTransform.newBuilder()
+                .setInspectTemplateName(options.getInspectTemplateName())
+                .setProjectId(options.getProject())
+                .build());
 
-    inspectedContents
-        .apply("MergeFileStats", new AudioInspectDataTransform())
+    PCollection<Row> inspectedContents =
+        inspectedData.get(Util.inspectData).setRowSchema(Util.bqDataSchema);
+
+    PCollection<Row> inspectedStats =
+        inspectedData.get(Util.auditData).setRowSchema(Util.bqAuditSchema);
+
+    inspectedStats
+        .apply("FileTrackerTransform", new AudioInspectDataTransform())
         .setRowSchema(Util.bqAuditSchema)
         .apply(
-            "StreamInsrertToAuditData",
+            "WriteAuditData",
             BQWriteTransform.newBuilder()
                 .setTableSpec(options.getAuditTableSpec())
                 .setMethod(options.getWriteMethod())
                 .build());
 
-    inspectedContents
-        .apply("ConvertBQSchema", DropFields.fields("bytes_inspected"))
-        .setRowSchema(Util.bqDataSchema)
-        .apply(
-            "StreamInsertToInspectData",
-            BQWriteTransform.newBuilder()
-                .setTableSpec(options.getTableSpec())
-                .setMethod(options.getWriteMethod())
-                .build());
+    inspectedContents.apply(
+        "WriteInspectData",
+        BQWriteTransform.newBuilder()
+            .setTableSpec(options.getTableSpec())
+            .setMethod(options.getWriteMethod())
+            .build());
     return p.run();
   }
 }

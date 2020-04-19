@@ -19,7 +19,7 @@ public abstract class FileReaderTransform
     extends PTransform<PBegin, PCollection<KV<String, String>>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(FileReaderTransform.class);
-  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(30);
+  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(60);
 
   public abstract String filePattern();
 
