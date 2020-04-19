@@ -63,8 +63,8 @@ public class Util {
   private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
   public static String INSPECTED = "INSPECTED";
   public static TupleTag<Row> inspectData = new TupleTag<Row>() {};
-
   public static TupleTag<Row> auditData = new TupleTag<Row>() {};
+  public static TupleTag<Row> errorData = new TupleTag<Row>() {};
 
   public static String parseBucketName(String value) {
     return value.substring(5, value.length() - 1);
@@ -233,6 +233,12 @@ public class Util {
               Schema.Field.of("transaction_time", FieldType.STRING).withNullable(true),
               Schema.Field.of("total_bytes_inspected", FieldType.INT64).withNullable(true),
               Schema.Field.of("status", FieldType.STRING).withNullable(true))
+          .collect(toSchema());
+  public static final Schema errorSchema =
+      Stream.of(
+              Schema.Field.of("source_file", FieldType.STRING).withNullable(true),
+              Schema.Field.of("transaction_time", FieldType.STRING).withNullable(true),
+              Schema.Field.of("error_message", FieldType.STRING).withNullable(true))
           .collect(toSchema());
 
   public static String getTimeStamp() {

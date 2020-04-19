@@ -110,7 +110,8 @@ public abstract class DLPTransform
             int totalFinding =
                 Long.valueOf(response.getResult().getFindingsList().stream().count()).intValue();
             LOG.debug("bytes inspected {}", bytesInspected);
-            if (response.hasResult()) {
+            boolean hasErrors = response.findInitializationErrors().stream().count() > 0;
+            if (response.hasResult() && !hasErrors) {
               response
                   .getResult()
                   .getFindingsList()
@@ -136,6 +137,17 @@ public abstract class DLPTransform
                   Row.withSchema(Util.bqAuditSchema)
                       .addValues(fileName, timeStamp, bytesInspected, Util.INSPECTED)
                       .build());
+            } else {
+              response
+                  .findInitializationErrors()
+                  .forEach(
+                      error -> {
+                        c.output(
+                            Util.errorData,
+                            Row.withSchema(Util.errorSchema)
+                                .addValues(fileName, timeStamp, error.toString())
+                                .build());
+                      });
             }
           }
         }
