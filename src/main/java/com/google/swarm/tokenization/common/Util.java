@@ -62,6 +62,7 @@ public class Util {
   private static final String NESTED_SCHEMA_REGEX = ".*[^=]=(.*[^ ]), .*[^=]=(.*[^ ])";
   private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
   public static String INSPECTED = "INSPECTED";
+  public static String FAILED = "FAILED";
   public static TupleTag<Row> inspectData = new TupleTag<Row>() {};
   public static TupleTag<Row> auditData = new TupleTag<Row>() {};
   public static TupleTag<Row> errorData = new TupleTag<Row>() {};

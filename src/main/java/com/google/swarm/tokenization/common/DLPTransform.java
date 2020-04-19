@@ -148,6 +148,11 @@ public abstract class DLPTransform
                                 .addValues(fileName, timeStamp, error.toString())
                                 .build());
                       });
+              c.output(
+                  Util.auditData,
+                  Row.withSchema(Util.bqAuditSchema)
+                      .addValues(fileName, timeStamp, 0, Util.FAILED)
+                      .build());
             }
           }
         }
