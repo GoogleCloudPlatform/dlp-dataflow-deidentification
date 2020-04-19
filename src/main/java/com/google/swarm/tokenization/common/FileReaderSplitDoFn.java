@@ -49,7 +49,6 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
         readBuffer.flip();
         buffer = ByteString.copyFrom(readBuffer);
         readBuffer.clear();
-        LOG.debug("Content {}", buffer.toStringUtf8().trim());
         LOG.debug(
             "Current Restriction {}, Content Size{}", tracker.currentRestriction(), buffer.size());
         c.output(KV.of(fileName, buffer.toStringUtf8().trim()));
