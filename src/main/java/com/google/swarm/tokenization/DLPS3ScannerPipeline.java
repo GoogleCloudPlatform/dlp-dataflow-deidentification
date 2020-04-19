@@ -16,23 +16,21 @@
 package com.google.swarm.tokenization;
 
 import com.google.swarm.tokenization.common.BQWriteTransform;
-import com.google.swarm.tokenization.common.CSVFileReaderTransform;
 import com.google.swarm.tokenization.common.DLPTransform;
-import com.google.swarm.tokenization.common.FileHeaderDoFn;
+import com.google.swarm.tokenization.common.FileReaderTransform;
 import com.google.swarm.tokenization.common.S3ReaderOptions;
-import com.google.swarm.tokenization.common.S3ReaderTransform;
 import com.google.swarm.tokenization.common.Util;
-import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
-import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.View;
+import org.apache.beam.sdk.schemas.transforms.DropFields;
+import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
+import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.Row;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,41 +46,46 @@ public class DLPS3ScannerPipeline {
   public static PipelineResult run(S3ReaderOptions options) {
     Pipeline p = Pipeline.create(options);
 
-    PCollection<KV<String, Iterable<ReadableFile>>> csvFiles =
+    PCollection<KV<String, String>> nonInspectedContents =
         p.apply(
             "File Read Transforrm",
-            CSVFileReaderTransform.newBuilder()
-                .setCsvFilePattern(options.getCSVFilePattern())
-                .build());
-    // header as side input
-    PCollectionView<List<String>> header =
-        csvFiles
-            .apply("AddHeaderAsSideInput", ParDo.of(new FileHeaderDoFn()))
-            .apply("ViewAsAList", View.asList());
-
-    PCollection<KV<String, String>> nonInspectedContents =
-        csvFiles.apply(
-            "CSVReaderTransform", S3ReaderTransform.newBuilder().setDelimeter("\n").build());
+            FileReaderTransform.newBuilder().setFilePattern(options.getFilePattern()).build());
 
     PCollection<Row> inspectedContents =
         nonInspectedContents
             .apply(
                 "DLPScanner",
                 DLPTransform.newBuilder()
-                    .setBatchSize(options.getBatchSize())
                     .setInspectTemplateName(options.getInspectTemplateName())
                     .setProjectId(options.getProject())
-                    .setCsvHeader(header)
-                    .setColumnDelimeter("\\|")
                     .build())
-            .setRowSchema(Util.dlpInspectionSchema);
+            .setRowSchema(Util.dlpInspectionSchema)
+            .apply(
+                "Fixed Window",
+                Window.<Row>into(FixedWindows.of(Duration.standardSeconds(10)))
+                    .triggering(AfterWatermark.pastEndOfWindow())
+                    .discardingFiredPanes()
+                    .withAllowedLateness(Duration.ZERO));
 
-    inspectedContents.apply(
-        "StreamInsertToBQ",
-        BQWriteTransform.newBuilder()
-            .setTableSpec(options.getTableSpec())
-            .setMethod(options.getWriteMethod())
-            .build());
+    //    inspectedContents
+    //        .apply("MergeFileStats", new AudioInspectDataTransform())
+    //        .setRowSchema(Util.bqAuditSchema)
+    //        .apply(
+    //            "StreamInsrertToAuditData",
+    //            BQWriteTransform.newBuilder()
+    //                .setTableSpec(options.getAuditTableSpec())
+    //                .setMethod(options.getWriteMethod())
+    //                .build());
+
+    inspectedContents
+        .apply("ConvertBQSchema", DropFields.fields("bytes_inspected"))
+        .setRowSchema(Util.bqDataSchema)
+        .apply(
+            "StreamInsertToInspectData",
+            BQWriteTransform.newBuilder()
+                .setTableSpec(options.getTableSpec())
+                .setMethod(options.getWriteMethod())
+                .build());
     return p.run();
   }
 }

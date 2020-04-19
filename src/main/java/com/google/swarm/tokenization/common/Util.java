@@ -59,6 +59,7 @@ public class Util {
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
   private static final String NESTED_SCHEMA_REGEX = ".*[^=]=(.*[^ ]), .*[^=]=(.*[^ ])";
   private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
+  public static String INSPECTED = "INSPECTED";
 
   public static String parseBucketName(String value) {
     return value.substring(5, value.length() - 1);
@@ -202,13 +203,32 @@ public class Util {
   public static final Schema dlpInspectionSchema =
       Stream.of(
               Schema.Field.of("source_file", FieldType.STRING).withNullable(true),
+              Schema.Field.of("bytes_inspected", FieldType.INT64).withNullable(true),
               Schema.Field.of("transaction_time", FieldType.STRING).withNullable(true),
               Schema.Field.of("info_type_name", FieldType.STRING).withNullable(true),
               Schema.Field.of("likelihood", FieldType.STRING).withNullable(true),
-              Schema.Field.of("column_name", FieldType.STRING).withNullable(true),
               Schema.Field.of("quote", FieldType.STRING).withNullable(true),
               Schema.Field.of("location_start_byte_range", FieldType.INT64).withNullable(true),
               Schema.Field.of("location_end_byte_range", FieldType.INT64).withNullable(true))
+          .collect(toSchema());
+
+  public static final Schema bqDataSchema =
+      Stream.of(
+              Schema.Field.of("source_file", FieldType.STRING).withNullable(true),
+              Schema.Field.of("transaction_time", FieldType.STRING).withNullable(true),
+              Schema.Field.of("info_type_name", FieldType.STRING).withNullable(true),
+              Schema.Field.of("likelihood", FieldType.STRING).withNullable(true),
+              Schema.Field.of("quote", FieldType.STRING).withNullable(true),
+              Schema.Field.of("location_start_byte_range", FieldType.INT64).withNullable(true),
+              Schema.Field.of("location_end_byte_range", FieldType.INT64).withNullable(true))
+          .collect(toSchema());
+  public static final Schema bqAuditSchema =
+      Stream.of(
+              Schema.Field.of("source_file", FieldType.STRING).withNullable(true),
+              Schema.Field.of("transaction_time", FieldType.STRING).withNullable(true),
+              Schema.Field.of("total_bytes_inspected", FieldType.INT64).withNullable(true),
+              Schema.Field.of("total_findings", FieldType.INT32).withNullable(true),
+              Schema.Field.of("status", FieldType.STRING).withNullable(true))
           .collect(toSchema());
 
   public static String getTimeStamp() {

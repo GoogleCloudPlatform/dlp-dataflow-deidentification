@@ -23,9 +23,9 @@ import org.apache.beam.sdk.options.Validation;
 
 public interface S3ReaderOptions extends DataflowPipelineOptions {
   @Validation.Required
-  String getCSVFilePattern();
+  String getFilePattern();
 
-  void setCSVFilePattern(String csvFilePattern);
+  void setFilePattern(String filePattern);
 
   @Description("DLP Inspect Template Name")
   String getInspectTemplateName();
@@ -42,6 +42,11 @@ public interface S3ReaderOptions extends DataflowPipelineOptions {
   String getTableSpec();
 
   void setTableSpec(String value);
+
+  @Description("BQ Audit Table Spec")
+  String getAuditTableSpec();
+
+  void setAuditTableSpec(String value);
 
   @Description("BQ Write Method")
   @Default.Enum("DEFAULT")

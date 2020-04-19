@@ -11,27 +11,17 @@
    },
    {
       "mode":"NULLABLE",
-      "name":"info_type_name",
+      "name":"status",
       "type":"STRING"
    },
    {
       "mode":"NULLABLE",
-      "name":"quote",
-      "type":"STRING"
+      "name":"total_bytes_inspected",
+      "type":"INTEGER"
    },
    {
       "mode":"NULLABLE",
-      "name":"likelihood",
-      "type":"STRING"
-   },
-   {
-      "mode":"NULLABLE",
-      "name":"location_start_byte_range",
-      "type":"NUMERIC"
-   },
-   {
-      "mode":"NULLABLE",
-      "name":"location_end_byte_range",
+      "name":"total_findings",
       "type":"NUMERIC"
    }  
    

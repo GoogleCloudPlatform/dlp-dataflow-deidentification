@@ -15,9 +15,10 @@
  */
 package com.google.swarm.tokenization.common;
 
+import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
-import java.util.List;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -30,41 +31,62 @@ import org.slf4j.LoggerFactory;
 public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
   public static final Logger LOG = LoggerFactory.getLogger(FileReaderSplitDoFn.class);
   public static Integer SPLIT_SIZE = 900000;
-  private String delimeter;
-
-  public FileReaderSplitDoFn(String delimeter) {
-    this.delimeter = delimeter;
-  }
+  private static Integer BATCH_SIZE = 520000;
 
   @ProcessElement
   public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker)
       throws IOException {
     String fileName = c.element().getKey();
     try (SeekableByteChannel channel = getReader(c.element().getValue())) {
-      FileReader reader =
-          new FileReader(channel, tracker.currentRestriction().getFrom(), delimeter.getBytes());
-      while (tracker.tryClaim(reader.getStartOfNextRecord())) {
-        reader.readNextRecord();
-        String contents = reader.getCurrent();
-        c.outputWithTimestamp(KV.of(fileName, contents), c.timestamp());
+      ByteBuffer readBuffer = ByteBuffer.allocate(BATCH_SIZE);
+      ByteString buffer = ByteString.EMPTY;
+      for (long i = tracker.currentRestriction().getFrom(); tracker.tryClaim(i); ++i) {
+        long startOffset = (i * BATCH_SIZE) - BATCH_SIZE;
+        channel.position(startOffset);
+        readBuffer = ByteBuffer.allocate(BATCH_SIZE);
+        buffer = ByteString.EMPTY;
+        channel.read(readBuffer);
+        readBuffer.flip();
+        buffer = ByteString.copyFrom(readBuffer);
+        readBuffer.clear();
+        LOG.debug("Content {}", buffer.toStringUtf8().trim());
+        LOG.debug(
+            "Current Restriction {}, Content Size{}", tracker.currentRestriction(), buffer.size());
+        c.output(KV.of(fileName, buffer.toStringUtf8().trim()));
       }
+    } catch (Exception e) {
+
+      LOG.error(e.getMessage());
     }
   }
 
   @GetInitialRestriction
-  public OffsetRange getInitialRestriction(KV<String, ReadableFile> csvFile) throws IOException {
-    long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
-    LOG.info("Initial Restriction range from 1 to: {}", totalBytes);
-    return new OffsetRange(0, totalBytes);
+  public OffsetRange getInitialRestriction(KV<String, ReadableFile> file) throws IOException {
+    long totalBytes = file.getValue().getMetadata().sizeBytes();
+    long totalSplit = 0;
+    if (totalBytes < BATCH_SIZE) {
+      totalSplit = 2;
+    } else {
+      totalSplit = totalSplit + (totalBytes / BATCH_SIZE);
+      long remaining = totalBytes % BATCH_SIZE;
+      if (remaining > 0) {
+        totalSplit = totalSplit + 2;
+      }
+    }
+
+    LOG.info(
+        "Total Bytes {} for File {} -Initial Restriction range from 1 to: {}",
+        totalBytes,
+        file.getKey(),
+        totalSplit);
+    return new OffsetRange(1, totalSplit);
   }
 
   @SplitRestriction
   public void splitRestriction(
-      KV<String, ReadableFile> csvFile, OffsetRange range, OutputReceiver<OffsetRange> out) {
-    long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
-    List<OffsetRange> splits = range.split(SPLIT_SIZE, SPLIT_SIZE);
-    LOG.info("Number of Split {} total bytes {}", splits.size(), totalBytes);
-    for (final OffsetRange p : splits) {
+      KV<String, ReadableFile> file, OffsetRange range, OutputReceiver<OffsetRange> out) {
+
+    for (final OffsetRange p : range.split(1, 1)) {
       out.output(p);
     }
   }
