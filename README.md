@@ -1,3 +1,4 @@
+
 # Migrate Sensitive Data in BigQuery Using Dataflow & Cloud DLP  
  This repo contains a reference implementation of an end to end data tokenization solution designed to migrate sensitive data in BigQuery. Please check out the links below for reference guides: 
 
@@ -67,7 +68,8 @@ gradle spotLessApply -DmainClass=com.google.solutions.s3.scanner.DLPS3ScannerPip
 
 gradle build -DmainClass=com.google.solutions.s3.scanner.DLPS3ScannerPipeline 
 
-gradle run -DmainClass=com.google.swarm.tokenization.DLPS3ScannerPipeline -Pargs="--streaming --runner=DataflowRunner --project=<id> --autoscalingAlgorithm=NONE --workerMachineType=n1-standard-4 --numWorkers=5 --maxNumWorkers=5 --region=us-central1 --awsCredentialsProvider=$AWS_CRED --awsRegion=ca-central-1 --CSVFilePattern=s3://<path>>  --inspectTemplateName=projects/{id}/inspectTemplates/{template_id} --tableSpec=<project_id>:<dataset>.dlp_s3_inspection_result"
+gradle run -DmainClass=com.google.swarm.tokenization.DLPS3ScannerPipeline -Pargs="--runner=DataflowRunner --project=<id> --autoscalingAlgorithm=NONE --workerMachineType=n1-standard-4 --numWorkers=5 --maxNumWorkers=5 --region=us-central1  --filePattern=gs://<bucket>/*.csv --inspectTemplateName=projects/<id>/inspectTemplates/inspect-test1 --tableSpec=project:demo_dataset.dlp_inspection_results --auditTableSpec=project:demo_dataset.dlp_inspection_audit --tempLocation=gs://dfs-temp-files/tmp  --batchSize=500000 --usePublicIps=false --diskSizeGb=500 --workerDiskType=compute.googleapis.com/projects/id/zones/us-central1-b/diskTypes/pd-ssd"
+
 ```
 ## To Do
 - S3 Scanner accuracy. 
