@@ -53,4 +53,9 @@ public interface S3ReaderOptions extends DataflowPipelineOptions {
   BigQueryIO.Write.Method getWriteMethod();
 
   void setWriteMethod(BigQueryIO.Write.Method value);
+
+  @Description("Topic for audit data")
+  String getTopic();
+
+  void setTopic(String value);
 }

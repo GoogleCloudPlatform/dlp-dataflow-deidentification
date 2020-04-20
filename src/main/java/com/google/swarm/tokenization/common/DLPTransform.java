@@ -129,6 +129,7 @@ public abstract class DLPTransform
                                     finding.getLocation().getCodepointRange().getEnd())
                                 .build();
                         LOG.debug("Row {}", row);
+
                         c.output(Util.inspectData, row);
                       });
               numberOfBytesInspected.inc(bytesInspected);

@@ -15,7 +15,10 @@
  */
 package com.google.swarm.tokenization.common;
 
+import com.google.api.services.bigquery.model.Clustering;
+import com.google.api.services.bigquery.model.TimePartitioning;
 import com.google.auto.value.AutoValue;
+import java.util.Arrays;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.WriteResult;
@@ -73,7 +76,10 @@ public abstract class BQWriteTransform extends PTransform<PCollection<Row>, Writ
                 .withMethod(BigQueryIO.Write.Method.STREAMING_INSERTS)
                 .useBeamSchema()
                 .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
-                .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER));
+                .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER)
+                .withClustering(
+                    new Clustering().setFields(Arrays.asList("source_file", "info_type_name")))
+                .withTimePartitioning(new TimePartitioning().setType("DAY")));
       default:
         return input.apply(
             BigQueryIO.<Row>write()

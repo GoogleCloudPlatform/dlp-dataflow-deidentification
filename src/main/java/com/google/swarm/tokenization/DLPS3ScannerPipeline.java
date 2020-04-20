@@ -19,10 +19,13 @@ import com.google.swarm.tokenization.common.AudioInspectDataTransform;
 import com.google.swarm.tokenization.common.BQWriteTransform;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.FileReaderTransform;
+import com.google.swarm.tokenization.common.RowToJson;
 import com.google.swarm.tokenization.common.S3ReaderOptions;
 import com.google.swarm.tokenization.common.Util;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
@@ -62,15 +65,23 @@ public class DLPS3ScannerPipeline {
     PCollection<Row> inspectedStats =
         inspectedData.get(Util.auditData).setRowSchema(Util.bqAuditSchema);
 
-    inspectedStats
-        .apply("FileTrackerTransform", new AudioInspectDataTransform())
-        .setRowSchema(Util.bqAuditSchema)
-        .apply(
-            "WriteAuditData",
-            BQWriteTransform.newBuilder()
-                .setTableSpec(options.getAuditTableSpec())
-                .setMethod(options.getWriteMethod())
-                .build());
+    PCollection<Row> auditData =
+        inspectedStats
+            .apply("FileTrackerTransform", new AudioInspectDataTransform())
+            .setRowSchema(Util.bqAuditSchema);
+
+    auditData.apply(
+        "WriteAuditData",
+        BigQueryIO.<Row>write()
+            .to(options.getAuditTableSpec())
+            .withMethod(BigQueryIO.Write.Method.STREAMING_INSERTS)
+            .useBeamSchema()
+            .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
+            .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER));
+
+    auditData
+        .apply("RowToJson", new RowToJson())
+        .apply("WriteToTopic", PubsubIO.writeStrings().to(options.getTopic()));
 
     inspectedContents.apply(
         "WriteInspectData",
