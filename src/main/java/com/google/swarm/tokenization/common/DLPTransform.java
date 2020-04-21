@@ -214,17 +214,19 @@ public abstract class DLPTransform
                   numberOfRowsBagged.inc();
                   LOG.info("Clear Buffer {} , Key {}",bufferSize.intValue(),element.getKey());
                   output.output(KV.of(element.getKey(), rows));
+                  // clean up in a method
                   rows.clear();
                   bufferSize.set(0);
                   rows.add(element.getValue());
                   bufferSize.getAndAdd(Integer.valueOf(element.getValue().getSerializedSize()));
 
                 } else {
+                  // clean up in a method
                   rows.add(element.getValue());
                   bufferSize.getAndAdd(Integer.valueOf(element.getValue().getSerializedSize()));
                 }
               });
-
+      // must be  a better way
       if (!rows.isEmpty()) {
     	  LOG.info("Remaining rows {}",rows.size());	
           numberOfRowsBagged.inc();
