@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
@@ -38,15 +39,14 @@ import org.apache.beam.sdk.state.TimeDomain;
 import org.apache.beam.sdk.state.Timer;
 import org.apache.beam.sdk.state.TimerSpec;
 import org.apache.beam.sdk.state.TimerSpecs;
-import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.Row;
-import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,23 +88,29 @@ public abstract class DLPTransform
   public PCollection<Row> expand(PCollection<KV<String, String>> input) {
     return input
         .apply("ConvertToDLPRow", ParDo.of(new ConvertToDLPRow(columnDelimeter())))
-        // .apply("Batch Contents", ParDo.of(new BatchTableRequest(batchSize())))
+        .apply("Batch Contents", ParDo.of(new BatchTableRequest(batchSize())))
         .apply(
-            "ConvertToDLPTable",
-            ParDo.of(new ConvertToDLPTable(csvHeader())).withSideInputs(csvHeader()))
-        .apply("DLPInspect", ParDo.of(new InspectData(projectId(), inspectTemplateName())));
+            "DLPInspect",
+            ParDo.of(new InspectData(projectId(), inspectTemplateName(), csvHeader()))
+                .withSideInputs(csvHeader()));
   }
 
-  public static class InspectData extends DoFn<KV<String, Table>, Row> {
+  public static class InspectData extends DoFn<KV<String, Iterable<Table.Row>>, Row> {
     private String projectId;
     private String inspectTemplateName;
+    PCollectionView<List<String>> csvHeader;
+    List<FieldId> dlpTableHeaders = null;
     private InspectContentRequest.Builder requestBuilder;
     private final Counter numberOfBytesInspected =
         Metrics.counter(InspectData.class, "NumberOfBytesInspected");
+    private final Counter numberOfRowsInspected =
+        Metrics.counter(InspectData.class, "NumberOfRowsInspected");
 
-    public InspectData(String projectId, String inspectTemplateName) {
+    public InspectData(
+        String projectId, String inspectTemplateName, PCollectionView<List<String>> csvHeader) {
       this.projectId = projectId;
       this.inspectTemplateName = inspectTemplateName;
+      this.csvHeader = csvHeader;
     }
 
     @Setup
@@ -119,7 +125,15 @@ public abstract class DLPTransform
     public void processElement(ProcessContext c) throws IOException {
       try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
         String fileName = c.element().getKey();
-        Table table = c.element().getValue();
+        dlpTableHeaders =
+            c.sideInput(csvHeader).stream()
+                .map(header -> FieldId.newBuilder().setName(header).build())
+                .collect(Collectors.toList());
+        Table table =
+            Table.newBuilder()
+                .addAllHeaders(dlpTableHeaders)
+                .addAllRows(c.element().getValue())
+                .build();
         ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
         this.requestBuilder.setItem(contentItem);
         InspectContentResponse response =
@@ -138,27 +152,24 @@ public abstract class DLPTransform
                                 timeStamp,
                                 finding.getInfoType().getName(),
                                 finding.getLikelihood().name(),
-                                finding
-                                    .getLocation()
-                                    .getContentLocationsList()
-                                    .get(0)
-                                    .getRecordLocation()
-                                    .getFieldId()
-                                    .getName(),
                                 finding.getQuote(),
                                 finding.getLocation().getCodepointRange().getStart(),
                                 finding.getLocation().getCodepointRange().getEnd())
                             .build();
+                    LOG.info("Row{}",row);
                     c.output(row);
                   });
+        } else {
+        	LOG.info("response has no result");
         }
+        numberOfRowsInspected.inc(contentItem.getTable().getRowsCount());
         numberOfBytesInspected.inc(contentItem.getSerializedSize());
       }
     }
   }
 
   public static class BatchTableRequest
-      extends DoFn<KV<String, Table.Row>, Iterable<KV<String, Table.Row>>> {
+      extends DoFn<KV<String, Table.Row>, KV<String, Iterable<Table.Row>>> {
 
     private static final long serialVersionUID = 1L;
     private final Counter numberOfRowsBagged =
@@ -172,9 +183,6 @@ public abstract class DLPTransform
     @StateId("elementsBag")
     private final StateSpec<BagState<KV<String, Table.Row>>> elementsBag = StateSpecs.bag();
 
-    @StateId("elementsSize")
-    private final StateSpec<ValueState<Integer>> elementsSize = StateSpecs.value();
-
     @TimerId("eventTimer")
     private final TimerSpec eventTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
 
@@ -182,60 +190,47 @@ public abstract class DLPTransform
     public void process(
         @Element KV<String, Table.Row> element,
         @StateId("elementsBag") BagState<KV<String, Table.Row>> elementsBag,
-        @StateId("elementsSize") ValueState<Integer> elementsSize,
-        @Timestamp Instant elementTs,
         @TimerId("eventTimer") Timer eventTimer,
-        OutputReceiver<Iterable<KV<String, Table.Row>>> output) {
-      eventTimer.set(elementTs);
-      Integer currentElementSize =
-          (element.getValue() == null) ? 0 : element.getValue().getSerializedSize();
-      Integer currentBufferSize = (elementsSize.read() == null) ? 0 : elementsSize.read();
-      boolean clearBuffer = (currentElementSize + currentBufferSize) > batchSize;
-      LOG.debug(
-          "Status: Clear Buffer {}, Curret Elements Size {}, currentBufferSize {} , Key {}",
-          clearBuffer,
-          currentElementSize,
-          currentBufferSize,
-          element.getKey());
-      if (clearBuffer) {
-        output.output(elementsBag.read());
-        LOG.info("****CLEAR BUFFER **** Current Buffer Size {}", elementsSize.read());
-        clearState(elementsBag, elementsSize);
-        clearBuffer = false;
-        currentBufferSize = 0;
-        addState(elementsBag, elementsSize, element, currentElementSize + currentBufferSize);
-
-      } else {
-        addState(elementsBag, elementsSize, element, currentElementSize + currentBufferSize);
-      }
-      numberOfRowsBagged.inc();
+        BoundedWindow w,
+        ProcessContext c) {
+      elementsBag.add(element);
+      eventTimer.set(w.maxTimestamp());
     }
 
     @OnTimer("eventTimer")
     public void onTimer(
         @StateId("elementsBag") BagState<KV<String, Table.Row>> elementsBag,
-        @StateId("elementsSize") ValueState<Integer> elementsSize,
-        OutputReceiver<Iterable<KV<String, Table.Row>>> output) {
-      if (elementsSize.read() < batchSize) output.output(elementsBag.read());
-      else {
-        LOG.error("Element Size {} is Larger than batch size {}", elementsSize.read(), batchSize);
+        OutputReceiver<KV<String, Iterable<Table.Row>>> output) {
+      String key = elementsBag.read().iterator().next().getKey();
+      AtomicInteger bufferSize = new AtomicInteger();
+	  List<Table.Row> rows = new ArrayList<>();
+      elementsBag
+          .read()
+          .forEach(
+              element -> {
+                Integer elementSize = element.getValue().getSerializedSize();
+                boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
+                if (clearBuffer) {
+                  numberOfRowsBagged.inc();
+                  LOG.info("Clear Buffer {} , Key {}",bufferSize.intValue(),element.getKey());
+                  output.output(KV.of(element.getKey(), rows));
+                  rows.clear();
+                  bufferSize.set(0);
+                  rows.add(element.getValue());
+                  bufferSize.getAndAdd(Integer.valueOf(element.getValue().getSerializedSize()));
+
+                } else {
+                  rows.add(element.getValue());
+                  bufferSize.getAndAdd(Integer.valueOf(element.getValue().getSerializedSize()));
+                }
+              });
+
+      if (!rows.isEmpty()) {
+    	  LOG.info("Remaining rows {}",rows.size());	
+          numberOfRowsBagged.inc();
+    	  output.output(KV.of(key, rows));
       }
-      LOG.info("****Timer Triggered **** Current Buffer Size {}", elementsSize.read());
-    }
-
-    private static void clearState(
-        BagState<KV<String, Table.Row>> elementsBag, ValueState<Integer> elementsSize) {
-      elementsBag.clear();
-      elementsSize.clear();
-    }
-
-    private static void addState(
-        BagState<KV<String, Table.Row>> elementsBag,
-        ValueState<Integer> elementsSize,
-        KV<String, Table.Row> element,
-        Integer size) {
-      elementsBag.add(element);
-      elementsSize.write(size);
+    
     }
   }
 
@@ -261,47 +256,6 @@ public abstract class DLPTransform
 
       Table.Row dlpRow = tableRowBuilder.build();
       c.output(KV.of(key, dlpRow));
-    }
-  }
-
-  private static KV<String, Table> emitTableResult(
-      KV<String, Table.Row> bufferData, List<String> csvHeaders) {
-
-    List<Table.Row> rows = new ArrayList<>();
-    rows.add(bufferData.getValue());
-    //    bufferData.forEach(
-    //        record -> {
-    //          rows.add(record.getValue());
-    //        });
-    Table dlpTable = null;
-
-    //    String fileName =
-    //        (bufferData.iterator().hasNext()) ? bufferData.iterator().next().getKey() :
-    // "UNKNOWN_FILE";
-
-    // Building dlp Table Headers
-    List<FieldId> dlpTableHeaders =
-        csvHeaders.stream()
-            .map(header -> FieldId.newBuilder().setName(header).build())
-            .collect(Collectors.toList());
-
-    dlpTable = Table.newBuilder().addAllHeaders(dlpTableHeaders).addAllRows(rows).build();
-
-    return KV.of(bufferData.getKey(), dlpTable);
-  }
-
-  public static class ConvertToDLPTable extends DoFn<KV<String, Table.Row>, KV<String, Table>> {
-    private PCollectionView<List<String>> csvHeader;
-
-    public ConvertToDLPTable(PCollectionView<List<String>> csvHeader) {
-      this.csvHeader = csvHeader;
-    }
-
-    @ProcessElement
-    public void processElement(ProcessContext c) {
-
-      KV<String, Table> table = emitTableResult(c.element(), c.sideInput(csvHeader));
-      c.output(table);
     }
   }
 }

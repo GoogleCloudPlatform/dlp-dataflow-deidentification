@@ -18,6 +18,7 @@ package com.google.swarm.tokenization.common;
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
 import java.util.List;
+import java.util.Random;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -43,10 +44,11 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
     try (SeekableByteChannel channel = getReader(c.element().getValue())) {
       FileReader reader =
           new FileReader(channel, tracker.currentRestriction().getFrom(), delimeter.getBytes());
+      String key = String.format("%s_%x", fileName, new Random().nextInt(16));
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent();
-        c.outputWithTimestamp(KV.of(fileName, contents), c.timestamp());
+        c.outputWithTimestamp(KV.of(key, contents), c.timestamp());
       }
     }
   }

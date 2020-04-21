@@ -21,6 +21,11 @@
    },
    {
       "mode":"NULLABLE",
+      "name":"quote",
+      "type":"STRING"
+   },
+   {
+      "mode":"NULLABLE",
       "name":"location_start_byte_range",
       "type":"NUMERIC"
    },
