@@ -191,8 +191,7 @@ public abstract class DLPTransform
         @Element KV<String, Table.Row> element,
         @StateId("elementsBag") BagState<KV<String, Table.Row>> elementsBag,
         @TimerId("eventTimer") Timer eventTimer,
-        BoundedWindow w,
-        ProcessContext c) {
+        BoundedWindow w) {
       elementsBag.add(element);
       eventTimer.set(w.maxTimestamp());
     }
@@ -212,7 +211,7 @@ public abstract class DLPTransform
                 boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
                 if (clearBuffer) {
                   numberOfRowsBagged.inc();
-                  LOG.info("Clear Buffer {} , Key {}",bufferSize.intValue(),element.getKey());
+                  LOG.debug("Clear Buffer {} , Key {}",bufferSize.intValue(),element.getKey());
                   output.output(KV.of(element.getKey(), rows));
                   // clean up in a method
                   rows.clear();
@@ -228,7 +227,7 @@ public abstract class DLPTransform
               });
       // must be  a better way
       if (!rows.isEmpty()) {
-    	  LOG.info("Remaining rows {}",rows.size());	
+    	  LOG.debug("Remaining rows {}",rows.size());	
           numberOfRowsBagged.inc();
     	  output.output(KV.of(key, rows));
       }
