@@ -44,10 +44,10 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
     try (SeekableByteChannel channel = getReader(c.element().getValue())) {
       FileReader reader =
           new FileReader(channel, tracker.currentRestriction().getFrom(), delimeter.getBytes());
-      String key = String.format("%s_%x", fileName, new Random().nextInt(16));
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent();
+        String key = String.format("%s_%x", fileName, new Random().nextInt(10000));
         c.outputWithTimestamp(KV.of(key, contents), c.timestamp());
       }
     }

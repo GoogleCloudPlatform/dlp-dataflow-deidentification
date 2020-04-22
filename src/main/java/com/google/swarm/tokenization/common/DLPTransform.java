@@ -139,31 +139,28 @@ public abstract class DLPTransform
         InspectContentResponse response =
             dlpServiceClient.inspectContent(this.requestBuilder.build());
         String timeStamp = Util.getTimeStamp();
-        if (response.hasResult()) {
-          response
-              .getResult()
-              .getFindingsList()
-              .forEach(
-                  finding -> {
-                    Row row =
-                        Row.withSchema(Util.dlpInspectionSchema)
-                            .addValues(
-                                fileName,
-                                timeStamp,
-                                finding.getInfoType().getName(),
-                                finding.getLikelihood().name(),
-                                finding.getQuote(),
-                                finding.getLocation().getCodepointRange().getStart(),
-                                finding.getLocation().getCodepointRange().getEnd())
-                            .build();
-                    LOG.debug("Row{}",row);
-                    c.output(row);
-                  });
-        } else {
-        	LOG.info("response has no result");
-        }
-        numberOfRowsInspected.inc(contentItem.getTable().getRowsCount());
+
+        response
+            .getResult()
+            .getFindingsList()
+            .forEach(
+                finding -> {
+                  Row row =
+                      Row.withSchema(Util.dlpInspectionSchema)
+                          .addValues(
+                              fileName,
+                              timeStamp,
+                              finding.getInfoType().getName(),
+                              finding.getLikelihood().name(),
+                              finding.getQuote(),
+                              finding.getLocation().getCodepointRange().getStart(),
+                              finding.getLocation().getCodepointRange().getEnd())
+                          .build();
+                  LOG.debug("Row{}", row);
+                  c.output(row);
+                });
         numberOfBytesInspected.inc(contentItem.getSerializedSize());
+        numberOfRowsInspected.inc(contentItem.getTable().getRowsCount());
       }
     }
   }
@@ -202,7 +199,7 @@ public abstract class DLPTransform
         OutputReceiver<KV<String, Iterable<Table.Row>>> output) {
       String key = elementsBag.read().iterator().next().getKey();
       AtomicInteger bufferSize = new AtomicInteger();
-	  List<Table.Row> rows = new ArrayList<>();
+      List<Table.Row> rows = new ArrayList<>();
       elementsBag
           .read()
           .forEach(
@@ -211,7 +208,7 @@ public abstract class DLPTransform
                 boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
                 if (clearBuffer) {
                   numberOfRowsBagged.inc(rows.size());
-                  LOG.debug("Clear Buffer {} , Key {}",bufferSize.intValue(),element.getKey());
+                  LOG.debug("Clear Buffer {} , Key {}", bufferSize.intValue(), element.getKey());
                   output.output(KV.of(element.getKey(), rows));
                   // clean up in a method
                   rows.clear();
@@ -227,11 +224,10 @@ public abstract class DLPTransform
               });
       // must be  a better way
       if (!rows.isEmpty()) {
-    	  LOG.debug("Remaining rows {}",rows.size());	
-          numberOfRowsBagged.inc(rows.size());
-    	  output.output(KV.of(key, rows));
+        LOG.debug("Remaining rows {}", rows.size());
+        numberOfRowsBagged.inc(rows.size());
+        output.output(KV.of(key, rows));
       }
-    
     }
   }
 
