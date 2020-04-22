@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 public abstract class CSVFileReaderTransform
     extends PTransform<PBegin, PCollection<KV<String, Iterable<ReadableFile>>>> {
   public static final Logger LOG = LoggerFactory.getLogger(CSVFileReaderTransform.class);
-  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(10);
+  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(5);
 
   public abstract String csvFilePattern();
 

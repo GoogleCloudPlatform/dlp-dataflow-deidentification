@@ -156,7 +156,7 @@ public abstract class DLPTransform
                                 finding.getLocation().getCodepointRange().getStart(),
                                 finding.getLocation().getCodepointRange().getEnd())
                             .build();
-                    LOG.info("Row{}",row);
+                    LOG.debug("Row{}",row);
                     c.output(row);
                   });
         } else {
@@ -210,7 +210,7 @@ public abstract class DLPTransform
                 Integer elementSize = element.getValue().getSerializedSize();
                 boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
                 if (clearBuffer) {
-                  numberOfRowsBagged.inc();
+                  numberOfRowsBagged.inc(rows.size());
                   LOG.debug("Clear Buffer {} , Key {}",bufferSize.intValue(),element.getKey());
                   output.output(KV.of(element.getKey(), rows));
                   // clean up in a method
@@ -228,7 +228,7 @@ public abstract class DLPTransform
       // must be  a better way
       if (!rows.isEmpty()) {
     	  LOG.debug("Remaining rows {}",rows.size());	
-          numberOfRowsBagged.inc();
+          numberOfRowsBagged.inc(rows.size());
     	  output.output(KV.of(key, rows));
       }
     
