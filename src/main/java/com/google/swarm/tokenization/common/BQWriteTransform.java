@@ -80,6 +80,7 @@ public abstract class BQWriteTransform extends PTransform<PCollection<Row>, Writ
                 .to(tableSpec())
                 .withMethod(method())
                 .useBeamSchema()
+                .withoutValidation()
                 .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
                 .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER));
     }
