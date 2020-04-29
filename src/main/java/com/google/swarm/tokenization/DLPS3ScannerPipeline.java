@@ -15,7 +15,7 @@
  */
 package com.google.swarm.tokenization;
 
-import com.google.swarm.tokenization.common.AudioInspectDataTransform;
+import com.google.swarm.tokenization.common.AuditInspectDataTransform;
 import com.google.swarm.tokenization.common.BQWriteTransform;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.FileReaderTransform;
@@ -49,7 +49,7 @@ public class DLPS3ScannerPipeline {
     PCollection<KV<String, String>> nonInspectedContents =
         p.apply(
             "File Read Transforrm",
-            FileReaderTransform.newBuilder().setFilePattern(options.getFilePattern()).build());
+            FileReaderTransform.newBuilder().setSubscriber(options.getSubscriber()).build());
 
     PCollectionTuple inspectedData =
         nonInspectedContents.apply(
@@ -67,7 +67,7 @@ public class DLPS3ScannerPipeline {
 
     PCollection<Row> auditData =
         inspectedStats
-            .apply("FileTrackerTransform", new AudioInspectDataTransform())
+            .apply("FileTrackerTransform", new AuditInspectDataTransform())
             .setRowSchema(Util.bqAuditSchema);
 
     auditData.apply(

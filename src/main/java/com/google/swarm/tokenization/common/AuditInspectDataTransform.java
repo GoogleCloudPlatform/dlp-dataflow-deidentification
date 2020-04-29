@@ -15,8 +15,8 @@ import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class AudioInspectDataTransform extends PTransform<PCollection<Row>, PCollection<Row>> {
-  public static final Logger LOG = LoggerFactory.getLogger(AudioInspectDataTransform.class);
+public class AuditInspectDataTransform extends PTransform<PCollection<Row>, PCollection<Row>> {
+  public static final Logger LOG = LoggerFactory.getLogger(AuditInspectDataTransform.class);
 
   @Override
   public PCollection<Row> expand(PCollection<Row> inspectedRow) {

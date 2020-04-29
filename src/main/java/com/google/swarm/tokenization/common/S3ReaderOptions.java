@@ -23,9 +23,9 @@ import org.apache.beam.sdk.options.Validation;
 
 public interface S3ReaderOptions extends DataflowPipelineOptions {
   @Validation.Required
-  String getFilePattern();
+  String getSubscriber();
 
-  void setFilePattern(String filePattern);
+  void setSubscriber(String subscriber);
 
   @Description("DLP Inspect Template Name")
   String getInspectTemplateName();
