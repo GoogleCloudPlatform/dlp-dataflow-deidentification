@@ -18,6 +18,7 @@ package com.google.swarm.tokenization.common;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,9 +31,9 @@ public class FileSourceDoFn extends DoFn<ReadableFile, KV<String, ReadableFile>>
 
     ReadableFile file = c.element();
     String fileName = file.getMetadata().resourceId().toString();
-    LOG.info("File: {}", fileName);
     if (fileName.matches(FILE_PATTERN)) {
-      c.output(KV.of(fileName, file));
+    	String key = String.format("%s_%s", fileName,Instant.now().getMillis());
+    	c.output(KV.of(key, file));
     } else {
       LOG.error("Extension Not Supported");
     }
