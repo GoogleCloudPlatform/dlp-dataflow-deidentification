@@ -64,6 +64,7 @@ public abstract class BQWriteTransform extends PTransform<PCollection<Row>, Writ
             BigQueryIO.<Row>write()
                 .to(tableSpec())
                 .useBeamSchema()
+                .withoutValidation()
                 .withMethod(BigQueryIO.Write.Method.FILE_LOADS)
                 .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
                 .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER)
@@ -75,6 +76,7 @@ public abstract class BQWriteTransform extends PTransform<PCollection<Row>, Writ
                 .to(tableSpec())
                 .withMethod(BigQueryIO.Write.Method.STREAMING_INSERTS)
                 .useBeamSchema()
+                .withoutValidation()
                 .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
                 .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER)
                 .withClustering(
