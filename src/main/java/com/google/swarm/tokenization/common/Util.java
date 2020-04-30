@@ -61,7 +61,7 @@ public class Util {
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
   private static final String NESTED_SCHEMA_REGEX = ".*[^=]=(.*[^ ]), .*[^=]=(.*[^ ])";
   private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
-  public static final String ALLOWED_NOTIFICATION_EVET_TYPE = String.valueOf("OBJECT_FINALIZE");
+  public static final String ALLOWED_NOTIFICATION_EVENT_TYPE = String.valueOf("OBJECT_FINALIZE");
   public static String INSPECTED = "INSPECTED";
   public static String FAILED = "FAILED";
   public static TupleTag<Row> inspectData = new TupleTag<Row>() {};

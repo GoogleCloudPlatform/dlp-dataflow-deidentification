@@ -72,7 +72,7 @@ public abstract class FileReaderTransform
       String eventType = c.element().getAttribute("eventType");
       GcsPath uri = GcsPath.fromComponents(bucket, object);
 
-      if (eventType.equalsIgnoreCase(Util.ALLOWED_NOTIFICATION_EVET_TYPE)) {
+      if (eventType.equalsIgnoreCase(Util.ALLOWED_NOTIFICATION_EVENT_TYPE)) {
         LOG.info("File Name {}", uri.toString());
         c.output(uri.toString());
       } else {
