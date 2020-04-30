@@ -84,7 +84,9 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
 
   @SplitRestriction
   public void splitRestriction(
-      @Element KV<String, ReadableFile> file, @Restriction OffsetRange range, OutputReceiver<OffsetRange> out) {
+      @Element KV<String, ReadableFile> file,
+      @Restriction OffsetRange range,
+      OutputReceiver<OffsetRange> out) {
     for (final OffsetRange p : range.split(1, 1)) {
       out.output(p);
     }

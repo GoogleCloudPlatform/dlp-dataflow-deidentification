@@ -76,6 +76,7 @@ public class DLPS3ScannerPipeline {
             .to(options.getAuditTableSpec())
             .withMethod(BigQueryIO.Write.Method.STREAMING_INSERTS)
             .useBeamSchema()
+            .withoutValidation()
             .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
             .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER));
 
