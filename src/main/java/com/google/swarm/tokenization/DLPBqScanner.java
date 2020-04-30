@@ -76,13 +76,13 @@ public class DLPBqScanner {
     Schema schema = getTableSchema(session);
     client.close();
     p.apply(
-            "ReadFromBigQuery",
-            BigQueryIO.read(SchemaAndRecord::getRecord)
-                .from(options.getTableRef())
-                .withTemplateCompatibility()
-                .withMethod(Method.DIRECT_READ)
-                .withCoder(AvroCoder.of(schema))
-                .withReadOptions(tableReadOptions));
+        "ReadFromBigQuery",
+        BigQueryIO.read(SchemaAndRecord::getRecord)
+            .from(options.getTableRef())
+            .withTemplateCompatibility()
+            .withMethod(Method.DIRECT_READ)
+            .withCoder(AvroCoder.of(schema))
+            .withReadOptions(tableReadOptions));
 
     return p.run();
   }

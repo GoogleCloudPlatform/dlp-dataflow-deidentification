@@ -8,7 +8,6 @@ import org.apache.beam.sdk.transforms.Sum;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
-import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
 import org.joda.time.Duration;
@@ -34,15 +33,15 @@ public class AuditInspectDataTransform extends PTransform<PCollection<Row>, PCol
         .apply("MergePartialStatsRow", MapElements.via(new MergeLogAggrMap()));
   }
 
-  public class MergeLogAggrMap extends SimpleFunction<KV<Row, Row>, Row> {
+  public class MergeLogAggrMap extends SimpleFunction<Row, Row> {
     @Override
-    public Row apply(KV<Row, Row> input) {
+    public Row apply(Row input) {
       Row aggrRow =
           Row.withSchema(Util.bqAuditSchema)
               .addValues(
-                  input.getKey().getString("source_file"),
+                  input.getRow("key").getString("source_file"),
                   Util.getTimeStamp(),
-                  input.getValue().getInt64("total_bytes_inspected").longValue(),
+                  input.getRow("value").getInt64("total_bytes_inspected").longValue(),
                   Util.INSPECTED)
               .build();
       LOG.info("Audit Row {}", aggrRow.toString());

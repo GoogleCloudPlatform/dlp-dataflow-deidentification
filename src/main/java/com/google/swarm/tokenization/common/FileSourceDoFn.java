@@ -32,8 +32,8 @@ public class FileSourceDoFn extends DoFn<ReadableFile, KV<String, ReadableFile>>
     ReadableFile file = c.element();
     String fileName = file.getMetadata().resourceId().toString();
     if (fileName.matches(FILE_PATTERN)) {
-    	String key = String.format("%s_%s", fileName,Instant.now().getMillis());
-    	c.output(KV.of(key, file));
+      String key = String.format("%s_%s", fileName, Instant.now().getMillis());
+      c.output(KV.of(key, file));
     } else {
       LOG.error("Extension Not Supported");
     }
