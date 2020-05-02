@@ -16,7 +16,6 @@
 package com.google.swarm.tokenization;
 
 import com.google.swarm.tokenization.common.AuditInspectDataTransform;
-import com.google.swarm.tokenization.common.BQWriteTransform;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.FileReaderTransform;
 import com.google.swarm.tokenization.common.RowToJson;
@@ -57,6 +56,7 @@ public class DLPS3ScannerPipeline {
             DLPTransform.newBuilder()
                 .setInspectTemplateName(options.getInspectTemplateName())
                 .setProjectId(options.getProject())
+                .setBatchSize(options.getBatchSize())
                 .build());
 
     PCollection<Row> inspectedContents =
@@ -83,13 +83,13 @@ public class DLPS3ScannerPipeline {
     auditData
         .apply("RowToJson", new RowToJson())
         .apply("WriteToTopic", PubsubIO.writeStrings().to(options.getTopic()));
-//
-//    inspectedContents.apply(
-//        "WriteInspectData",
-//        BQWriteTransform.newBuilder()
-//            .setTableSpec(options.getTableSpec())
-//            .setMethod(options.getWriteMethod())
-//            .build());
+    //
+    //    inspectedContents.apply(
+    //        "WriteInspectData",
+    //        BQWriteTransform.newBuilder()
+    //            .setTableSpec(options.getTableSpec())
+    //            .setMethod(options.getWriteMethod())
+    //            .build());
     return p.run();
   }
 }

@@ -25,10 +25,15 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Watch;
+import org.apache.beam.sdk.transforms.WithTimestamps;
+import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
+import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.Duration;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,8 +58,8 @@ public abstract class FileReaderTransform
 
   @Override
   public PCollection<KV<String, String>> expand(PBegin input) {
-	  // gs://stress-test-buck/testing_data/*.dat
-	  // gs://dlp_scan_run_test/daily_import_*.csv
+    // gs://stress-test-buck/testing_data/*.dat
+    // gs://dlp_scan_run_test/daily_import_*.csv
     return input
         .apply(
             FileIO.match()
@@ -64,7 +69,16 @@ public abstract class FileReaderTransform
                     Watch.Growth.afterTimeSinceNewOutput(Duration.standardHours(1))))
         .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
         .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
-        .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn()));
+        .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn("\n")))
+        .apply(
+                "AssignEventTimestamp",
+                WithTimestamps.of((KV<String, String> rec) -> Instant.now()))
+        .apply(
+            "Fixed Window",
+            Window.<KV<String, String>>into(FixedWindows.of(Duration.standardSeconds(1)))
+                .triggering(AfterWatermark.pastEndOfWindow())
+                .discardingFiredPanes()
+                .withAllowedLateness(Duration.ZERO));
   }
 
   public class MapPubSubMessage extends DoFn<PubsubMessage, String> {
