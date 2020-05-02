@@ -18,15 +18,17 @@ package com.google.swarm.tokenization.common;
 import com.google.auto.value.AutoValue;
 import com.google.swarm.tokenization.common.CSVFileReaderTransform.Builder;
 import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
+import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,14 +53,16 @@ public abstract class FileReaderTransform
 
   @Override
   public PCollection<KV<String, String>> expand(PBegin input) {
-
+	  // gs://stress-test-buck/testing_data/*.dat
+	  // gs://dlp_scan_run_test/daily_import_*.csv
     return input
         .apply(
-            "ReadFileMetadata",
-            PubsubIO.readMessagesWithAttributes().fromSubscription(subscriber()))
-        .apply("ConvertToGCSUri", ParDo.of(new MapPubSubMessage()))
-        .apply("FindFile", FileIO.matchAll())
-        .apply(FileIO.readMatches())
+            FileIO.match()
+                .filepattern("gs://stress-test-buck/testing_data/student_data_*.dat")
+                .continuously(
+                    Duration.standardSeconds(30),
+                    Watch.Growth.afterTimeSinceNewOutput(Duration.standardHours(1))))
+        .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
         .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
         .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn()));
   }

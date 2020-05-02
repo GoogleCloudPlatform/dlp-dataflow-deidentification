@@ -48,7 +48,7 @@ public class DLPS3ScannerPipeline {
 
     PCollection<KV<String, String>> nonInspectedContents =
         p.apply(
-            "File Read Transforrm",
+            "File Read Transform",
             FileReaderTransform.newBuilder().setSubscriber(options.getSubscriber()).build());
 
     PCollectionTuple inspectedData =
@@ -83,13 +83,13 @@ public class DLPS3ScannerPipeline {
     auditData
         .apply("RowToJson", new RowToJson())
         .apply("WriteToTopic", PubsubIO.writeStrings().to(options.getTopic()));
-
-    inspectedContents.apply(
-        "WriteInspectData",
-        BQWriteTransform.newBuilder()
-            .setTableSpec(options.getTableSpec())
-            .setMethod(options.getWriteMethod())
-            .build());
+//
+//    inspectedContents.apply(
+//        "WriteInspectData",
+//        BQWriteTransform.newBuilder()
+//            .setTableSpec(options.getTableSpec())
+//            .setMethod(options.getWriteMethod())
+//            .build());
     return p.run();
   }
 }
