@@ -22,6 +22,7 @@ import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.ReadableFileCoder;
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -58,14 +59,14 @@ public abstract class FileReaderTransform
     // gs://stress-test-buck/testing_data/*.dat
     // gs://dlp_scan_run_test/daily_import_*.csv
 	//gs://dfs-temp-files/PIPE_*.csv
-    return input
-        .apply(
-            FileIO.match()
-                .filepattern("gs://dfs-temp-files/PIPE_*.csv")
-                .continuously(Duration.standardSeconds(5), Watch.Growth.never()))
-        .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
-        .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
-        .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()))
+	   return input
+		        .apply(
+		            "ReadFileMetadata",
+		            PubsubIO.readMessagesWithAttributes().fromSubscription(subscriber()))
+		        .apply("ConvertToGCSUri", ParDo.of(new MapPubSubMessage()))
+		        .apply("FindFile", FileIO.matchAll())
+		        .apply(FileIO.readMatches())
+		        .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
         .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn("\n")));
   }
 

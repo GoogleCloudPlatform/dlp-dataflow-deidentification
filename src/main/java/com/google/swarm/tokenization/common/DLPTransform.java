@@ -126,7 +126,7 @@ public abstract class DLPTransform
                 boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
                 if (clearBuffer) {
                   numberOfRowsBagged.inc(rows.size());
-                  LOG.info("Clear Buffer {} , Key {}", bufferSize.intValue(), element.getKey());
+                  LOG.info("Clear Buffer {} , Key {}", bufferSize.intValue(), key);
                   output.output(KV.of(key, rows));
                   // clean up in a method
                   rows.clear();
@@ -142,7 +142,7 @@ public abstract class DLPTransform
               });
       // must be  a better way
       if (!rows.isEmpty()) {
-        LOG.info("Remaining rows {}", rows.size());
+        LOG.info("Remaining buffer {}, key{}", rows.size(),key);
         numberOfRowsBagged.inc(rows.size());
         output.output(KV.of(key, rows));
       }
