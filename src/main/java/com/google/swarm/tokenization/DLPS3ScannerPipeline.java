@@ -15,23 +15,32 @@
  */
 package com.google.swarm.tokenization;
 
-import com.google.swarm.tokenization.common.AuditInspectDataTransform;
-import com.google.swarm.tokenization.common.DLPTransform;
-import com.google.swarm.tokenization.common.FileReaderTransform;
-import com.google.swarm.tokenization.common.RowToJson;
-import com.google.swarm.tokenization.common.S3ReaderOptions;
-import com.google.swarm.tokenization.common.Util;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
+import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
+import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.Row;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.swarm.tokenization.common.AuditInspectDataTransform;
+import com.google.swarm.tokenization.common.BQWriteTransform;
+import com.google.swarm.tokenization.common.DLPTransform;
+import com.google.swarm.tokenization.common.FileReaderTransform;
+import com.google.swarm.tokenization.common.RowToJson;
+import com.google.swarm.tokenization.common.S3ReaderOptions;
+import com.google.swarm.tokenization.common.Util;
 
 public class DLPS3ScannerPipeline {
   public static final Logger LOG = LoggerFactory.getLogger(DLPS3ScannerPipeline.class);
@@ -47,9 +56,23 @@ public class DLPS3ScannerPipeline {
 
     PCollection<KV<String, String>> nonInspectedContents =
         p.apply(
-            "File Read Transform",
-            FileReaderTransform.newBuilder().setSubscriber(options.getSubscriber()).build());
+                "File Read Transform",
+                FileReaderTransform.newBuilder().setSubscriber(options.getSubscriber()).build())
+            .apply(
+                "Fixed Window",
+                Window.<KV<String, String>>into(FixedWindows.of(Duration.standardSeconds(1)))
+                    .triggering(AfterWatermark.pastEndOfWindow())
+                    .discardingFiredPanes()
+                    .withAllowedLateness(Duration.ZERO));
 
+//    nonInspectedContents.apply("Print", ParDo.of(new DoFn<KV<String,String>, String>(){
+//    
+//    		@ProcessElement
+//    		public void processElement(ProcessContext c) {
+//    			c.output(c.element().getValue());
+//    		}
+//    }));  
+    
     PCollectionTuple inspectedData =
         nonInspectedContents.apply(
             "DLPScanner",
@@ -83,13 +106,13 @@ public class DLPS3ScannerPipeline {
     auditData
         .apply("RowToJson", new RowToJson())
         .apply("WriteToTopic", PubsubIO.writeStrings().to(options.getTopic()));
-    //
-    //    inspectedContents.apply(
-    //        "WriteInspectData",
-    //        BQWriteTransform.newBuilder()
-    //            .setTableSpec(options.getTableSpec())
-    //            .setMethod(options.getWriteMethod())
-    //            .build());
+    
+        inspectedContents.apply(
+            "WriteInspectData",
+            BQWriteTransform.newBuilder()
+                .setTableSpec(options.getTableSpec())
+                .setMethod(options.getWriteMethod())
+                .build());
     return p.run();
   }
 }

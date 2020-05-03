@@ -16,24 +16,21 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.auto.value.AutoValue;
-import com.google.swarm.tokenization.common.CSVFileReaderTransform.Builder;
+import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
+import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Watch;
-import org.apache.beam.sdk.transforms.WithTimestamps;
-import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
-import org.apache.beam.sdk.transforms.windowing.FixedWindows;
-import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.Duration;
-import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,22 +57,16 @@ public abstract class FileReaderTransform
   public PCollection<KV<String, String>> expand(PBegin input) {
     // gs://stress-test-buck/testing_data/*.dat
     // gs://dlp_scan_run_test/daily_import_*.csv
+	//gs://dfs-temp-files/PIPE_*.csv
     return input
         .apply(
             FileIO.match()
-                .filepattern("gs://stress-test-buck/testing_data/student_data_*.dat")
-                .continuously(
-                    Duration.standardSeconds(30),
-                    Watch.Growth.afterTimeSinceNewOutput(Duration.standardHours(1))))
+                .filepattern("gs://dfs-temp-files/PIPE_*.csv")
+                .continuously(Duration.standardSeconds(5), Watch.Growth.never()))
         .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
         .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
+        .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()))
         .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn("\n")));
-//        .apply(
-//            "Fixed Window",
-//            Window.<KV<String, String>>into(FixedWindows.of(Duration.standardSeconds(1)))
-//                .triggering(AfterWatermark.pastEndOfWindow())
-//                .discardingFiredPanes()
-//                .withAllowedLateness(Duration.ZERO));
   }
 
   public class MapPubSubMessage extends DoFn<PubsubMessage, String> {

@@ -104,9 +104,9 @@ public abstract class DLPTransform
     @ProcessElement
     public void process(
         @Element KV<String, String> element,
-        @StateId("elementsBag") BagState<KV<String, String>> elementsBag,
         @TimerId("eventTimer") Timer eventTimer,
-        BoundedWindow w) {
+        BoundedWindow w,
+        @StateId("elementsBag") BagState<KV<String, String>> elementsBag) {
       elementsBag.add(element);
       eventTimer.set(w.maxTimestamp());
     }
@@ -115,7 +115,7 @@ public abstract class DLPTransform
     public void onTimer(
         @StateId("elementsBag") BagState<KV<String, String>> elementsBag,
         OutputReceiver<KV<String, Iterable<String>>> output) {
-      String key = elementsBag.read().iterator().next().getKey();
+      String key = elementsBag.read().iterator().next().getKey().split("~")[0];
       AtomicInteger bufferSize = new AtomicInteger();
       List<String> rows = new ArrayList<>();
       elementsBag
@@ -127,7 +127,7 @@ public abstract class DLPTransform
                 if (clearBuffer) {
                   numberOfRowsBagged.inc(rows.size());
                   LOG.info("Clear Buffer {} , Key {}", bufferSize.intValue(), element.getKey());
-                  output.output(KV.of(element.getKey(), rows));
+                  output.output(KV.of(key, rows));
                   // clean up in a method
                   rows.clear();
                   bufferSize.set(0);
@@ -173,13 +173,13 @@ public abstract class DLPTransform
     public void processElement(ProcessContext c) throws IOException {
       try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
         String fileName = c.element().getKey();
-
+        ContentItem contentItem =
+                ContentItem.newBuilder().setValue(emitResult(c.element().getValue())).build();
+            this.requestBuilder.setItem(contentItem);
         InspectContentResponse response =
             dlpServiceClient.inspectContent(this.requestBuilder.build());
         String timeStamp = Util.getTimeStamp();
-        ContentItem contentItem =
-            ContentItem.newBuilder().setValue(emitResult(c.element().getValue())).build();
-        this.requestBuilder.setItem(contentItem);
+        
         long bytesInspected = contentItem.getSerializedSize();
         int totalFinding =
             Long.valueOf(response.getResult().getFindingsList().stream().count()).intValue();
@@ -239,6 +239,7 @@ public abstract class DLPTransform
         e -> {
           builder.append(e);
         });
+    LOG.debug("buffer data {}",builder.toString());
     return builder.toString();
   }
 }

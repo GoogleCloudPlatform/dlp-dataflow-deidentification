@@ -18,12 +18,15 @@ package com.google.swarm.tokenization.common;
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
 import java.util.List;
+import java.util.Random;
+
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.KV;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,8 +49,8 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent();
-        // String key = String.format("%s_%x", fileName, new Random().nextInt(10000));
-        c.outputWithTimestamp(KV.of(fileName, contents), c.timestamp());
+        String key = String.format("%s~%d", fileName, new Random().nextInt(256));
+        c.outputWithTimestamp(KV.of(key, contents), Instant.now());
       }
     }
   }

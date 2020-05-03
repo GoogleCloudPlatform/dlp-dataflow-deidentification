@@ -37,7 +37,7 @@ public class AuditInspectDataTransform extends PTransform<PCollection<Row>, PCol
     return inspectedRow
         .apply(
             "Fixed Window",
-            Window.<Row>into(FixedWindows.of(Duration.standardSeconds(10)))
+            Window.<Row>into(FixedWindows.of(Duration.standardSeconds(30)))
                 .triggering(AfterWatermark.pastEndOfWindow())
                 .discardingFiredPanes()
                 .withAllowedLateness(Duration.ZERO))
