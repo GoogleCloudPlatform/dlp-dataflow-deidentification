@@ -69,16 +69,13 @@ public abstract class FileReaderTransform
                     Watch.Growth.afterTimeSinceNewOutput(Duration.standardHours(1))))
         .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
         .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
-        .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn("\n")))
-        .apply(
-                "AssignEventTimestamp",
-                WithTimestamps.of((KV<String, String> rec) -> Instant.now()))
-        .apply(
-            "Fixed Window",
-            Window.<KV<String, String>>into(FixedWindows.of(Duration.standardSeconds(1)))
-                .triggering(AfterWatermark.pastEndOfWindow())
-                .discardingFiredPanes()
-                .withAllowedLateness(Duration.ZERO));
+        .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn("\n")));
+//        .apply(
+//            "Fixed Window",
+//            Window.<KV<String, String>>into(FixedWindows.of(Duration.standardSeconds(1)))
+//                .triggering(AfterWatermark.pastEndOfWindow())
+//                .discardingFiredPanes()
+//                .withAllowedLateness(Duration.ZERO));
   }
 
   public class MapPubSubMessage extends DoFn<PubsubMessage, String> {
