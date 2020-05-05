@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
 import java.util.List;
 import java.util.Random;
-
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -49,7 +48,7 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent();
-        String key = String.format("%s~%d", fileName, new Random().nextInt(256));
+        String key = String.format("%s~%d", fileName, new Random().nextInt(5));
         c.outputWithTimestamp(KV.of(key, contents), Instant.now());
       }
     }
@@ -59,7 +58,7 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
   public OffsetRange getInitialRestriction(@Element KV<String, ReadableFile> csvFile)
       throws IOException {
     long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
-    LOG.info("Initial Restriction range from 1 to: {}", totalBytes);
+    LOG.debug("Initial Restriction range from 1 to: {}", totalBytes);
     return new OffsetRange(0, totalBytes);
   }
 
@@ -70,7 +69,7 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
       OutputReceiver<OffsetRange> out) {
     long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
     List<OffsetRange> splits = range.split(SPLIT_SIZE, SPLIT_SIZE);
-    LOG.info("Number of Split {} total bytes {}", splits.size(), totalBytes);
+    LOG.debug("Number of Split {} total bytes {}", splits.size(), totalBytes);
     for (final OffsetRange p : splits) {
       out.output(p);
     }

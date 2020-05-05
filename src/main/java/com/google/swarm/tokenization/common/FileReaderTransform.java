@@ -16,22 +16,16 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.auto.value.AutoValue;
-import org.apache.beam.sdk.coders.KvCoder;
-import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
-import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
-import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
-import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,15 +52,15 @@ public abstract class FileReaderTransform
   public PCollection<KV<String, String>> expand(PBegin input) {
     // gs://stress-test-buck/testing_data/*.dat
     // gs://dlp_scan_run_test/daily_import_*.csv
-	//gs://dfs-temp-files/PIPE_*.csv
-	   return input
-		        .apply(
-		            "ReadFileMetadata",
-		            PubsubIO.readMessagesWithAttributes().fromSubscription(subscriber()))
-		        .apply("ConvertToGCSUri", ParDo.of(new MapPubSubMessage()))
-		        .apply("FindFile", FileIO.matchAll())
-		        .apply(FileIO.readMatches())
-		        .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
+    // gs://dfs-temp-files/PIPE_*.csv
+    return input
+        .apply(
+            "ReadFileMetadata",
+            PubsubIO.readMessagesWithAttributes().fromSubscription(subscriber()))
+        .apply("ConvertToGCSUri", ParDo.of(new MapPubSubMessage()))
+        .apply("FindFile", FileIO.matchAll())
+        .apply(FileIO.readMatches())
+        .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
         .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn("\n")));
   }
 

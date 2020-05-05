@@ -142,7 +142,7 @@ public abstract class DLPTransform
               });
       // must be  a better way
       if (!rows.isEmpty()) {
-        LOG.info("Remaining buffer {}, key{}", rows.size(),key);
+        LOG.info("Remaining buffer {}, key{}", rows.size(), key);
         numberOfRowsBagged.inc(rows.size());
         output.output(KV.of(key, rows));
       }
@@ -174,12 +174,12 @@ public abstract class DLPTransform
       try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
         String fileName = c.element().getKey();
         ContentItem contentItem =
-                ContentItem.newBuilder().setValue(emitResult(c.element().getValue())).build();
-            this.requestBuilder.setItem(contentItem);
+            ContentItem.newBuilder().setValue(emitResult(c.element().getValue())).build();
+        this.requestBuilder.setItem(contentItem);
         InspectContentResponse response =
             dlpServiceClient.inspectContent(this.requestBuilder.build());
         String timeStamp = Util.getTimeStamp();
-        
+
         long bytesInspected = contentItem.getSerializedSize();
         int totalFinding =
             Long.valueOf(response.getResult().getFindingsList().stream().count()).intValue();
@@ -239,7 +239,7 @@ public abstract class DLPTransform
         e -> {
           builder.append(e);
         });
-    LOG.debug("buffer data {}",builder.toString());
+    LOG.debug("buffer data {}", builder.toString());
     return builder.toString();
   }
 }

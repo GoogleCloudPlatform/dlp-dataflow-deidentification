@@ -16,12 +16,13 @@
 package com.google.swarm.tokenization.common;
 
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
+import org.apache.beam.sdk.extensions.gcp.options.GcpOptions;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.Validation;
 
-public interface S3ReaderOptions extends DataflowPipelineOptions {
+public interface S3ReaderOptions extends DataflowPipelineOptions, GcpOptions {
   @Validation.Required
   String getSubscriber();
 
