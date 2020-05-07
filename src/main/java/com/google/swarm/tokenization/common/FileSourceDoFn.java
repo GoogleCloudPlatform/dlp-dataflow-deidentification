@@ -35,7 +35,7 @@ public class FileSourceDoFn extends DoFn<ReadableFile, KV<String, ReadableFile>>
       String key = String.format("%s_%s", fileName, Instant.now().getMillis());
       c.output(KV.of(key, file));
     } else {
-      LOG.info("Extension Not Supported {}",fileName);
+      LOG.info("Extension Not Supported {}", fileName);
     }
   }
 }

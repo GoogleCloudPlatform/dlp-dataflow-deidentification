@@ -43,6 +43,7 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TupleTagList;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,7 +100,7 @@ public abstract class DLPTransform
     private final StateSpec<BagState<KV<String, String>>> elementsBag = StateSpecs.bag();
 
     @TimerId("eventTimer")
-    private final TimerSpec eventTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
+    private final TimerSpec eventTimer = TimerSpecs.timer(TimeDomain.PROCESSING_TIME);
 
     @ProcessElement
     public void process(
@@ -108,7 +109,8 @@ public abstract class DLPTransform
         BoundedWindow w,
         @StateId("elementsBag") BagState<KV<String, String>> elementsBag) {
       elementsBag.add(element);
-      eventTimer.set(w.maxTimestamp());
+      // eventTimer.set(w.maxTimestamp());
+      eventTimer.offset(Duration.standardSeconds(5)).setRelative();
     }
 
     @OnTimer("eventTimer")

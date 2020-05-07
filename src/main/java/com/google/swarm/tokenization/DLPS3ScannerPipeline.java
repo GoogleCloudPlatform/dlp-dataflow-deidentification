@@ -26,7 +26,7 @@ import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
+import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
@@ -43,7 +43,7 @@ public class DLPS3ScannerPipeline {
   public static void main(String[] args) {
     S3ReaderOptions options =
         PipelineOptionsFactory.fromArgs(args).withValidation().as(S3ReaderOptions.class);
-    //options.setEnableStreamingEngine(true);
+    // options.setEnableStreamingEngine(true);
     run(options);
   }
 
@@ -53,11 +53,16 @@ public class DLPS3ScannerPipeline {
     PCollection<KV<String, String>> nonInspectedContents =
         p.apply(
                 "File Read Transform",
-                FileReaderTransform.newBuilder().setSubscriber(options.getSubscriber()).build())
+                FileReaderTransform.newBuilder()
+                    .setSubscriber(options.getSubscriber())
+                    .setDelimeter(options.getDelimeter())
+                    .setKeyRange(options.getKeyRange())
+                    .build())
             .apply(
                 "Fixed Window",
                 Window.<KV<String, String>>into(FixedWindows.of(Duration.standardSeconds(1)))
-                    .triggering(AfterWatermark.pastEndOfWindow())
+                    .triggering(
+                        AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.ZERO))
                     .discardingFiredPanes()
                     .withAllowedLateness(Duration.ZERO));
 

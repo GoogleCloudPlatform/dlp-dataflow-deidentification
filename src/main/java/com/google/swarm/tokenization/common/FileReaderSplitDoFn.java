@@ -31,11 +31,13 @@ import org.slf4j.LoggerFactory;
 
 public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
   public static final Logger LOG = LoggerFactory.getLogger(FileReaderSplitDoFn.class);
-  public static Integer SPLIT_SIZE = 900000;
+  public static Integer SPLIT_SIZE = 1000000;
   private String delimeter;
+  private Integer keyRange;
 
-  public FileReaderSplitDoFn(String delimeter) {
+  public FileReaderSplitDoFn(String delimeter, Integer keyRange) {
     this.delimeter = delimeter;
+    this.keyRange = keyRange;
   }
 
   @ProcessElement
@@ -48,7 +50,7 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent();
-        String key = String.format("%s~%d", fileName, new Random().nextInt(5));
+        String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
         c.outputWithTimestamp(KV.of(key, contents), Instant.now());
       }
     }

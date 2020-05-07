@@ -39,6 +39,12 @@ public interface S3ReaderOptions extends DataflowPipelineOptions, GcpOptions {
 
   void setBatchSize(Integer value);
 
+  @Description("key range")
+  @Default.Integer(1)
+  Integer getKeyRange();
+
+  void setKeyRange(Integer value);
+
   @Description("BQ Table Spec")
   String getTableSpec();
 
@@ -59,4 +65,10 @@ public interface S3ReaderOptions extends DataflowPipelineOptions, GcpOptions {
   String getTopic();
 
   void setTopic(String value);
+
+  @Description("Line delimeter")
+  @Default.String("\n")
+  String getDelimeter();
+
+  void setDelimeter(String value);
 }

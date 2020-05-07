@@ -37,9 +37,17 @@ public abstract class FileReaderTransform
 
   public abstract String subscriber();
 
+  public abstract String delimeter();
+
+  public abstract Integer keyRange();
+
   @AutoValue.Builder
   public abstract static class Builder {
     public abstract Builder setSubscriber(String subscriber);
+
+    public abstract Builder setDelimeter(String delimeter);
+
+    public abstract Builder setKeyRange(Integer keyRange);
 
     public abstract FileReaderTransform build();
   }
@@ -61,7 +69,7 @@ public abstract class FileReaderTransform
         .apply("FindFile", FileIO.matchAll())
         .apply(FileIO.readMatches())
         .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
-        .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn("\n")));
+        .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn(delimeter(), keyRange())));
   }
 
   public class MapPubSubMessage extends DoFn<PubsubMessage, String> {
