@@ -88,8 +88,8 @@ public abstract class DLPTransform
   public static class BatchRequest extends DoFn<KV<String, String>, KV<String, Iterable<String>>> {
 
     private static final long serialVersionUID = 1L;
-    private final Counter numberOfRowsBagged =
-        Metrics.counter(BatchRequest.class, "numberOfRowsBagged");
+//    private final Counter numberOfRowsBagged =
+//        Metrics.counter(BatchRequest.class, "numberOfRowsBagged");
     private Integer batchSize;
 
     public BatchRequest(Integer batchSize) {
@@ -110,7 +110,7 @@ public abstract class DLPTransform
         @StateId("elementsBag") BagState<KV<String, String>> elementsBag) {
       elementsBag.add(element);
       // eventTimer.set(w.maxTimestamp());
-      eventTimer.offset(Duration.standardSeconds(5)).setRelative();
+      eventTimer.offset(Duration.standardSeconds(30)).setRelative();
     }
 
     @OnTimer("eventTimer")
@@ -127,8 +127,8 @@ public abstract class DLPTransform
                 Integer elementSize = element.getValue().getBytes().length;
                 boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
                 if (clearBuffer) {
-                  numberOfRowsBagged.inc(rows.size());
-                  LOG.info("Clear Buffer {} , Key {}", bufferSize.intValue(), key);
+                  //numberOfRowsBagged.inc(rows.size());
+                  LOG.debug("Clear Buffer {} , Key {}", bufferSize.intValue(), key);
                   output.output(KV.of(key, rows));
                   // clean up in a method
                   rows.clear();
@@ -144,8 +144,8 @@ public abstract class DLPTransform
               });
       // must be  a better way
       if (!rows.isEmpty()) {
-        LOG.info("Remaining buffer {}, key{}", rows.size(), key);
-        numberOfRowsBagged.inc(rows.size());
+        LOG.debug("Remaining buffer {}, key{}", rows.size(), key);
+        //numberOfRowsBagged.inc(rows.size());
         output.output(KV.of(key, rows));
       }
     }
@@ -181,14 +181,11 @@ public abstract class DLPTransform
         InspectContentResponse response =
             dlpServiceClient.inspectContent(this.requestBuilder.build());
         String timeStamp = Util.getTimeStamp();
-
-        long bytesInspected = contentItem.getSerializedSize();
-        int totalFinding =
-            Long.valueOf(response.getResult().getFindingsList().stream().count()).intValue();
-        LOG.debug("bytes inspected {}", bytesInspected);
+        
         boolean hasErrors = response.findInitializationErrors().stream().count() > 0;
         if (response.hasResult() && !hasErrors) {
-          response
+            long bytesInspected = contentItem.getValue().getBytes().length;
+        	response
               .getResult()
               .getFindingsList()
               .forEach(
