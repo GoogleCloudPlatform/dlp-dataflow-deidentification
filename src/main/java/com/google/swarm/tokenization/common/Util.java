@@ -39,6 +39,7 @@ import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.Schema.FieldType;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TupleTag;
 import org.apache.commons.csv.CSVFormat;
@@ -67,6 +68,8 @@ public class Util {
   public static TupleTag<Row> inspectData = new TupleTag<Row>() {};
   public static TupleTag<Row> auditData = new TupleTag<Row>() {};
   public static TupleTag<Row> errorData = new TupleTag<Row>() {};
+  public static TupleTag<KV<String, String>> readRowSuccess = new TupleTag<KV<String, String>>() {};
+  public static TupleTag<KV<String, String>> readRowFailure = new TupleTag<KV<String, String>>() {};
 
   public static String parseBucketName(String value) {
     return value.substring(5, value.length() - 1);

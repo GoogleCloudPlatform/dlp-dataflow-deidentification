@@ -51,18 +51,18 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
         readBuffer.clear();
         LOG.debug(
             "Current Restriction {}, Content Size{}", tracker.currentRestriction(), buffer.size());
-        c.output(KV.of(fileName, buffer.toStringUtf8().trim()));
+        c.output(Util.readRowSuccess, KV.of(fileName, buffer.toStringUtf8().trim()));
       }
     } catch (Exception e) {
-
-      LOG.error(e.getMessage());
+      c.output(Util.readRowFailure, KV.of(fileName, e.getMessage()));
     }
   }
 
   @GetInitialRestriction
   public OffsetRange getInitialRestriction(@Element KV<String, ReadableFile> file)
       throws IOException {
-    long totalBytes = file.getValue().getMetadata().sizeBytes();
+    
+	long totalBytes = file.getValue().getMetadata().sizeBytes();
     long totalSplit = 0;
     if (totalBytes < BATCH_SIZE) {
       totalSplit = 2;
@@ -97,14 +97,10 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
     return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
   }
 
-  private static SeekableByteChannel getReader(ReadableFile eventFile) {
+  private static SeekableByteChannel getReader(ReadableFile eventFile) throws IOException {
     SeekableByteChannel channel = null;
-    try {
-      channel = eventFile.openSeekable();
-    } catch (IOException e) {
-      LOG.error("Failed to Open File {}", e.getMessage());
-      throw new RuntimeException(e);
-    }
+    LOG.info("event File Channel {}",eventFile.getMetadata().resourceId().getFilename());
+    channel = eventFile.openSeekable();
     return channel;
   }
 }

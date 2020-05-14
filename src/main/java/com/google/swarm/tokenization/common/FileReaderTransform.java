@@ -19,20 +19,20 @@ import com.google.auto.value.AutoValue;
 import com.google.swarm.tokenization.common.CSVFileReaderTransform.Builder;
 import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.io.FileIO;
+import org.apache.beam.sdk.io.fs.EmptyMatchTreatment;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
-import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionTuple;
+import org.apache.beam.sdk.values.TupleTagList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @AutoValue
-public abstract class FileReaderTransform
-    extends PTransform<PBegin, PCollection<KV<String, String>>> {
+public abstract class FileReaderTransform extends PTransform<PBegin, PCollectionTuple> {
 
   public static final Logger LOG = LoggerFactory.getLogger(FileReaderTransform.class);
 
@@ -50,17 +50,20 @@ public abstract class FileReaderTransform
   }
 
   @Override
-  public PCollection<KV<String, String>> expand(PBegin input) {
+  public PCollectionTuple expand(PBegin input) {
 
     return input
         .apply(
             "ReadFileMetadata",
             PubsubIO.readMessagesWithAttributes().fromSubscription(subscriber()))
         .apply("ConvertToGCSUri", ParDo.of(new MapPubSubMessage()))
-        .apply("FindFile", FileIO.matchAll())
+        .apply("FindFile", FileIO.matchAll().withEmptyMatchTreatment(EmptyMatchTreatment.ALLOW))
         .apply(FileIO.readMatches())
         .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
-        .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn()));
+        .apply(
+            "ReadFile",
+            ParDo.of(new FileReaderSplitDoFn())
+                .withOutputTags(Util.readRowSuccess, TupleTagList.of(Util.readRowFailure)));
   }
 
   public class MapPubSubMessage extends DoFn<PubsubMessage, String> {
