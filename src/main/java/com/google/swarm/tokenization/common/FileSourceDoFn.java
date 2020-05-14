@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 
 public class FileSourceDoFn extends DoFn<ReadableFile, KV<String, ReadableFile>> {
   public static final Logger LOG = LoggerFactory.getLogger(FileSourceDoFn.class);
-  private static final String FILE_PATTERN = "([^\\s]+(\\.(?i)(csv))$)";
+  private static final String FILE_PATTERN = "([^\\s]+(\\.(?i)(dat))$)";
 
   @ProcessElement
   public void processElement(ProcessContext c) {

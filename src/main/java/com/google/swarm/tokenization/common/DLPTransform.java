@@ -15,8 +15,10 @@
  */
 package com.google.swarm.tokenization.common;
 
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.dlp.v2.DlpServiceClient;
+import com.google.cloud.dlp.v2.DlpServiceSettings;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.InspectContentRequest;
 import com.google.privacy.dlp.v2.InspectContentResponse;
@@ -43,9 +45,9 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TupleTagList;
-import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.threeten.bp.Duration;
 
 @AutoValue
 public abstract class DLPTransform
@@ -88,8 +90,8 @@ public abstract class DLPTransform
   public static class BatchRequest extends DoFn<KV<String, String>, KV<String, Iterable<String>>> {
 
     private static final long serialVersionUID = 1L;
-//    private final Counter numberOfRowsBagged =
-//        Metrics.counter(BatchRequest.class, "numberOfRowsBagged");
+    //    private final Counter numberOfRowsBagged =
+    //        Metrics.counter(BatchRequest.class, "numberOfRowsBagged");
     private Integer batchSize;
 
     public BatchRequest(Integer batchSize) {
@@ -110,7 +112,7 @@ public abstract class DLPTransform
         @StateId("elementsBag") BagState<KV<String, String>> elementsBag) {
       elementsBag.add(element);
       // eventTimer.set(w.maxTimestamp());
-      eventTimer.offset(Duration.standardSeconds(30)).setRelative();
+      eventTimer.offset(org.joda.time.Duration.standardSeconds(10)).setRelative();
     }
 
     @OnTimer("eventTimer")
@@ -127,7 +129,7 @@ public abstract class DLPTransform
                 Integer elementSize = element.getValue().getBytes().length;
                 boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
                 if (clearBuffer) {
-                  //numberOfRowsBagged.inc(rows.size());
+                  // numberOfRowsBagged.inc(rows.size());
                   LOG.debug("Clear Buffer {} , Key {}", bufferSize.intValue(), key);
                   output.output(KV.of(key, rows));
                   // clean up in a method
@@ -145,7 +147,7 @@ public abstract class DLPTransform
       // must be  a better way
       if (!rows.isEmpty()) {
         LOG.debug("Remaining buffer {}, key{}", rows.size(), key);
-        //numberOfRowsBagged.inc(rows.size());
+        // numberOfRowsBagged.inc(rows.size());
         output.output(KV.of(key, rows));
       }
     }
@@ -157,6 +159,7 @@ public abstract class DLPTransform
     private InspectContentRequest.Builder requestBuilder;
     private final Counter numberOfBytesInspected =
         Metrics.counter(InspectData.class, "NumberOfBytesInspected");
+    private DlpServiceClient dlpServiceClient;
 
     public InspectData(String projectId, String inspectTemplateName) {
       this.projectId = projectId;
@@ -171,63 +174,83 @@ public abstract class DLPTransform
               .setInspectTemplateName(this.inspectTemplateName);
     }
 
+    @StartBundle
+    public void startBundle() throws IOException {
+
+//      DlpServiceSettings.Builder settingsBuilder = DlpServiceSettings.newBuilder();
+//      settingsBuilder
+//          .inspectContentSettings()
+//          .setRetrySettings(
+//              RetrySettings.newBuilder()
+//                  .setInitialRpcTimeout(Duration.ofSeconds(60))
+//                  .setMaxRpcTimeout(Duration.ofSeconds(60))
+//                  .build());
+      dlpServiceClient = DlpServiceClient.create();
+    }
+
+    @FinishBundle
+    public void finishBundle() {
+      if (dlpServiceClient != null) {
+        dlpServiceClient.close();
+      }
+    }
+
     @ProcessElement
     public void processElement(ProcessContext c) throws IOException {
-      try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
-        String fileName = c.element().getKey();
-        ContentItem contentItem =
-            ContentItem.newBuilder().setValue(emitResult(c.element().getValue())).build();
-        this.requestBuilder.setItem(contentItem);
-        InspectContentResponse response =
-            dlpServiceClient.inspectContent(this.requestBuilder.build());
-        String timeStamp = Util.getTimeStamp();
-        
-        boolean hasErrors = response.findInitializationErrors().stream().count() > 0;
-        if (response.hasResult() && !hasErrors) {
-            long bytesInspected = contentItem.getValue().getBytes().length;
-        	response
-              .getResult()
-              .getFindingsList()
-              .forEach(
-                  finding -> {
-                    Row row =
-                        Row.withSchema(Util.bqDataSchema)
-                            .addValues(
-                                fileName,
-                                timeStamp,
-                                finding.getInfoType().getName(),
-                                finding.getLikelihood().name(),
-                                finding.getQuote(),
-                                finding.getLocation().getCodepointRange().getStart(),
-                                finding.getLocation().getCodepointRange().getEnd())
-                            .build();
-                    LOG.debug("Row {}", row);
 
-                    c.output(Util.inspectData, row);
-                  });
-          numberOfBytesInspected.inc(bytesInspected);
-          c.output(
-              Util.auditData,
-              Row.withSchema(Util.bqAuditSchema)
-                  .addValues(fileName, timeStamp, bytesInspected, Util.INSPECTED)
-                  .build());
-        } else {
-          response
-              .findInitializationErrors()
-              .forEach(
-                  error -> {
-                    c.output(
-                        Util.errorData,
-                        Row.withSchema(Util.errorSchema)
-                            .addValues(fileName, timeStamp, error.toString())
-                            .build());
-                  });
-          c.output(
-              Util.auditData,
-              Row.withSchema(Util.bqAuditSchema)
-                  .addValues(fileName, timeStamp, 0, Util.FAILED)
-                  .build());
-        }
+      String fileName = c.element().getKey();
+      String contents = emitResult(c.element().getValue());
+      ContentItem contentItem = ContentItem.newBuilder().setValue(contents).build();
+      this.requestBuilder.setItem(contentItem);
+      InspectContentResponse response =
+          dlpServiceClient.inspectContent(this.requestBuilder.build());
+      String timeStamp = Util.getTimeStamp();
+
+      boolean hasErrors = response.findInitializationErrors().stream().count() > 0;
+      if (response.hasResult() && !hasErrors) {
+        long bytesInspected = contents.getBytes().length;
+        response
+            .getResult()
+            .getFindingsList()
+            .forEach(
+                finding -> {
+                  Row row =
+                      Row.withSchema(Util.bqDataSchema)
+                          .addValues(
+                              fileName,
+                              timeStamp,
+                              finding.getInfoType().getName(),
+                              finding.getLikelihood().name(),
+                              finding.getQuote(),
+                              finding.getLocation().getCodepointRange().getStart(),
+                              finding.getLocation().getCodepointRange().getEnd())
+                          .build();
+                  LOG.debug("Row {}", row);
+
+                  c.output(Util.inspectData, row);
+                });
+        numberOfBytesInspected.inc(bytesInspected);
+        c.output(
+            Util.auditData,
+            Row.withSchema(Util.bqAuditSchema)
+                .addValues(fileName, timeStamp, bytesInspected, Util.INSPECTED)
+                .build());
+      } else {
+        response
+            .findInitializationErrors()
+            .forEach(
+                error -> {
+                  c.output(
+                      Util.errorData,
+                      Row.withSchema(Util.errorSchema)
+                          .addValues(fileName, timeStamp, error.toString())
+                          .build());
+                });
+        c.output(
+            Util.auditData,
+            Row.withSchema(Util.bqAuditSchema)
+                .addValues(fileName, timeStamp, 0, Util.FAILED)
+                .build());
       }
     }
   }

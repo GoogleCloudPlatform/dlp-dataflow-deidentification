@@ -27,21 +27,18 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.KV;
-import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.swarm.tokenization.common.DLPTransform.BatchRequest;
 
 public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
   public static final Logger LOG = LoggerFactory.getLogger(FileReaderSplitDoFn.class);
   public static Integer SPLIT_SIZE = 1000000;
   private String delimeter;
   private Integer keyRange;
-  private final Counter numberOfRows =
-	        Metrics.counter(FileReaderSplitDoFn.class, "numberOfRows");
+  private final Counter numberOfRows = Metrics.counter(FileReaderSplitDoFn.class, "numberOfRows");
   private final Counter numberOfBytesRead =
-	        Metrics.counter(FileReaderSplitDoFn.class, "numberOfBytesRead");
+      Metrics.counter(FileReaderSplitDoFn.class, "numberOfBytesRead");
+
   public FileReaderSplitDoFn(String delimeter, Integer keyRange) {
     this.delimeter = delimeter;
     this.keyRange = keyRange;

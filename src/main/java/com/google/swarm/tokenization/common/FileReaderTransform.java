@@ -18,6 +18,7 @@ package com.google.swarm.tokenization.common;
 import com.google.auto.value.AutoValue;
 import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.io.FileIO;
+import org.apache.beam.sdk.io.fs.EmptyMatchTreatment;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -66,7 +67,7 @@ public abstract class FileReaderTransform
             "ReadFileMetadata",
             PubsubIO.readMessagesWithAttributes().fromSubscription(subscriber()))
         .apply("ConvertToGCSUri", ParDo.of(new MapPubSubMessage()))
-        .apply("FindFile", FileIO.matchAll())
+        .apply("FindFile", FileIO.matchAll().withEmptyMatchTreatment(EmptyMatchTreatment.DISALLOW))
         .apply(FileIO.readMatches())
         .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
         .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn(delimeter(), keyRange())));

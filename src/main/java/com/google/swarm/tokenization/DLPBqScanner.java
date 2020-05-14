@@ -25,6 +25,7 @@ import com.google.cloud.bigquery.storage.v1beta1.TableReferenceProto;
 import java.io.IOException;
 import java.util.Arrays;
 import org.apache.avro.Schema;
+import org.apache.beam.runners.dataflow.options.DataflowPipelineDebugOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.AvroCoder;
@@ -46,7 +47,8 @@ public class DLPBqScanner {
   public static void main(String[] args) {
     DLPBqScannerOptions options =
         PipelineOptionsFactory.fromArgs(args).withValidation().as(DLPBqScannerOptions.class);
-
+    options.setDumpHeapOnOOM(true);
+    options.setSaveHeapDumpsToGcsPath("gs://storage-api-hd");
     run(options);
   }
 
@@ -62,7 +64,7 @@ public class DLPBqScanner {
     }
   }
 
-  public interface DLPBqScannerOptions extends PipelineOptions {
+  public interface DLPBqScannerOptions extends PipelineOptions, DataflowPipelineDebugOptions {
     @Description("BigQuery table to export from in the form <project>:<dataset>.<table>")
     @Required
     String getTableRef();

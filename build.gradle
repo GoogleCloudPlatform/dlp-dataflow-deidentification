@@ -79,7 +79,7 @@ dependencies {
     compile group: 'org.apache.beam', name: 'beam-runners-google-cloud-dataflow-java', version: dataflowBeamVersion
     compile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
     compile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
-    compile group: 'com.google.cloud', name: 'google-cloud-dlp', version: '1.1.4'
+	compile group: 'com.google.cloud', name: 'google-cloud-dlp', version: '1.1.4'
     compile group: 'com.google.apis', name: 'google-api-services-cloudkms', version: 'v1-rev108-1.25.0'
     compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
     compile "com.google.auto.value:auto-value-annotations:1.6.2"
