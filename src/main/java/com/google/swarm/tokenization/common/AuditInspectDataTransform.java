@@ -59,7 +59,7 @@ public class AuditInspectDataTransform extends PTransform<PCollection<Row>, PCol
                   input.getRow("value").getInt64("total_bytes_inspected").longValue(),
                   Util.INSPECTED)
               .build();
-      LOG.info("Audit Row {}", aggrRow.toString());
+      LOG.info("FileTrackerTransform:MergePartialStatsRow: Audit Row {}", aggrRow.toString());
       return aggrRow;
     }
   }

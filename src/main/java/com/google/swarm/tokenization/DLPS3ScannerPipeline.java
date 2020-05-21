@@ -27,6 +27,7 @@ import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.Row;
@@ -45,14 +46,16 @@ public class DLPS3ScannerPipeline {
   public static PipelineResult run(S3ReaderOptions options) {
     Pipeline p = Pipeline.create(options);
 
-    PCollectionTuple nonInspectedContents =
-        p.apply(
-            "File Read Transforrm",
-            FileReaderTransform.newBuilder().setSubscriber(options.getSubscriber()).build());
+    PCollection<KV<String, String>> nonInspectedContents =
+            p.apply(
+                    "File Read Transform",
+                    FileReaderTransform.newBuilder()
+                            .setSubscriber(options.getSubscriber())
+                            .setBatchSize(options.getBatchSize())
+                            .build());
 
     PCollectionTuple inspectedData =
         nonInspectedContents
-            .get(Util.readRowSuccess)
             .apply(
                 "DLPScanner",
                 DLPTransform.newBuilder()

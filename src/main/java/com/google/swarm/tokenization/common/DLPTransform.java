@@ -99,7 +99,7 @@ public abstract class DLPTransform
           if (this.requestBuilder.build().getSerializedSize() > DLP_PAYLOAD_LIMIT) {
             String errorMessage =
                 String.format(
-                    "Payload Size %s Exceeded Batch Size %s",
+                    "DLPTransform:DLPInspect: Payload Size %s Exceeded Batch Size %s",
                     this.requestBuilder.build().getSerializedSize(), DLP_PAYLOAD_LIMIT);
             LOG.error(errorMessage);
           } else {
@@ -109,7 +109,7 @@ public abstract class DLPTransform
             long bytesInspected = contentItem.getSerializedSize();
             int totalFinding =
                 Long.valueOf(response.getResult().getFindingsList().stream().count()).intValue();
-            LOG.debug("bytes inspected {}", bytesInspected);
+            LOG.debug("DLPTransform:DLPInspect: Bytes inspected {}", bytesInspected);
             boolean hasErrors = response.findInitializationErrors().stream().count() > 0;
             if (response.hasResult() && !hasErrors) {
               response
@@ -128,7 +128,7 @@ public abstract class DLPTransform
                                     finding.getLocation().getCodepointRange().getStart(),
                                     finding.getLocation().getCodepointRange().getEnd())
                                 .build();
-                        LOG.debug("Row {}", row);
+                        LOG.debug("DLPTransform:DLPInspect: Row {}", row);
 
                         c.output(Util.inspectData, row);
                       });
@@ -148,7 +148,9 @@ public abstract class DLPTransform
                             Row.withSchema(Util.errorSchema)
                                 .addValues(fileName, timeStamp, error.toString())
                                 .build());
+                        LOG.info("DLPTransform:DLPInspect: Initialization error in DLP response - {}",error);
                       });
+              //Need to change 0 to 0L
               c.output(
                   Util.auditData,
                   Row.withSchema(Util.bqAuditSchema)
@@ -156,6 +158,14 @@ public abstract class DLPTransform
                       .build());
             }
           }
+        }
+        else{
+          LOG.info("DLPTransform:DLPInspect: "+fileName+" is an empty file | Size of the file in bytes - "+c.element().getValue().length());
+          c.output(
+                  Util.auditData,
+                  Row.withSchema(Util.bqAuditSchema)
+                          .addValues(fileName, Util.getTimeStamp(),0L, "EMPTY")
+                          .build());
         }
       }
     }
