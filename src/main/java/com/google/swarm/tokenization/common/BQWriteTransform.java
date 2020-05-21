@@ -18,8 +18,10 @@ package com.google.swarm.tokenization.common;
 import com.google.api.services.bigquery.model.Clustering;
 import com.google.api.services.bigquery.model.TimePartitioning;
 import com.google.auto.value.AutoValue;
+
 import java.util.Arrays;
 import javax.annotation.Nullable;
+
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.WriteResult;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -31,65 +33,67 @@ import org.slf4j.LoggerFactory;
 
 @AutoValue
 public abstract class BQWriteTransform extends PTransform<PCollection<Row>, WriteResult> {
-  private static final Logger LOG = LoggerFactory.getLogger(BQWriteTransform.class);
-  private static final Integer NUM_OF_SHARDS = 100;
+    private static final Logger LOG = LoggerFactory.getLogger(BQWriteTransform.class);
+    private static final Integer NUM_OF_SHARDS = 100;
 
-  @Nullable
-  public abstract Integer batchFrequency();
+    @Nullable
+    public abstract Integer batchFrequency();
 
-  public abstract BigQueryIO.Write.Method method();
+    public abstract BigQueryIO.Write.Method method();
 
-  public abstract String tableSpec();
+    public abstract String tableSpec();
 
-  public static Builder newBuilder() {
-    return new AutoValue_BQWriteTransform.Builder();
-  }
-
-  @AutoValue.Builder
-  public abstract static class Builder {
-    public abstract Builder setBatchFrequency(Integer batchFrequency);
-
-    public abstract Builder setTableSpec(String tableSpec);
-
-    public abstract Builder setMethod(BigQueryIO.Write.Method method);
-
-    public abstract BQWriteTransform build();
-  }
-
-  @Override
-  public WriteResult expand(PCollection<Row> input) {
-    switch (method()) {
-      case FILE_LOADS:
-        return input.apply(
-            BigQueryIO.<Row>write()
-                .to(tableSpec())
-                .useBeamSchema()
-                .withoutValidation()
-                .withMethod(BigQueryIO.Write.Method.FILE_LOADS)
-                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
-                .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER)
-                .withTriggeringFrequency(Duration.standardMinutes(batchFrequency()))
-                .withNumFileShards(NUM_OF_SHARDS));
-      case STREAMING_INSERTS:
-        return input.apply(
-            BigQueryIO.<Row>write()
-                .to(tableSpec())
-                .withMethod(BigQueryIO.Write.Method.STREAMING_INSERTS)
-                .useBeamSchema()
-                .withoutValidation()
-                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
-                .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER)
-                .withClustering(
-                    new Clustering().setFields(Arrays.asList("source_file", "info_type_name")))
-                .withTimePartitioning(new TimePartitioning().setType("DAY")));
-      default:
-        return input.apply(
-            BigQueryIO.<Row>write()
-                .to(tableSpec())
-                .withMethod(method())
-                .useBeamSchema()
-                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
-                .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER));
+    public static Builder newBuilder() {
+        return new AutoValue_BQWriteTransform.Builder();
     }
-  }
+
+    @AutoValue.Builder
+    public abstract static class Builder {
+        public abstract Builder setBatchFrequency(Integer batchFrequency);
+
+        public abstract Builder setTableSpec(String tableSpec);
+
+        public abstract Builder setMethod(BigQueryIO.Write.Method method);
+
+        public abstract BQWriteTransform build();
+    }
+
+    @Override
+    public WriteResult expand(PCollection<Row> input) {
+        switch (method()) {
+            case FILE_LOADS:
+                return input.apply(
+                        BigQueryIO.<Row>write()
+                                .to(tableSpec())
+                                .useBeamSchema()
+                                .withoutValidation()
+                                .withMethod(BigQueryIO.Write.Method.FILE_LOADS)
+                                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
+                                .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER)
+                                .withTriggeringFrequency(Duration.standardMinutes(batchFrequency()))
+                                .withNumFileShards(NUM_OF_SHARDS));
+            case STREAMING_INSERTS:
+                return input.apply(
+                        BigQueryIO.<Row>write()
+                                .to(tableSpec())
+                                .withMethod(BigQueryIO.Write.Method.STREAMING_INSERTS)
+                                .useBeamSchema()
+                                .withoutValidation()
+                                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
+                                .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER)
+                                .withClustering(
+                                        new Clustering().setFields(Arrays.asList("source_file", "info_type_name")))
+                                .withTimePartitioning(new TimePartitioning().setType("DAY")));
+            default:
+                return input.apply(
+                        BigQueryIO.<Row>write()
+                                .to(tableSpec())
+                                .withMethod(method())
+                                .useBeamSchema()
+                                .withoutValidation()
+                                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
+                                .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER));
+        }
+    }
 }
+

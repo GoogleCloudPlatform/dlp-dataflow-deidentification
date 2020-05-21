@@ -22,32 +22,36 @@ import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RowToJson extends PTransform<PCollection<Row>, PCollection<String>> {
+    public static final Logger LOG = LoggerFactory.getLogger(RowToJson.class);
 
-  @Override
-  public PCollection<String> expand(PCollection<Row> input) {
-    return input.apply(
-        "RowToJson",
-        ParDo.of(
-            new DoFn<Row, String>() {
-              Gson json;
+    @Override
+    public PCollection<String> expand(PCollection<Row> input) {
+        return input.apply(
+                "RowToJson",
+                ParDo.of(
+                        new DoFn<Row, String>() {
+                            Gson json;
 
-              @Setup
-              public void setup() {
-                json = new Gson();
-              }
+                            @Setup
+                            public void setup() {
+                                json = new Gson();
+                            }
 
-              @ProcessElement
-              public void processElement(ProcessContext c) {
-                Row row = c.element();
-                JsonObject message = new JsonObject();
-                message.addProperty("source_file", row.getString("source_file"));
-                message.addProperty("transaction_time", row.getString("transaction_time"));
-                message.addProperty("total_bytes_inspected", row.getInt64("total_bytes_inspected"));
-                message.addProperty("status", row.getString("status"));
-                c.output(json.toJson(message));
-              }
-            }));
-  }
+                            @ProcessElement
+                            public void processElement(ProcessContext c) {
+                                Row row = c.element();
+                                JsonObject message = new JsonObject();
+                                message.addProperty("source_file", row.getString("source_file"));
+                                message.addProperty("transaction_time", row.getString("transaction_time"));
+                                message.addProperty("total_bytes_inspected", row.getInt64("total_bytes_inspected"));
+                                message.addProperty("status", row.getString("status"));
+                                c.output(json.toJson(message));
+                            }
+                        }));
+    }
 }
+

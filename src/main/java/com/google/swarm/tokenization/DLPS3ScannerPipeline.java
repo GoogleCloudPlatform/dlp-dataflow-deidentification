@@ -27,6 +27,7 @@ import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.Row;
@@ -34,63 +35,66 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLPS3ScannerPipeline {
-  public static final Logger LOG = LoggerFactory.getLogger(DLPS3ScannerPipeline.class);
+    public static final Logger LOG = LoggerFactory.getLogger(DLPS3ScannerPipeline.class);
 
-  public static void main(String[] args) {
-    S3ReaderOptions options =
-        PipelineOptionsFactory.fromArgs(args).withValidation().as(S3ReaderOptions.class);
-    run(options);
-  }
 
-  public static PipelineResult run(S3ReaderOptions options) {
-    Pipeline p = Pipeline.create(options);
+    public static void main(String[] args) {
+        S3ReaderOptions options =
+                PipelineOptionsFactory.fromArgs(args).withValidation().as(S3ReaderOptions.class);
+        run(options);
+    }
 
-    PCollectionTuple nonInspectedContents =
-        p.apply(
-            "File Read Transforrm",
-            FileReaderTransform.newBuilder().setSubscriber(options.getSubscriber()).build());
+    public static PipelineResult run(S3ReaderOptions options) {
 
-    PCollectionTuple inspectedData =
-        nonInspectedContents
-            .get(Util.readRowSuccess)
-            .apply(
-                "DLPScanner",
-                DLPTransform.newBuilder()
-                    .setInspectTemplateName(options.getInspectTemplateName())
-                    .setProjectId(options.getProject())
-                    .build());
+        Pipeline p = Pipeline.create(options);
 
-    PCollection<Row> inspectedContents =
-        inspectedData.get(Util.inspectData).setRowSchema(Util.bqDataSchema);
+        PCollection<KV<String, String>> nonInspectedContents =
+                p.apply(
+                        "File Read Transform",
+                        FileReaderTransform.newBuilder()
+                                .setSubscriber(options.getSubscriber())
+                                .setBatchSize(options.getBatchSize())
+                                .build());
 
-    PCollection<Row> inspectedStats =
-        inspectedData.get(Util.auditData).setRowSchema(Util.bqAuditSchema);
+        PCollectionTuple inspectedData =
+                nonInspectedContents.apply(
+                        "DLPScanner",
+                        DLPTransform.newBuilder()
+                                .setInspectTemplateName(options.getInspectTemplateName())
+                                .setProjectId(options.getProject())
+                                .build());
 
-    PCollection<Row> auditData =
-        inspectedStats
-            .apply("FileTrackerTransform", new AuditInspectDataTransform())
-            .setRowSchema(Util.bqAuditSchema);
+        PCollection<Row> inspectedContents =
+                inspectedData.get(Util.inspectData).setRowSchema(Util.bqDataSchema);
 
-    auditData.apply(
-        "WriteAuditData",
-        BigQueryIO.<Row>write()
-            .to(options.getAuditTableSpec())
-            .withMethod(BigQueryIO.Write.Method.STREAMING_INSERTS)
-            .useBeamSchema()
-            .withoutValidation()
-            .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
-            .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER));
+        PCollection<Row> inspectedStats =
+                inspectedData.get(Util.auditData).setRowSchema(Util.bqAuditSchema);
 
-    auditData
-        .apply("RowToJson", new RowToJson())
-        .apply("WriteToTopic", PubsubIO.writeStrings().to(options.getTopic()));
+        PCollection<Row> auditData =
+                inspectedStats
+                        .apply("FileTrackerTransform", new AuditInspectDataTransform())
+                        .setRowSchema(Util.bqAuditSchema);
 
-    inspectedContents.apply(
-        "WriteInspectData",
-        BQWriteTransform.newBuilder()
-            .setTableSpec(options.getTableSpec())
-            .setMethod(options.getWriteMethod())
-            .build());
-    return p.run();
-  }
+        auditData.apply(
+                "WriteAuditData",
+                BigQueryIO.<Row>write()
+                        .to(options.getAuditTableSpec())
+                        .withMethod(BigQueryIO.Write.Method.STREAMING_INSERTS)
+                        .withoutValidation()
+                        .useBeamSchema()
+                        .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
+                        .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER));
+
+        auditData
+                .apply("RowToJson", new RowToJson())
+                .apply("WriteToTopic", PubsubIO.writeStrings().to(options.getTopic()));
+
+        inspectedContents.apply(
+                "WriteInspectData",
+                BQWriteTransform.newBuilder()
+                        .setTableSpec(options.getTableSpec())
+                        .setMethod(options.getWriteMethod())
+                        .build());
+        return p.run();
+    }
 }
