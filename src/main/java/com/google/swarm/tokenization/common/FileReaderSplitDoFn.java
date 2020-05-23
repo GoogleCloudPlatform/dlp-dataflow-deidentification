@@ -57,10 +57,11 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
         readBuffer.clear();
         LOG.debug(
             "File Read Transform:ReadFile: Current Restriction {}, Content Size{}", tracker.currentRestriction(), buffer.size());
-        c.output(KV.of(fileName, buffer.toStringUtf8().trim()));
+        c.output(Util.readRowSuccess, KV.of(fileName, buffer.toStringUtf8().trim()));
       }
     } catch (Exception e) {
-      LOG.error("File Read Transform:ReadFile: Error processing the file "+ fileName +" - " + Arrays.toString(e.getStackTrace()));
+      c.output(Util.readRowFailure, KV.of(fileName, e.getMessage()));
+      
     }
   }
 
@@ -81,11 +82,10 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
     }
 
     LOG.info(
-        "File Read Transform:ReadFile: Total Bytes {} for File {} -Initial Restriction range from 1 to: {}. {} chunk/(s) created of size {} bytes. ",
+        "File Read Transform:ReadFile: Total Bytes {} for File {} -Initial Restriction range from 1 to: {}. Batch size of each chunk: {} ",
         totalBytes,
         file.getKey(),
         totalSplit,
-        totalSplit-1,
         BATCH_SIZE);
     return new OffsetRange(1, totalSplit);
   }
@@ -105,9 +105,8 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
     return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
   }
 
-  private static SeekableByteChannel getReader(ReadableFile eventFile) throws IOException, FileNotFoundException {
+  private static SeekableByteChannel getReader(ReadableFile eventFile) throws IOException {
     SeekableByteChannel channel = null;
-    LOG.info("File Read Transform:ReadFile: event File Channel {}",eventFile.getMetadata().resourceId().getFilename());
     channel = eventFile.openSeekable();
     return channel;
   }

@@ -47,7 +47,7 @@ import org.apache.beam.sdk.io.fs.ResourceId;
 import com.google.common.collect.ImmutableList;
 
 @AutoValue
-public abstract class FileReaderTransform extends PTransform<PBegin, PCollection<KV<String, String>>> {
+public abstract class FileReaderTransform extends PTransform<PBegin, PCollectionTuple> {
 
   public static final Logger LOG = LoggerFactory.getLogger(FileReaderTransform.class);
 
@@ -69,7 +69,7 @@ public abstract class FileReaderTransform extends PTransform<PBegin, PCollection
   }
 
   @Override
-  public PCollection<KV<String, String>> expand(PBegin input) {
+  public PCollectionTuple expand(PBegin input) {
 
     return input
         .apply(
@@ -79,11 +79,11 @@ public abstract class FileReaderTransform extends PTransform<PBegin, PCollection
         .apply("FindFile", FileIO.matchAll().withEmptyMatchTreatment(EmptyMatchTreatment.ALLOW))
         .apply(FileIO.readMatches())
         .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
-        .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn(batchSize())));
+        .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn(batchSize()))
+                .withOutputTags(Util.readRowSuccess, TupleTagList.of(Util.readRowFailure)));
   }
 
   public class MapPubSubMessage extends DoFn<PubsubMessage, String> {
-    private static final String VALID_FILE_PATTERNS = "^(.(?!.*\\.ctl$|.*\\.dlp$|.*\\.xml$|.*\\.json$|.*parallel_composite_uploads.*$|.*\\.schema$|.*\\.temp$))*$";
 
     private final Counter numberOfFilesReceived =
             Metrics.counter(FileReaderTransform.MapPubSubMessage.class, "NumberOfFilesReceived");
@@ -91,7 +91,7 @@ public abstract class FileReaderTransform extends PTransform<PBegin, PCollection
     @ProcessElement
     public void processElement(ProcessContext c) {
 
-      LOG.info("File Read Transform:ConvertToGCSUri: Located File's Metadata : "+c.element().getAttributeMap());
+      LOG.info("File Read Transform:ConvertToGCSUri: Located File's Metadata : {} ", c.element().getAttributeMap());
       numberOfFilesReceived.inc(1L);
 
       String bucket = c.element().getAttribute("bucketId");
@@ -115,7 +115,7 @@ public abstract class FileReaderTransform extends PTransform<PBegin, PCollection
             ImmutableList.Builder<ResourceId> sourceFiles = ImmutableList.builder();
             AtomicBoolean should_scan = new AtomicBoolean(true);
 
-                if (!file_name.matches(VALID_FILE_PATTERNS)) {
+                if (!file_name.matches(Util.VALID_FILE_PATTERNS)) {
                     LOG.warn("File Read Transform:ConvertToGCSUri: Unsupported File Format. Skipping: {}", file_name);
                     should_scan.set(false);
                 } else if (!eventType.equalsIgnoreCase(Util.ALLOWED_NOTIFICATION_EVENT_TYPE)) {
@@ -128,8 +128,6 @@ public abstract class FileReaderTransform extends PTransform<PBegin, PCollection
                             ResourceId resourceId = metadata.resourceId();
                             Instant file_ts = Instant.parse(file_ts_string);
                             Instant tf_ts = new Instant(metadata.lastModifiedMillis());
-                            LOG.warn(file_ts.toString());
-                            LOG.warn(tf_ts.toString());
                             if (resourceId.toString().equals("gs://" + bucket + "/" + prefix + ".rdct.dlp") && file_ts.isBefore(tf_ts)) {
                                 LOG.warn("File Read Transform:ConvertToGCSUri: File has already been redacted. Skipping: {}", file_name);
                                 should_scan.set(false);

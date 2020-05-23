@@ -46,7 +46,7 @@ public class DLPS3ScannerPipeline {
   public static PipelineResult run(S3ReaderOptions options) {
     Pipeline p = Pipeline.create(options);
 
-    PCollection<KV<String, String>> nonInspectedContents =
+    PCollectionTuple nonInspectedContents =
             p.apply(
                     "File Read Transform",
                     FileReaderTransform.newBuilder()

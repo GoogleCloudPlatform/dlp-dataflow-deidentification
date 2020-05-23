@@ -64,7 +64,7 @@ public abstract class DLPTransform
     return input.apply(
         "DLPInspect",
         ParDo.of(new InspectData(projectId(), inspectTemplateName()))
-            .withOutputTags(Util.inspectData, TupleTagList.of(Util.auditData)));
+            .withOutputTags(Util.inspectData, TupleTagList.of(Util.auditData).and(Util.apiResponseFailedElements)));
   }
 
   public static class InspectData extends DoFn<KV<String, String>, Row> {
@@ -109,7 +109,7 @@ public abstract class DLPTransform
             long bytesInspected = contentItem.getSerializedSize();
             int totalFinding =
                 Long.valueOf(response.getResult().getFindingsList().stream().count()).intValue();
-            LOG.debug("DLPTransform:DLPInspect: Bytes inspected {}", bytesInspected);
+
             boolean hasErrors = response.findInitializationErrors().stream().count() > 0;
             if (response.hasResult() && !hasErrors) {
               response
@@ -148,7 +148,8 @@ public abstract class DLPTransform
                             Row.withSchema(Util.errorSchema)
                                 .addValues(fileName, timeStamp, error.toString())
                                 .build());
-                        LOG.info("DLPTransform:DLPInspect: Initialization error in DLP response - {}",error);
+                        //c.output(Util.apiResponseFailedElements, error);
+                        LOG.info("DLPTransform:DLPInspect: Initialization error in DLP response - {}", error);
                       });
               //Need to change 0 to 0L
               c.output(
@@ -160,13 +161,16 @@ public abstract class DLPTransform
           }
         }
         else{
-          LOG.info("DLPTransform:DLPInspect: "+fileName+" is an empty file | Size of the file in bytes - "+c.element().getValue().length());
+          LOG.info("DLPTransform:DLPInspect: {} is an empty file | Size of the file in bytes - {}", fileName, c.element().getValue().length());
           c.output(
                   Util.auditData,
                   Row.withSchema(Util.bqAuditSchema)
                           .addValues(fileName, Util.getTimeStamp(),0L, "EMPTY")
                           .build());
         }
+      }
+      catch (Exception e) {
+        c.output(Util.apiResponseFailedElements, e.toString());
       }
     }
   }
