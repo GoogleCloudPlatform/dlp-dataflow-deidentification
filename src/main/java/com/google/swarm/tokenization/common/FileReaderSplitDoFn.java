@@ -61,7 +61,6 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
       }
     } catch (Exception e) {
       c.output(Util.readRowFailure, KV.of(fileName, e.getMessage()));
-      
     }
   }
 

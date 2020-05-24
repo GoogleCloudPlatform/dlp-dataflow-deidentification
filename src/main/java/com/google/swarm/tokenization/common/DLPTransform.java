@@ -148,7 +148,6 @@ public abstract class DLPTransform
                             Row.withSchema(Util.errorSchema)
                                 .addValues(fileName, timeStamp, error.toString())
                                 .build());
-                        //c.output(Util.apiResponseFailedElements, error);
                         LOG.info("DLPTransform:DLPInspect: Initialization error in DLP response - {}", error);
                       });
               //Need to change 0 to 0L
