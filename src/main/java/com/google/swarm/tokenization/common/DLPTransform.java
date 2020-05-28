@@ -69,6 +69,7 @@ public abstract class DLPTransform
 
   public static class InspectData extends DoFn<KV<String, String>, Row> {
     private String projectId;
+    private DlpServiceClient dlpServiceClient;
     private String inspectTemplateName;
     private InspectContentRequest.Builder requestBuilder;
     private final Counter numberOfBytesInspected =
@@ -87,9 +88,27 @@ public abstract class DLPTransform
               .setInspectTemplateName(this.inspectTemplateName);
     }
 
+    @StartBundle
+    public void startBundle() {
+      try {
+        this.dlpServiceClient = DlpServiceClient.create();
+
+      } catch (IOException e) {
+        LOG.error("DLPTransform:DLPInspect: Failed to create DLP Service Client {}", e.getMessage());
+        throw new RuntimeException(e);
+      }
+    }
+
+    @FinishBundle
+    public void finishBundle() {
+      if (this.dlpServiceClient != null) {
+        this.dlpServiceClient.close();
+      }
+    }
+
     @ProcessElement
     public void processElement(ProcessContext c) throws IOException {
-      try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
+      try {
         String fileName = c.element().getKey();
 
         if (!c.element().getValue().isEmpty()) {
