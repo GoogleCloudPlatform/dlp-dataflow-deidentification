@@ -123,6 +123,11 @@ public abstract class FileReaderTransform extends PTransform<PBegin, PCollection
                     should_scan.set(false);
                 } else {
                     try {
+                        Thread.sleep(5000);
+                    } catch(InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                    try {
                         MatchResult listResult = FileSystems.match("gs://" + bucket + "/" + prefix + ".*.dlp", EmptyMatchTreatment.ALLOW);
                         listResult.metadata().forEach(metadata -> {
                             ResourceId resourceId = metadata.resourceId();
