@@ -64,11 +64,12 @@ public abstract class DLPTransform
     return input.apply(
         "DLPInspect",
         ParDo.of(new InspectData(projectId(), inspectTemplateName()))
-            .withOutputTags(Util.inspectData, TupleTagList.of(Util.auditData)));
+            .withOutputTags(Util.inspectData, TupleTagList.of(Util.auditData).and(Util.apiResponseFailedElements)));
   }
 
   public static class InspectData extends DoFn<KV<String, String>, Row> {
     private String projectId;
+    private DlpServiceClient dlpServiceClient;
     private String inspectTemplateName;
     private InspectContentRequest.Builder requestBuilder;
     private final Counter numberOfBytesInspected =
@@ -87,9 +88,27 @@ public abstract class DLPTransform
               .setInspectTemplateName(this.inspectTemplateName);
     }
 
+    @StartBundle
+    public void startBundle() {
+      try {
+        this.dlpServiceClient = DlpServiceClient.create();
+
+      } catch (IOException e) {
+        LOG.error("DLPTransform:DLPInspect: Failed to create DLP Service Client {}", e.getMessage());
+        throw new RuntimeException(e);
+      }
+    }
+
+    @FinishBundle
+    public void finishBundle() {
+      if (this.dlpServiceClient != null) {
+        this.dlpServiceClient.close();
+      }
+    }
+
     @ProcessElement
     public void processElement(ProcessContext c) throws IOException {
-      try (DlpServiceClient dlpServiceClient = DlpServiceClient.create()) {
+      try {
         String fileName = c.element().getKey();
 
         if (!c.element().getValue().isEmpty()) {
@@ -99,7 +118,7 @@ public abstract class DLPTransform
           if (this.requestBuilder.build().getSerializedSize() > DLP_PAYLOAD_LIMIT) {
             String errorMessage =
                 String.format(
-                    "Payload Size %s Exceeded Batch Size %s",
+                    "DLPTransform:DLPInspect: Payload Size %s Exceeded Batch Size %s",
                     this.requestBuilder.build().getSerializedSize(), DLP_PAYLOAD_LIMIT);
             LOG.error(errorMessage);
           } else {
@@ -109,7 +128,7 @@ public abstract class DLPTransform
             long bytesInspected = contentItem.getSerializedSize();
             int totalFinding =
                 Long.valueOf(response.getResult().getFindingsList().stream().count()).intValue();
-            LOG.debug("bytes inspected {}", bytesInspected);
+
             boolean hasErrors = response.findInitializationErrors().stream().count() > 0;
             if (response.hasResult() && !hasErrors) {
               response
@@ -128,7 +147,7 @@ public abstract class DLPTransform
                                     finding.getLocation().getCodepointRange().getStart(),
                                     finding.getLocation().getCodepointRange().getEnd())
                                 .build();
-                        LOG.debug("Row {}", row);
+                        LOG.debug("DLPTransform:DLPInspect: Row {}", row);
 
                         c.output(Util.inspectData, row);
                       });
@@ -148,7 +167,9 @@ public abstract class DLPTransform
                             Row.withSchema(Util.errorSchema)
                                 .addValues(fileName, timeStamp, error.toString())
                                 .build());
+                        LOG.info("DLPTransform:DLPInspect: Initialization error in DLP response - {}", error);
                       });
+              //Need to change 0 to 0L
               c.output(
                   Util.auditData,
                   Row.withSchema(Util.bqAuditSchema)
@@ -157,6 +178,17 @@ public abstract class DLPTransform
             }
           }
         }
+        else{
+          LOG.info("DLPTransform:DLPInspect: {} is an empty file | Size of the file in bytes - {}", fileName, c.element().getValue().length());
+          c.output(
+                  Util.auditData,
+                  Row.withSchema(Util.bqAuditSchema)
+                          .addValues(fileName, Util.getTimeStamp(),0L, "EMPTY")
+                          .build());
+        }
+      }
+      catch (Exception e) {
+        c.output(Util.apiResponseFailedElements, e.toString());
       }
     }
   }

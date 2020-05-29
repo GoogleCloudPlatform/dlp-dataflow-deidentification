@@ -16,9 +16,11 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.protobuf.ByteString;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
+import java.util.Arrays;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -31,7 +33,11 @@ import org.slf4j.LoggerFactory;
 public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
   public static final Logger LOG = LoggerFactory.getLogger(FileReaderSplitDoFn.class);
   public static Integer SPLIT_SIZE = 900000;
-  private static Integer BATCH_SIZE = 520000;
+  public Integer BATCH_SIZE;
+
+  public FileReaderSplitDoFn(Integer batchSize) {
+    this.BATCH_SIZE = batchSize;
+  }
 
   @ProcessElement
   public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker)
@@ -50,7 +56,7 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
         buffer = ByteString.copyFrom(readBuffer);
         readBuffer.clear();
         LOG.debug(
-            "Current Restriction {}, Content Size{}", tracker.currentRestriction(), buffer.size());
+            "File Read Transform:ReadFile: Current Restriction {}, Content Size{}", tracker.currentRestriction(), buffer.size());
         c.output(Util.readRowSuccess, KV.of(fileName, buffer.toStringUtf8().trim()));
       }
     } catch (Exception e) {
@@ -75,10 +81,11 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
     }
 
     LOG.info(
-        "Total Bytes {} for File {} -Initial Restriction range from 1 to: {}",
+        "File Read Transform:ReadFile: Total Bytes {} for File {} -Initial Restriction range from 1 to: {}. Batch size of each chunk: {} ",
         totalBytes,
         file.getKey(),
-        totalSplit);
+        totalSplit,
+        BATCH_SIZE);
     return new OffsetRange(1, totalSplit);
   }
 
@@ -99,7 +106,6 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
 
   private static SeekableByteChannel getReader(ReadableFile eventFile) throws IOException {
     SeekableByteChannel channel = null;
-    LOG.info("event File Channel {}",eventFile.getMetadata().resourceId().getFilename());
     channel = eventFile.openSeekable();
     return channel;
   }

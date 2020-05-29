@@ -62,6 +62,8 @@ public class Util {
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
   private static final String NESTED_SCHEMA_REGEX = ".*[^=]=(.*[^ ]), .*[^=]=(.*[^ ])";
   private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
+  //public static final String VALID_FILE_PATTERNS = "^(.(?!.*\\.ctl$|.*\\.dlp$|.*\\.xml$|.*\\.json$|.*parallel_composite_uploads.*$|.*\\.schema$|.*\\.temp$))*$";
+  public static final String VALID_FILE_PATTERNS = "([^\\s]+(\\.(?i)(dat|csv|txt))$)";
   public static final String ALLOWED_NOTIFICATION_EVENT_TYPE = String.valueOf("OBJECT_FINALIZE");
   public static String INSPECTED = "INSPECTED";
   public static String FAILED = "FAILED";
@@ -70,6 +72,7 @@ public class Util {
   public static TupleTag<Row> errorData = new TupleTag<Row>() {};
   public static TupleTag<KV<String, String>> readRowSuccess = new TupleTag<KV<String, String>>() {};
   public static TupleTag<KV<String, String>> readRowFailure = new TupleTag<KV<String, String>>() {};
+  public static TupleTag<String> apiResponseFailedElements = new TupleTag<String>() {};
 
   public static String parseBucketName(String value) {
     return value.substring(5, value.length() - 1);
