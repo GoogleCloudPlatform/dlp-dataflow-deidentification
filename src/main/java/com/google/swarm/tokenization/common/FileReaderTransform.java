@@ -67,7 +67,7 @@ public abstract class FileReaderTransform
             "ReadFileMetadata",
             PubsubIO.readMessagesWithAttributes().fromSubscription(subscriber()))
         .apply("ConvertToGCSUri", ParDo.of(new MapPubSubMessage()))
-        .apply("FindFile", FileIO.matchAll().withEmptyMatchTreatment(EmptyMatchTreatment.DISALLOW))
+        .apply("FindFile", FileIO.matchAll().withEmptyMatchTreatment(EmptyMatchTreatment.ALLOW))
         .apply(FileIO.readMatches())
         .apply("AddFileNameAsKey", ParDo.of(new FileSourceDoFn()))
         .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn(delimeter(), keyRange())));

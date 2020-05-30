@@ -15,10 +15,8 @@
  */
 package com.google.swarm.tokenization.common;
 
-import com.google.api.gax.retrying.RetrySettings;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.dlp.v2.DlpServiceClient;
-import com.google.cloud.dlp.v2.DlpServiceSettings;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.InspectContentRequest;
 import com.google.privacy.dlp.v2.InspectContentResponse;
@@ -45,16 +43,14 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TupleTagList;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.threeten.bp.Duration;
 
 @AutoValue
 public abstract class DLPTransform
     extends PTransform<PCollection<KV<String, String>>, PCollectionTuple> {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
-
-  private static Integer DLP_PAYLOAD_LIMIT = 524288;
 
   public abstract String inspectTemplateName();
 
@@ -90,8 +86,6 @@ public abstract class DLPTransform
   public static class BatchRequest extends DoFn<KV<String, String>, KV<String, Iterable<String>>> {
 
     private static final long serialVersionUID = 1L;
-    //    private final Counter numberOfRowsBagged =
-    //        Metrics.counter(BatchRequest.class, "numberOfRowsBagged");
     private Integer batchSize;
 
     public BatchRequest(Integer batchSize) {
@@ -111,8 +105,7 @@ public abstract class DLPTransform
         BoundedWindow w,
         @StateId("elementsBag") BagState<KV<String, String>> elementsBag) {
       elementsBag.add(element);
-      // eventTimer.set(w.maxTimestamp());
-      eventTimer.offset(org.joda.time.Duration.standardSeconds(10)).setRelative();
+      eventTimer.offset(Duration.standardSeconds(10)).setRelative();
     }
 
     @OnTimer("eventTimer")
@@ -147,7 +140,6 @@ public abstract class DLPTransform
       // must be  a better way
       if (!rows.isEmpty()) {
         LOG.debug("Remaining buffer {}, key{}", rows.size(), key);
-        // numberOfRowsBagged.inc(rows.size());
         output.output(KV.of(key, rows));
       }
     }
@@ -176,15 +168,6 @@ public abstract class DLPTransform
 
     @StartBundle
     public void startBundle() throws IOException {
-
-//      DlpServiceSettings.Builder settingsBuilder = DlpServiceSettings.newBuilder();
-//      settingsBuilder
-//          .inspectContentSettings()
-//          .setRetrySettings(
-//              RetrySettings.newBuilder()
-//                  .setInitialRpcTimeout(Duration.ofSeconds(60))
-//                  .setMaxRpcTimeout(Duration.ofSeconds(60))
-//                  .build());
       dlpServiceClient = DlpServiceClient.create();
     }
 
