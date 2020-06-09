@@ -669,6 +669,8 @@ public class DLPTextToBigQueryStreaming {
     public KV<String, TableRow> getDestination(ValueInSingleWindow<KV<String, TableRow>> element) {
       String key = element.getValue().getKey();
       String tableName = String.format("%s:%s.%s", projectId.get(), datasetName.get(), key);
+      // Strip the file name to only the letters and numbers so that it is a valid BQ table id.
+      tableName = tableName.replaceAll("[^a-zA-Z0-9]", "");
       LOG.debug("Table Name {}", tableName);
       return KV.of(tableName, element.getValue().getValue());
     }
@@ -683,7 +685,6 @@ public class DLPTextToBigQueryStreaming {
 
     @Override
     public TableSchema getSchema(KV<String, TableRow> destination) {
-
       TableRow bqRow = destination.getValue();
       TableSchema schema = new TableSchema();
       List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
@@ -731,7 +732,6 @@ public class DLPTextToBigQueryStreaming {
     }
 
     if (channel != null) {
-
       br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
     }
 
