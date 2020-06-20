@@ -29,15 +29,19 @@ import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
+import com.google.swarm.tokenization.common.DLPTransform.BatchTableRequest;
+import com.google.swarm.tokenization.common.FileReader;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
@@ -54,6 +58,7 @@ import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
 import org.apache.beam.sdk.io.gcp.bigquery.InsertRetryPolicy;
 import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
 import org.apache.beam.sdk.io.range.OffsetRange;
+import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Distribution;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.options.Description;
@@ -61,7 +66,20 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.Validation.Required;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.options.ValueProvider.NestedValueProvider;
+import org.apache.beam.sdk.state.BagState;
+import org.apache.beam.sdk.state.StateSpec;
+import org.apache.beam.sdk.state.StateSpecs;
+import org.apache.beam.sdk.state.TimeDomain;
+import org.apache.beam.sdk.state.Timer;
+import org.apache.beam.sdk.state.TimerSpec;
+import org.apache.beam.sdk.state.TimerSpecs;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.DoFn.Element;
+import org.apache.beam.sdk.transforms.DoFn.OnTimer;
+import org.apache.beam.sdk.transforms.DoFn.OutputReceiver;
+import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
+import org.apache.beam.sdk.transforms.DoFn.StateId;
+import org.apache.beam.sdk.transforms.DoFn.TimerId;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
@@ -70,6 +88,7 @@ import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
+import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
@@ -354,7 +373,62 @@ public class DLPTextToBigQueryStreaming {
     ValueProvider<String> getDlpProjectId();
 
     void setDlpProjectId(ValueProvider<String> value);
+
+    @Description("Key range to increase parallel processing")
+    ValueProvider<Integer> getKeyRange();
+
+    void setKeyRange(ValueProvider<Integer> value);
+
+    @Description("line delimeter")
+    ValueProvider<String> getDelimeter();
+
+    void setDelimeter(ValueProvider<String> value);
   }
+
+  static class CSVReaderWithDelimeter extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
+    private PCollectionView<List<KV<String, List<String>>>> headerMap;
+    private final Counter numberOfRows =
+        Metrics.counter(CSVReaderWithDelimeter.class, "numberOfRows");
+    private final Counter numberOfBytesRead =
+        Metrics.counter(CSVReaderWithDelimeter.class, "numberOfBytesRead");
+    private String delimeter;
+    private Integer keyRange;
+
+    public CSVReaderWithDelimeter(String delimeter, Integer keyRange) {
+      this.delimeter = delimeter;
+      this.keyRange = keyRange;
+    }
+
+    @ProcessElement
+    public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker)
+        throws IOException {
+      String fileName = c.element().getKey();
+      try (SeekableByteChannel channel = getReader(c.element().getValue())) {
+        FileReader reader =
+            new FileReader(channel, tracker.currentRestriction().getFrom(), delimeter.getBytes());
+        while (tracker.tryClaim(reader.getStartOfNextRecord())) {
+          reader.readNextRecord();
+          String contents = reader.getCurrent();
+          String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
+          numberOfRows.inc();
+          numberOfBytesRead.inc(contents.length());
+          c.output(KV.of(key, contents));
+        }
+      }
+    }
+
+    private static SeekableByteChannel getReader(ReadableFile eventFile) {
+      SeekableByteChannel channel = null;
+      try {
+        channel = eventFile.openSeekable();
+      } catch (IOException e) {
+        LOG.error("Failed to Open File {}", e.getMessage());
+        throw new RuntimeException(e);
+      }
+      return channel;
+    }
+  }
+
   // [START loadSnippet_3]
   /**
    * The {@link CSVReader} class uses experimental Split DoFn to split each csv file contents in
@@ -514,6 +588,72 @@ public class DLPTextToBigQueryStreaming {
           .findFirst()
           .map(e -> e.getValue())
           .orElse(null);
+    }
+  }
+
+  public static class BatchTableRequest
+      extends DoFn<KV<String, Table.Row>, KV<String, Iterable<Table.Row>>> {
+
+    private static final long serialVersionUID = 1L;
+    private final Counter numberOfRowsBagged =
+        Metrics.counter(BatchTableRequest.class, "numberOfRowsBagged");
+    private Integer batchSize;
+
+    public BatchTableRequest(Integer batchSize) {
+      this.batchSize = batchSize;
+    }
+
+    @StateId("elementsBag")
+    private final StateSpec<BagState<KV<String, Table.Row>>> elementsBag = StateSpecs.bag();
+
+    @TimerId("eventTimer")
+    private final TimerSpec eventTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
+
+    @ProcessElement
+    public void process(
+        @Element KV<String, Table.Row> element,
+        @StateId("elementsBag") BagState<KV<String, Table.Row>> elementsBag,
+        @TimerId("eventTimer") Timer eventTimer,
+        BoundedWindow w) {
+      elementsBag.add(element);
+      eventTimer.set(w.maxTimestamp());
+    }
+
+    @OnTimer("eventTimer")
+    public void onTimer(
+        @StateId("elementsBag") BagState<KV<String, Table.Row>> elementsBag,
+        OutputReceiver<KV<String, Iterable<Table.Row>>> output) {
+      String key = elementsBag.read().iterator().next().getKey();
+      AtomicInteger bufferSize = new AtomicInteger();
+      List<Table.Row> rows = new ArrayList<>();
+      elementsBag
+          .read()
+          .forEach(
+              element -> {
+                Integer elementSize = element.getValue().getSerializedSize();
+                boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
+                if (clearBuffer) {
+                  numberOfRowsBagged.inc(rows.size());
+                  LOG.debug("Clear Buffer {} , Key {}", bufferSize.intValue(), element.getKey());
+                  output.output(KV.of(element.getKey(), rows));
+                  // clean up in a method
+                  rows.clear();
+                  bufferSize.set(0);
+                  rows.add(element.getValue());
+                  bufferSize.getAndAdd(Integer.valueOf(element.getValue().getSerializedSize()));
+
+                } else {
+                  // clean up in a method
+                  rows.add(element.getValue());
+                  bufferSize.getAndAdd(Integer.valueOf(element.getValue().getSerializedSize()));
+                }
+              });
+      // must be  a better way
+      if (!rows.isEmpty()) {
+        LOG.debug("Remaining rows {}", rows.size());
+        numberOfRowsBagged.inc(rows.size());
+        output.output(KV.of(key, rows));
+      }
     }
   }
 

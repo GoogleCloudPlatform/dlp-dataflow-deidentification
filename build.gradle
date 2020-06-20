@@ -15,7 +15,7 @@
  */
 buildscript {
     ext {
-        dataflowBeamVersion = '2.19.0'
+        dataflowBeamVersion = '2.22.0'
     }
     repositories {
         mavenCentral()
@@ -81,7 +81,7 @@ dependencies {
     compile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
     compile 'com.google.cloud:google-cloud-kms:0.70.0-beta'
     compile 'com.google.guava:guava:27.0-jre'
-    compile group: 'com.google.cloud', name: 'google-cloud-dlp', version: '0.99.0-beta'
+    compile group: 'com.google.cloud', name: 'google-cloud-dlp', version: '1.1.4'
     compile 'com.google.api-client:google-api-client:1.27.0'
     compile group: 'com.google.apis', name: 'google-api-services-cloudkms', version: 'v1-rev53-1.23.0'
     compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
