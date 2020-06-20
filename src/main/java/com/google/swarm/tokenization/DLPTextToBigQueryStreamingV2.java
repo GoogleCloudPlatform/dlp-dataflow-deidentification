@@ -13,14 +13,17 @@ import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.Table.Row;
 import com.google.privacy.dlp.v2.Value;
+import com.google.swarm.tokenization.common.FileReader;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -40,6 +43,7 @@ import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
 import org.apache.beam.sdk.io.gcp.bigquery.InsertRetryPolicy;
 import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
 import org.apache.beam.sdk.io.gcp.bigquery.WriteResult;
+import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.options.Default;
@@ -59,10 +63,11 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.transforms.WithKeys;
-import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
+import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
+import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
+import org.apache.beam.sdk.transforms.windowing.DefaultTrigger;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
-import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
@@ -121,13 +126,11 @@ public class DLPTextToBigQueryStreamingV2 {
             .apply(
                 "Fixed Window",
                 Window.<KV<String, ReadableFile>>into(FixedWindows.of(WINDOW_INTERVAL))
-                    .triggering(
-                        Repeatedly.forever(
-                            AfterProcessingTime.pastFirstElementInPane()
-                                .plusDelayOf(Duration.standardSeconds(10))))
+                    .triggering(DefaultTrigger.of())
                     .discardingFiredPanes()
                     .withAllowedLateness(Duration.ZERO))
             .apply(GroupByKey.create());
+
     final PCollectionView<List<KV<String, List<String>>>> headerMap =
         csvFiles
 
@@ -144,7 +147,7 @@ public class DLPTextToBigQueryStreamingV2 {
                             .getValue()
                             .forEach(
                                 file -> {
-                                  try (BufferedReader br = getReader(file)) {
+                                  try (BufferedReader br = getBufferedReader(file)) {
                                     c.output(KV.of(fileKey, getFileHeaders(br)));
 
                                   } catch (IOException e) {
@@ -251,7 +254,7 @@ public class DLPTextToBigQueryStreamingV2 {
     void setDlpProjectId(String value);
 
     @Description("Key range to increase parallel processing")
-    @Default.Integer(256)
+    @Default.Integer(1024)
     Integer getKeyRange();
 
     void setKeyRange(Integer value);
@@ -261,62 +264,82 @@ public class DLPTextToBigQueryStreamingV2 {
 
     private final Counter numberOfRowsRead = Metrics.counter(CSVReader.class, "numberOfRowsRead");
     private Integer keyRange;
+    public static Integer BATCH_SIZE = 100000;
 
     public CSVReader(Integer keyRange) {
       this.keyRange = keyRange;
     }
 
     @ProcessElement
-    public void processElement(ProcessContext c) throws IOException {
+    public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker)
+        throws IOException {
       String fileKey = c.element().getKey();
-      try (BufferedReader br = getReader(c.element().getValue())) {
-        Iterator<CSVRecord> csvRows = CSVFormat.DEFAULT.withSkipHeaderRecord().parse(br).iterator();
-
-        /** looping through buffered reader and creating DLP Table Rows equals to batch */
-        while (csvRows.hasNext()) {
-          CSVRecord csvRow = csvRows.next();
-          numberOfRowsRead.inc();
+      try (SeekableByteChannel channel = getReader(c.element().getValue())) {
+        FileReader reader =
+            new FileReader(channel, tracker.currentRestriction().getFrom(), "\n".getBytes());
+        while (tracker.tryClaim(reader.getStartOfNextRecord())) {
+          reader.readNextRecord();
+          Row content = convertCsvRowToTableRow(reader.getCurrent());
           String key = String.format("%d%s%s", new Random().nextInt(keyRange), "_", fileKey);
-          c.output(KV.of(key, convertCsvRowToTableRow(csvRow)));
+          numberOfRowsRead.inc();
+          c.output(KV.of(key, content));
         }
       }
     }
 
-    private Table.Row convertCsvRowToTableRow(CSVRecord csvRow) {
-      /** convert from CSV row to DLP Table Row */
-      Iterator<String> valueIterator = csvRow.iterator();
-      Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
-      while (valueIterator.hasNext()) {
-        String value = valueIterator.next();
-        if (value != null) {
-          tableRowBuilder.addValues(Value.newBuilder().setStringValue(value.toString()).build());
-        } else {
-          tableRowBuilder.addValues(Value.newBuilder().setStringValue("").build());
-        }
+    @GetInitialRestriction
+    public OffsetRange getInitialRestriction(@Element KV<String, ReadableFile> csvFile)
+        throws IOException {
+      long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
+      LOG.info("Initial Restriction range from 1 to: {}", totalBytes);
+      return new OffsetRange(0, totalBytes);
+    }
+
+    @SplitRestriction
+    public void splitRestriction(
+        @Element KV<String, ReadableFile> csvFile,
+        @Restriction OffsetRange range,
+        OutputReceiver<OffsetRange> out) {
+      long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
+      List<OffsetRange> splits = range.split(BATCH_SIZE, BATCH_SIZE);
+      LOG.info("Number of Split {} total bytes {}", splits.size(), totalBytes);
+      for (final OffsetRange p : splits) {
+        out.output(p);
       }
+    }
+
+    @NewTracker
+    public OffsetRangeTracker newTracker(@Restriction OffsetRange range) {
+      return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
+    }
+
+    private Table.Row convertCsvRowToTableRow(String csvRow) {
+      /** convert from CSV row to DLP Table Row */
+      List<String> valueList = Arrays.asList(csvRow.split("\\,"));
+      Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
+      valueList.forEach(
+          value -> {
+            if (value != null) {
+              tableRowBuilder.addValues(
+                  Value.newBuilder().setStringValue(value.toString()).build());
+            } else {
+              tableRowBuilder.addValues(Value.newBuilder().setStringValue("").build());
+            }
+          });
 
       return tableRowBuilder.build();
     }
   }
 
-  private static BufferedReader getReader(ReadableFile csvFile) {
-    BufferedReader br = null;
-    ReadableByteChannel channel = null;
-    /** read the file and create buffered reader */
+  private static SeekableByteChannel getReader(ReadableFile eventFile) {
+    SeekableByteChannel channel = null;
     try {
-      channel = csvFile.openSeekable();
-
+      channel = eventFile.openSeekable();
     } catch (IOException e) {
-      LOG.error("Failed to Read File {}", e.getMessage());
+      LOG.error("Failed to Open File {}", e.getMessage());
       throw new RuntimeException(e);
     }
-
-    if (channel != null) {
-
-      br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
-    }
-
-    return br;
+    return channel;
   }
 
   private static List<String> getFileHeaders(BufferedReader reader) {
@@ -395,7 +418,7 @@ public class DLPTextToBigQueryStreamingV2 {
     public void onTimer(
         @StateId("elementsBag") BagState<KV<String, Table.Row>> elementsBag,
         OutputReceiver<KV<String, Iterable<Table.Row>>> output) {
-      String key = elementsBag.read().iterator().next().getKey().split("_")[0];
+      String key = elementsBag.read().iterator().next().getKey().split("\\_")[1];
       AtomicInteger bufferSize = new AtomicInteger();
       List<Table.Row> rows = new ArrayList<>();
       elementsBag
@@ -406,7 +429,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
                 if (clearBuffer) {
                   numberOfRowsBagged.inc(rows.size());
-                  LOG.info("Clear Buffer {} , Key {}", bufferSize.intValue(), element.getKey());
+                  LOG.debug("Clear Buffer {} , Key {}", bufferSize.intValue(), element.getKey());
                   output.output(KV.of(element.getKey(), rows));
                   rows.clear();
                   bufferSize.set(0);
@@ -419,7 +442,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 }
               });
       if (!rows.isEmpty()) {
-        LOG.info("Remaining rows {}", rows.size());
+        LOG.debug("Remaining rows {}", rows.size());
         numberOfRowsBagged.inc(rows.size());
         output.output(KV.of(key, rows));
       }
@@ -496,6 +519,7 @@ public class DLPTextToBigQueryStreamingV2 {
     public void processElement(ProcessContext c) {
       String fileKey = c.element().getKey();
       csvHeaders = getHeaders(c.sideInput(headerMap), fileKey);
+
       if (csvHeaders != null) {
         List<FieldId> dlpTableHeaders =
             csvHeaders.stream()
@@ -613,5 +637,25 @@ public class DLPTextToBigQueryStreamingV2 {
       schema.setFields(fields);
       return schema;
     }
+  }
+
+  private static BufferedReader getBufferedReader(ReadableFile csvFile) {
+    BufferedReader br = null;
+    ReadableByteChannel channel = null;
+    /** read the file and create buffered reader */
+    try {
+      channel = csvFile.openSeekable();
+
+    } catch (IOException e) {
+      LOG.error("Failed to Read File {}", e.getMessage());
+      throw new RuntimeException(e);
+    }
+
+    if (channel != null) {
+
+      br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
+    }
+
+    return br;
   }
 }

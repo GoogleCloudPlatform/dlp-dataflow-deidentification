@@ -164,7 +164,7 @@ public class DLPTextToBigQueryStreaming {
   /** Regular expression that matches valid BQ column name . */
   private static final String COLUMN_NAME_REGEXP = "^[A-Za-z_]+[A-Za-z_0-9]*$";
   /** Default window interval to create side inputs for header records. */
-  private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(30);
+  private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(10);
 
   /**
    * Main entry point for executing the pipeline. This will run the pipeline asynchronously. If
@@ -221,7 +221,7 @@ public class DLPTextToBigQueryStreaming {
             .apply("Add File Name as Key", WithKeys.of(file -> getFileName(file)))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of()))
             .apply(
-                "Fixed Window(30 Sec)",
+                "Fixed Window",
                 Window.<KV<String, ReadableFile>>into(FixedWindows.of(WINDOW_INTERVAL))
                     .triggering(
                         AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.ZERO))
