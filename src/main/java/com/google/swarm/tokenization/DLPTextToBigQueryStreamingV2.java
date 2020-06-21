@@ -65,9 +65,10 @@ import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
+import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
-import org.apache.beam.sdk.transforms.windowing.DefaultTrigger;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
@@ -126,7 +127,10 @@ public class DLPTextToBigQueryStreamingV2 {
             .apply(
                 "Fixed Window",
                 Window.<KV<String, ReadableFile>>into(FixedWindows.of(WINDOW_INTERVAL))
-                    .triggering(DefaultTrigger.of())
+                    .triggering(
+                        Repeatedly.forever(
+                            AfterProcessingTime.pastFirstElementInPane()
+                                .plusDelayOf(WINDOW_INTERVAL)))
                     .discardingFiredPanes()
                     .withAllowedLateness(Duration.ZERO))
             .apply(GroupByKey.create());
@@ -178,7 +182,6 @@ public class DLPTextToBigQueryStreamingV2 {
                   }
                 }));
 
-    WriteResult tableRow =
         bqDataMap
             .apply("ReadFileContents", ParDo.of(new CSVReader(options.getKeyRange())))
             .apply("BatchRequests", ParDo.of(new BatchTableRequest(options.getBatchSize())))
@@ -233,11 +236,8 @@ public class DLPTextToBigQueryStreamingV2 {
 
     void setInspectTemplateName(String value);
 
-    @Description(
-        "DLP API has a limit for payload size of 524KB /api call. "
-            + "That's why dataflow process will need to chunk it. User will have to decide "
-            + "on how they would like to batch the request depending on number of rows "
-            + "and how big each row is.")
+    @Description("300kb as default")
+        
     @Default.Integer(300000)
     Integer getBatchSize();
 
@@ -264,7 +264,7 @@ public class DLPTextToBigQueryStreamingV2 {
 
     private final Counter numberOfRowsRead = Metrics.counter(CSVReader.class, "numberOfRowsRead");
     private Integer keyRange;
-    public static Integer BATCH_SIZE = 100000;
+    public static Integer FILE_SPLIT_BYTES_SIZE = 100000;
 
     public CSVReader(Integer keyRange) {
       this.keyRange = keyRange;
@@ -301,7 +301,7 @@ public class DLPTextToBigQueryStreamingV2 {
         @Restriction OffsetRange range,
         OutputReceiver<OffsetRange> out) {
       long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
-      List<OffsetRange> splits = range.split(BATCH_SIZE, BATCH_SIZE);
+      List<OffsetRange> splits = range.split(FILE_SPLIT_BYTES_SIZE, FILE_SPLIT_BYTES_SIZE);
       LOG.info("Number of Split {} total bytes {}", splits.size(), totalBytes);
       for (final OffsetRange p : splits) {
         out.output(p);
@@ -390,8 +390,7 @@ public class DLPTextToBigQueryStreamingV2 {
       extends DoFn<KV<String, Table.Row>, KV<String, Iterable<Table.Row>>> {
 
     private static final long serialVersionUID = 1L;
-    private final Counter numberOfRowsBagged =
-        Metrics.counter(BatchTableRequest.class, "numberOfRowsBagged");
+    
     private Integer batchSize;
 
     public BatchTableRequest(Integer batchSize) {
@@ -428,8 +427,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 Integer elementSize = element.getValue().getSerializedSize();
                 boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
                 if (clearBuffer) {
-                  numberOfRowsBagged.inc(rows.size());
-                  LOG.debug("Clear Buffer {} , Key {}", bufferSize.intValue(), element.getKey());
+                  LOG.info("Clear Buffer {} , Key {}", bufferSize.intValue(), element.getKey());
                   output.output(KV.of(element.getKey(), rows));
                   rows.clear();
                   bufferSize.set(0);
@@ -442,8 +440,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 }
               });
       if (!rows.isEmpty()) {
-        LOG.debug("Remaining rows {}", rows.size());
-        numberOfRowsBagged.inc(rows.size());
+        LOG.info("Remaining rows {}", rows.size());
         output.output(KV.of(key, rows));
       }
     }
@@ -462,7 +459,7 @@ public class DLPTextToBigQueryStreamingV2 {
     List<String> csvHeaders;
 
     private final Counter numberOfRowsTokenized =
-        Metrics.counter(DLPTokenizationDoFn.class, "numberOfRowsTokenizedDistro");
+        Metrics.counter(DLPTokenizationDoFn.class, "numberOfRowsTokenized");
 
     public DLPTokenizationDoFn(
         String dlpProjectId,
@@ -519,7 +516,6 @@ public class DLPTextToBigQueryStreamingV2 {
     public void processElement(ProcessContext c) {
       String fileKey = c.element().getKey();
       csvHeaders = getHeaders(c.sideInput(headerMap), fileKey);
-
       if (csvHeaders != null) {
         List<FieldId> dlpTableHeaders =
             csvHeaders.stream()
@@ -538,6 +534,8 @@ public class DLPTextToBigQueryStreamingV2 {
         Table tokenizedData = response.getItem().getTable();
         numberOfRowsTokenized.inc(tokenizedData.getRowsList().size());
         c.output(KV.of(fileKey, tokenizedData));
+      }else {
+    	  LOG.warn("Side Input was empty {}",fileKey);
       }
     }
 
