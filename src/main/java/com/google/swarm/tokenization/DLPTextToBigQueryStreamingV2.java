@@ -665,10 +665,8 @@ public class DLPTextToBigQueryStreamingV2 {
     }
 
     if (channel != null) {
-
-      br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
+     br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
     }
-
     return br;
   }
 }
