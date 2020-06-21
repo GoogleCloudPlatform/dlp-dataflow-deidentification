@@ -57,7 +57,6 @@ import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
 import org.apache.beam.sdk.io.gcp.bigquery.InsertRetryPolicy;
 import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
-import org.apache.beam.sdk.io.gcp.bigquery.WriteResult;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
@@ -73,7 +72,6 @@ import org.apache.beam.sdk.state.Timer;
 import org.apache.beam.sdk.state.TimerSpec;
 import org.apache.beam.sdk.state.TimerSpecs;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.Watch;
@@ -130,7 +128,7 @@ public class DLPTextToBigQueryStreamingV2 {
   public static PipelineResult run(TokenizePipelineOptions options) {
     // Create the pipeline
     Pipeline p = Pipeline.create(options);
-    PCollection<KV<String, Iterable<ReadableFile>>> csvFiles =
+    PCollection<KV<String, ReadableFile>> csvFile =
         p.apply(
                 "Poll Input Files",
                 FileIO.match()
@@ -147,81 +145,54 @@ public class DLPTextToBigQueryStreamingV2 {
                             AfterProcessingTime.pastFirstElementInPane()
                                 .plusDelayOf(WINDOW_INTERVAL)))
                     .discardingFiredPanes()
-                    .withAllowedLateness(Duration.ZERO))
-            .apply(GroupByKey.create());
+                    .withAllowedLateness(Duration.ZERO));
 
     final PCollectionView<List<KV<String, List<String>>>> headerMap =
-        csvFiles
-
-            // 2) Create a side input for the window containing list of headers par file.
+        csvFile
             .apply(
                 "Create Header Map",
                 ParDo.of(
-                    new DoFn<KV<String, Iterable<ReadableFile>>, KV<String, List<String>>>() {
-
+                    new DoFn<KV<String, ReadableFile>, KV<String, List<String>>>() {
                       @ProcessElement
                       public void processElement(ProcessContext c) {
                         String fileKey = c.element().getKey();
-                        c.element()
-                            .getValue()
-                            .forEach(
-                                file -> {
-                                  try (BufferedReader br = getBufferedReader(file)) {
-                                    c.output(KV.of(fileKey, getFileHeaders(br)));
 
-                                  } catch (IOException e) {
-                                    LOG.error("Failed to Read File {}", e.getMessage());
-                                    throw new RuntimeException(e);
-                                  }
-                                });
+                        try (BufferedReader br = getBufferedReader(c.element().getValue())) {
+                          c.output(KV.of(fileKey, getFileHeaders(br)));
+
+                        } catch (IOException e) {
+                          LOG.error("Failed to Read File {}", e.getMessage());
+                          throw new RuntimeException(e);
+                        }
                       }
                     }))
             .apply("View As List", View.asList());
-    PCollection<KV<String, ReadableFile>> bqDataMap =
-        csvFiles
 
-            // 3) Output each readable file for content processing.
-            .apply(
-            "File Handler",
+    csvFile
+        .apply("ReadFileContents", ParDo.of(new CSVReader(options.getKeyRange())))
+        .apply("BatchRequests", ParDo.of(new BatchTableRequest(options.getBatchSize())))
+        .apply(
+            "DLP-Tokenization",
             ParDo.of(
-                new DoFn<KV<String, Iterable<ReadableFile>>, KV<String, ReadableFile>>() {
-                  @ProcessElement
-                  public void processElement(ProcessContext c) {
-                    String fileKey = c.element().getKey();
-                    c.element()
-                        .getValue()
-                        .forEach(
-                            file -> {
-                              c.output(KV.of(fileKey, file));
-                            });
-                  }
-                }));
-
-        bqDataMap
-            .apply("ReadFileContents", ParDo.of(new CSVReader(options.getKeyRange())))
-            .apply("BatchRequests", ParDo.of(new BatchTableRequest(options.getBatchSize())))
-            .apply(
-                "DLP-Tokenization",
-                ParDo.of(
-                        new DLPTokenizationDoFn(
-                            options.getDlpProjectId(),
-                            options.getDeidentifyTemplateName(),
-                            options.getInspectTemplateName(),
-                            headerMap))
-                    .withSideInputs(headerMap))
-            .apply("Process Tokenized Data", ParDo.of(new TableRowProcessorDoFn()))
-            .apply(
-                "Write To BQ",
-                BigQueryIO.<KV<String, TableRow>>write()
-                    .to(new BQDestination(options.getDatasetName(), options.getDlpProjectId()))
-                    .withFormatFunction(
-                        element -> {
-                          return element.getValue();
-                        })
-                    .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
-                    .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
-                    .withoutValidation()
-                    .withFailedInsertRetryPolicy(InsertRetryPolicy.retryTransientErrors()));
+                    new DLPTokenizationDoFn(
+                        options.getDlpProjectId(),
+                        options.getDeidentifyTemplateName(),
+                        options.getInspectTemplateName(),
+                        headerMap))
+                .withSideInputs(headerMap))
+        .apply("Process Tokenized Data", ParDo.of(new TableRowProcessorDoFn()))
+        .apply(
+            "Write To BQ",
+            BigQueryIO.<KV<String, TableRow>>write()
+                .to(new BQDestination(options.getDatasetName(), options.getDlpProjectId()))
+                .withFormatFunction(
+                    element -> {
+                      return element.getValue();
+                    })
+                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
+                .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
+                .withoutValidation()
+                .withFailedInsertRetryPolicy(InsertRetryPolicy.retryTransientErrors()));
 
     return p.run();
   }
@@ -252,7 +223,6 @@ public class DLPTextToBigQueryStreamingV2 {
     void setInspectTemplateName(String value);
 
     @Description("300kb as default")
-        
     @Default.Integer(300000)
     Integer getBatchSize();
 
@@ -317,7 +287,7 @@ public class DLPTextToBigQueryStreamingV2 {
         OutputReceiver<OffsetRange> out) {
       long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
       List<OffsetRange> splits = range.split(FILE_SPLIT_BYTES_SIZE, FILE_SPLIT_BYTES_SIZE);
-      LOG.info("Number of Split {} total bytes {}", splits.size(), totalBytes);
+      LOG.debug("Number of Split {} total bytes {}", splits.size(), totalBytes);
       for (final OffsetRange p : splits) {
         out.output(p);
       }
@@ -405,7 +375,7 @@ public class DLPTextToBigQueryStreamingV2 {
       extends DoFn<KV<String, Table.Row>, KV<String, Iterable<Table.Row>>> {
 
     private static final long serialVersionUID = 1L;
-    
+
     private Integer batchSize;
 
     public BatchTableRequest(Integer batchSize) {
@@ -432,31 +402,33 @@ public class DLPTextToBigQueryStreamingV2 {
     public void onTimer(
         @StateId("elementsBag") BagState<KV<String, Table.Row>> elementsBag,
         OutputReceiver<KV<String, Iterable<Table.Row>>> output) {
-      String key = elementsBag.read().iterator().next().getKey().split("\\_")[1];
-      AtomicInteger bufferSize = new AtomicInteger();
-      List<Table.Row> rows = new ArrayList<>();
-      elementsBag
-          .read()
-          .forEach(
-              element -> {
-                Integer elementSize = element.getValue().getSerializedSize();
-                boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
-                if (clearBuffer) {
-                  LOG.info("Clear Buffer {} , Key {}", bufferSize.intValue(), element.getKey());
-                  output.output(KV.of(element.getKey(), rows));
-                  rows.clear();
-                  bufferSize.set(0);
-                  rows.add(element.getValue());
-                  bufferSize.getAndAdd(Integer.valueOf(element.getValue().getSerializedSize()));
+      if (elementsBag.read().iterator().hasNext()) {
+        String key = elementsBag.read().iterator().next().getKey().split("\\_")[1];
+        AtomicInteger bufferSize = new AtomicInteger();
+        List<Table.Row> rows = new ArrayList<>();
+        elementsBag
+            .read()
+            .forEach(
+                element -> {
+                  Integer elementSize = element.getValue().getSerializedSize();
+                  boolean clearBuffer = bufferSize.intValue() + elementSize.intValue() > batchSize;
+                  if (clearBuffer) {
+                    LOG.debug("Clear Buffer {} , Key {}", bufferSize.intValue(), element.getKey());
+                    output.output(KV.of(element.getKey(), rows));
+                    rows.clear();
+                    bufferSize.set(0);
+                    rows.add(element.getValue());
+                    bufferSize.getAndAdd(Integer.valueOf(element.getValue().getSerializedSize()));
 
-                } else {
-                  rows.add(element.getValue());
-                  bufferSize.getAndAdd(Integer.valueOf(element.getValue().getSerializedSize()));
-                }
-              });
-      if (!rows.isEmpty()) {
-        LOG.info("Remaining rows {}", rows.size());
-        output.output(KV.of(key, rows));
+                  } else {
+                    rows.add(element.getValue());
+                    bufferSize.getAndAdd(Integer.valueOf(element.getValue().getSerializedSize()));
+                  }
+                });
+        if (!rows.isEmpty()) {
+          LOG.debug("Remaining rows {}", rows.size());
+          output.output(KV.of(key, rows));
+        }
       }
     }
   }
@@ -549,8 +521,8 @@ public class DLPTextToBigQueryStreamingV2 {
         Table tokenizedData = response.getItem().getTable();
         numberOfRowsTokenized.inc(tokenizedData.getRowsList().size());
         c.output(KV.of(fileKey, tokenizedData));
-      }else {
-    	  LOG.warn("Side Input was empty {}",fileKey);
+      } else {
+        LOG.warn("Side Input Is Empty For {}. This could cause Data Loss ", fileKey);
       }
     }
 
@@ -665,7 +637,7 @@ public class DLPTextToBigQueryStreamingV2 {
     }
 
     if (channel != null) {
-     br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
+      br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
     }
     return br;
   }
