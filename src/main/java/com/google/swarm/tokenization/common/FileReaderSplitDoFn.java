@@ -25,16 +25,21 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.KV;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings("serial")
 public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
   public static final Logger LOG = LoggerFactory.getLogger(FileReaderSplitDoFn.class);
   public static Integer SPLIT_SIZE = 900000;
-  private String delimeter;
 
-  public FileReaderSplitDoFn(String delimeter) {
+  private String delimeter;
+  private Integer keyRange;
+
+  public FileReaderSplitDoFn(String delimeter, Integer keyRange) {
     this.delimeter = delimeter;
+    this.keyRange = keyRange;
   }
 
   @ProcessElement
@@ -47,14 +52,15 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent();
-        String key = String.format("%s_%x", fileName, new Random().nextInt(10000));
-        c.outputWithTimestamp(KV.of(key, contents), c.timestamp());
+        String key = String.format("%s_%x", fileName, new Random().nextInt(keyRange));
+        c.outputWithTimestamp(KV.of(key, contents), Instant.now());
       }
     }
   }
 
   @GetInitialRestriction
-  public OffsetRange getInitialRestriction(KV<String, ReadableFile> csvFile) throws IOException {
+  public OffsetRange getInitialRestriction(@Element KV<String, ReadableFile> csvFile)
+      throws IOException {
     long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
     LOG.info("Initial Restriction range from 1 to: {}", totalBytes);
     return new OffsetRange(0, totalBytes);
@@ -62,7 +68,9 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
 
   @SplitRestriction
   public void splitRestriction(
-      KV<String, ReadableFile> csvFile, OffsetRange range, OutputReceiver<OffsetRange> out) {
+      @Element KV<String, ReadableFile> csvFile,
+      @Restriction OffsetRange range,
+      OutputReceiver<OffsetRange> out) {
     long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
     List<OffsetRange> splits = range.split(SPLIT_SIZE, SPLIT_SIZE);
     LOG.info("Number of Split {} total bytes {}", splits.size(), totalBytes);
@@ -72,7 +80,7 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
   }
 
   @NewTracker
-  public OffsetRangeTracker newTracker(OffsetRange range) {
+  public OffsetRangeTracker newTracker(@Restriction OffsetRange range) {
     return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
   }
 

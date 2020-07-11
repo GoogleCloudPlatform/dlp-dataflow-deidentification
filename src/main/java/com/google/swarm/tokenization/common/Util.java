@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Google LLC
+ * Copyright 2020 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,56 +13,61 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.google.swarm.tokenization.common;
 
 import static org.apache.beam.sdk.schemas.Schema.toSchema;
 
-import com.google.api.client.util.Charsets;
-import com.google.api.services.bigquery.model.TableFieldSchema;
-import com.google.api.services.bigquery.model.TableSchema;
-import com.google.api.services.storage.Storage;
-import com.google.privacy.dlp.v2.FieldId;
+import com.google.api.services.bigquery.model.TableRow;
+import com.google.common.base.Charsets;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
-import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.schemas.Schema;
+import org.apache.beam.sdk.schemas.Schema.Field;
 import org.apache.beam.sdk.schemas.Schema.FieldType;
+import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.Row;
+import org.apache.beam.sdk.values.TupleTag;
+import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.Iterables;
+import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.Lists;
+import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.io.BaseEncoding;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
-import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Instant;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings("serial")
 public class Util {
 
   public static final Logger LOG = LoggerFactory.getLogger(Util.class);
-  private static final String TABLE_REGEXP = "[-\\w$@]{1,1024}";
-  public static Integer DLP_PAYLOAD_LIMIT = 52400;
-  public static final String BQ_TABLE_NAME = String.valueOf("dlp_s3_inspection_result");
+  private static final DateTimeFormatter BIGQUERY_TIMESTAMP_PRINTER;
+  public static final TupleTag<KV<String, String>> contentTag =
+      new TupleTag<KV<String, String>>() {};
+  public static final TupleTag<KV<String, ReadableFile>> headerTag =
+      new TupleTag<KV<String, ReadableFile>>() {};
+
+  public static final TupleTag<KV<String, TableRow>> inspectSuccess =
+      new TupleTag<KV<String, TableRow>>() {};
+  public static final TupleTag<KV<String, TableRow>> inspectFailure =
+      new TupleTag<KV<String, TableRow>>() {};
+
+  public static final String BQ_DLP_INSPECT_TABLE_NAME = String.valueOf("dlp_s3_inspection_result");
+  public static final String BQ_ERROR_TABLE_NAME = String.valueOf("error_log");
+
   public static final DateTimeFormatter TIMESTAMP_FORMATTER =
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
-  private static final String NESTED_SCHEMA_REGEX = ".*[^=]=(.*[^ ]), .*[^=]=(.*[^ ])";
-  private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
-
-  public static String parseBucketName(String value) {
-    return value.substring(5, value.length() - 1);
-  }
 
   public static Table.Row convertCsvRowToTableRow(String row) {
     String[] values = row.split(",");
@@ -74,68 +79,6 @@ public class Util {
     return tableRowBuilder.build();
   }
 
-  public static Table createDLPTable(List<FieldId> headers, List<String> lines) {
-
-    List<Table.Row> rows = new ArrayList<>();
-    lines.forEach(
-        line -> {
-          rows.add(convertCsvRowToTableRow(line));
-        });
-    Table table = Table.newBuilder().addAllHeaders(headers).addAllRows(rows).build();
-
-    return table;
-  }
-
-  public static boolean findEncryptionType(
-      String keyRing, String keyName, String csek, String csekhash) {
-
-    return keyRing != null || keyName != null || csek != null || csekhash != null;
-  }
-
-  public static BufferedReader getReader(
-      boolean customerSuppliedKey,
-      String objectName,
-      String bucketName,
-      ReadableFile file,
-      String key,
-      ValueProvider<String> csekhash) {
-
-    BufferedReader br = null;
-
-    try {
-      if (!customerSuppliedKey) {
-        ReadableByteChannel channel = file.openSeekable();
-        br = new BufferedReader(Channels.newReader(channel, Charsets.ISO_8859_1.name()));
-      } else {
-
-        Storage storage = null;
-        InputStream objectData = null;
-        try {
-          storage = StorageFactory.getService();
-        } catch (GeneralSecurityException e) {
-          LOG.error("Error Creating Storage API Client");
-          e.printStackTrace();
-        }
-        try {
-          objectData =
-              StorageFactory.downloadObject(storage, bucketName, objectName, key, csekhash.get());
-        } catch (Exception e) {
-          LOG.error("Error Reading the Encrypted File in GCS- Customer Supplied Key");
-          e.printStackTrace();
-        }
-
-        br = new BufferedReader(new InputStreamReader(objectData));
-      }
-
-    } catch (IOException e) {
-      LOG.error("Error Reading the File " + e.getMessage());
-      e.printStackTrace();
-      System.exit(1);
-    }
-
-    return br;
-  }
-
   public static String checkHeaderName(String name) {
     String checkedHeader = name.replaceAll("\\s", "_");
     checkedHeader = checkedHeader.replaceAll("'", "");
@@ -143,60 +86,6 @@ public class Util {
     checkedHeader = checkedHeader.replaceAll("\\W", "");
     LOG.debug("Name {} checkedHeader {}", name, checkedHeader);
     return checkedHeader;
-  }
-
-  @SuppressWarnings("serial")
-  public static TableSchema getSchema(List<String> outputHeaders) {
-    return new TableSchema()
-        .setFields(
-            new ArrayList<TableFieldSchema>() {
-
-              {
-                outputHeaders.forEach(
-                    header -> {
-                      add(new TableFieldSchema().setName(header).setType("STRING"));
-                    });
-              }
-            });
-  }
-
-  private static boolean isTimestamp(String value) {
-    try {
-      Instant.parse(value);
-      return true;
-    } catch (IllegalArgumentException e) {
-      return false;
-    }
-  }
-
-  public static boolean isNumeric(String value) {
-
-    if (StringUtils.isNumeric(value)) {
-      return true;
-    }
-    try {
-      Float.parseFloat(value);
-      return true;
-    } catch (NumberFormatException e) {
-      return false;
-    }
-  }
-
-  public static String typeCheck(String value) {
-
-    if (value == null || value.isEmpty()) {
-      return "String";
-    }
-    if (isNumeric(value)) {
-      return "FLOAT";
-    } else if (isTimestamp(value)) {
-      return "TIMESTAMP";
-
-    } else if (value.matches(NESTED_SCHEMA_REGEX)) {
-      return "RECORD";
-    } else {
-      return "STRING";
-    }
   }
 
   public static final Schema dlpInspectionSchema =
@@ -208,6 +97,14 @@ public class Util {
               Schema.Field.of("quote", FieldType.STRING).withNullable(true),
               Schema.Field.of("location_start_byte_range", FieldType.INT64).withNullable(true),
               Schema.Field.of("location_end_byte_range", FieldType.INT64).withNullable(true))
+          .collect(toSchema());
+
+  public static final Schema errorSchema =
+      Stream.of(
+              Schema.Field.of("file_name", FieldType.STRING).withNullable(true),
+              Schema.Field.of("transaction_timestamp", FieldType.STRING).withNullable(true),
+              Schema.Field.of("error_messagee", FieldType.STRING).withNullable(true),
+              Schema.Field.of("stack_trace", FieldType.STRING).withNullable(true))
           .collect(toSchema());
 
   public static String getTimeStamp() {
@@ -234,6 +131,93 @@ public class Util {
     return br;
   }
 
+  public static boolean isDefaultMode(String[] args) {
+
+    for (String arg : args) {
+      String[] splitFromEqual = arg.split("=");
+      String value = splitFromEqual[1];
+      if (value.equals("s3")) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static {
+    DateTimeFormatter dateTimePart =
+        new DateTimeFormatterBuilder()
+            .appendYear(4, 4)
+            .appendLiteral('-')
+            .appendMonthOfYear(2)
+            .appendLiteral('-')
+            .appendDayOfMonth(2)
+            .appendLiteral(' ')
+            .appendHourOfDay(2)
+            .appendLiteral(':')
+            .appendMinuteOfHour(2)
+            .appendLiteral(':')
+            .appendSecondOfMinute(2)
+            .toFormatter()
+            .withZoneUTC();
+    BIGQUERY_TIMESTAMP_PRINTER =
+        new DateTimeFormatterBuilder()
+            .append(dateTimePart)
+            .appendLiteral('.')
+            .appendFractionOfSecond(3, 3)
+            .appendLiteral(" UTC")
+            .toFormatter();
+  }
+
+  private static Object fromBeamField(FieldType fieldType, Object fieldValue) {
+    if (fieldValue == null) {
+      if (!fieldType.getNullable()) {
+        throw new IllegalArgumentException("Field is not nullable.");
+      }
+      return null;
+    }
+    switch (fieldType.getTypeName()) {
+      case ARRAY:
+      case ITERABLE:
+        FieldType elementType = fieldType.getCollectionElementType();
+        Iterable<?> items = (Iterable<?>) fieldValue;
+        List<Object> convertedItems = Lists.newArrayListWithCapacity(Iterables.size(items));
+        for (Object item : items) {
+          convertedItems.add(fromBeamField(elementType, item));
+        }
+        return convertedItems;
+      case ROW:
+        return toTableRow((Row) fieldValue);
+      case DATETIME:
+        return ((Instant) fieldValue)
+            .toDateTime(DateTimeZone.UTC)
+            .toString(BIGQUERY_TIMESTAMP_PRINTER);
+      case INT16:
+      case INT32:
+      case INT64:
+      case FLOAT:
+      case DOUBLE:
+      case STRING:
+      case BOOLEAN:
+        return fieldValue.toString();
+      case DECIMAL:
+        return fieldValue.toString();
+      case BYTES:
+        return BaseEncoding.base64().encode((byte[]) fieldValue);
+      default:
+        return fieldValue;
+    }
+  }
+
+  public static TableRow toTableRow(Row row) {
+    TableRow output = new TableRow();
+    for (int i = 0; i < row.getFieldCount(); i++) {
+      Object value = row.getValue(i);
+      Field schemaField = row.getSchema().getField(i);
+      output = output.set(schemaField.getName(), fromBeamField(schemaField.getType(), value));
+    }
+    return output;
+  }
+
   public static List<String> getFileHeaders(BufferedReader reader) {
     List<String> headers = new ArrayList<>();
     try {
@@ -247,23 +231,5 @@ public class Util {
       throw new RuntimeException(e);
     }
     return headers;
-  }
-
-  public static String getFileName(ReadableFile file) {
-    String csvFileName = file.getMetadata().resourceId().getFilename().toString();
-    /** taking out .csv extension from file name e.g fileName.csv->fileName */
-    String[] fileKey = csvFileName.split("\\.", 2);
-
-    if (!fileKey[1].equals(ALLOWED_FILE_EXTENSION) || !fileKey[0].matches(TABLE_REGEXP)) {
-      throw new RuntimeException(
-          "[Filename must contain a CSV extension "
-              + " BQ table name must contain only letters, numbers, or underscores ["
-              + fileKey[1]
-              + "], ["
-              + fileKey[0]
-              + "]");
-    }
-    /** returning file name without extension */
-    return fileKey[0];
   }
 }

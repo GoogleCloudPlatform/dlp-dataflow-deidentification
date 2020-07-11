@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Google LLC
+ * Copyright 2020 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
-import com.google.swarm.tokenization.common.DLPTransform.BatchTableRequest;
 import com.google.swarm.tokenization.common.FileReader;
 import java.io.BufferedReader;
 import java.io.IOException;

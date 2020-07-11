@@ -15,28 +15,32 @@
  */
 package com.google.swarm.tokenization.common;
 
+import java.io.BufferedReader;
+import java.io.IOException;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
-import org.joda.time.Instant;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@SuppressWarnings("serial")
-public class FileSourceDoFn extends DoFn<ReadableFile, KV<String, ReadableFile>> {
-  public static final Logger LOG = LoggerFactory.getLogger(FileSourceDoFn.class);
-  private static final String FILE_PATTERN = "([^\\s]+(\\.(?i)(csv))$)";
+public class CSVFileHeaderDoFn extends DoFn<KV<String, ReadableFile>, String> {
+  public static final Logger LOG = LoggerFactory.getLogger(CSVFileHeaderDoFn.class);
 
   @ProcessElement
   public void processElement(ProcessContext c) {
-
-    ReadableFile file = c.element();
-    String fileName = file.getMetadata().resourceId().toString();
-    if (fileName.matches(FILE_PATTERN)) {
-      String key = String.format("%s_%s", fileName, Instant.now().getMillis());
-      c.output(KV.of(key, file));
-    } else {
-      LOG.info("Extension Not Supported {}", fileName);
+    ReadableFile file = c.element().getValue();
+    try (BufferedReader br = Util.getReader(file)) {
+      CSVRecord csvHeader = CSVFormat.DEFAULT.parse(br).getRecords().get(0);
+      csvHeader.forEach(
+          headerValue -> {
+            c.output(headerValue);
+            LOG.info("header value {}", headerValue);
+          });
+    } catch (IOException e) {
+      LOG.error("Failed to get csv header values}", e.getMessage());
+      throw new RuntimeException(e);
     }
   }
 }
