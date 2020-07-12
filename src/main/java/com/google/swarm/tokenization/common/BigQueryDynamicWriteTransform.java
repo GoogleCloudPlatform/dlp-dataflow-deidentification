@@ -15,9 +15,14 @@
  */
 package com.google.swarm.tokenization.common;
 
+import com.google.api.services.bigquery.model.TableCell;
+import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.auto.value.AutoValue;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryUtils;
 import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
@@ -98,7 +103,27 @@ public abstract class BigQueryDynamicWriteTransform
 
     @Override
     public TableSchema getSchema(KV<String, TableRow> destination) {
-      return BigQueryUtils.toTableSchema(Util.dlpInspectionSchema);
+
+      switch (destination.getKey()) {
+        case "dlp_inspection_result":
+          return BigQueryUtils.toTableSchema(Util.dlpInspectionSchema);
+        case "error_table":
+          return BigQueryUtils.toTableSchema(Util.errorSchema);
+        default:
+          TableRow bqRow = destination.getValue();
+          TableSchema schema = new TableSchema();
+          List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
+          List<TableCell> cells = bqRow.getF();
+          for (int i = 0; i < cells.size(); i++) {
+            Map<String, Object> object = cells.get(i);
+            String header = object.keySet().iterator().next();
+            /** currently all BQ data types are set to String */
+            fields.add(
+                new TableFieldSchema().setName(Util.checkHeaderName(header)).setType("STRING"));
+          }
+          schema.setFields(fields);
+          return schema;
+      }
     }
   }
 }

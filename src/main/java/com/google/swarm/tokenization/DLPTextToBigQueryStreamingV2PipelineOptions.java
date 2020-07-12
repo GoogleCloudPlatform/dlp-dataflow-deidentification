@@ -35,9 +35,9 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   void setInspectTemplateName(String value);
 
   @Description("DLP DeIdentify Template Name")
-  String getDeidTemplateName();
+  String getDeidentifyTemplateName();
 
-  void setDeidTemplateName(String value);
+  void setDeidentifyTemplateName(String value);
 
   @Description("DLP method deid,inspect,reid")
   @Default.String("inspect")

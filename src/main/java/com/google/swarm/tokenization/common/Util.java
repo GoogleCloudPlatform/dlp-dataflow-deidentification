@@ -52,6 +52,10 @@ import org.slf4j.LoggerFactory;
 public class Util {
 
   public static final Logger LOG = LoggerFactory.getLogger(Util.class);
+  private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
+  /** Regular expression that matches valid BQ table IDs. */
+  private static final String TABLE_REGEXP = "[-\\w$@]{1,1024}";
+
   private static final DateTimeFormatter BIGQUERY_TIMESTAMP_PRINTER;
   public static final TupleTag<KV<String, String>> contentTag =
       new TupleTag<KV<String, String>>() {};
@@ -63,7 +67,11 @@ public class Util {
   public static final TupleTag<KV<String, TableRow>> inspectFailure =
       new TupleTag<KV<String, TableRow>>() {};
 
-  public static final String BQ_DLP_INSPECT_TABLE_NAME = String.valueOf("dlp_s3_inspection_result");
+  public static final TupleTag<KV<String, TableRow>> deidSuccess =
+      new TupleTag<KV<String, TableRow>>() {};
+  public static final TupleTag<KV<String, TableRow>> deidFailure =
+      new TupleTag<KV<String, TableRow>>() {};
+  public static final String BQ_DLP_INSPECT_TABLE_NAME = String.valueOf("dlp_inspection_result");
   public static final String BQ_ERROR_TABLE_NAME = String.valueOf("error_log");
 
   public static final DateTimeFormatter TIMESTAMP_FORMATTER =
@@ -231,5 +239,23 @@ public class Util {
       throw new RuntimeException(e);
     }
     return headers;
+  }
+
+  public static String getFileName(ReadableFile file) {
+    String csvFileName = file.getMetadata().resourceId().getFilename().toString();
+    /** taking out .csv extension from file name e.g fileName.csv->fileName */
+    String[] fileKey = csvFileName.split("\\.", 2);
+
+    if (!fileKey[1].equals(ALLOWED_FILE_EXTENSION) || !fileKey[0].matches(TABLE_REGEXP)) {
+      throw new RuntimeException(
+          "[Filename must contain a CSV extension "
+              + " BQ table name must contain only letters, numbers, or underscores ["
+              + fileKey[1]
+              + "], ["
+              + fileKey[0]
+              + "]");
+    }
+    /** returning file name without extension */
+    return fileKey[0];
   }
 }

@@ -25,14 +25,14 @@ import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PCollectionTuple;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
 @AutoValue
-public abstract class CSVReaderTransform extends PTransform<PBegin, PCollectionTuple> {
+public abstract class CSVReaderTransform
+    extends PTransform<PBegin, PCollection<KV<String, ReadableFile>>> {
   public static final Logger LOG = LoggerFactory.getLogger(CSVReaderTransform.class);
 
   public abstract String delimeter();
@@ -62,7 +62,7 @@ public abstract class CSVReaderTransform extends PTransform<PBegin, PCollectionT
   }
 
   @Override
-  public PCollectionTuple expand(PBegin input) {
+  public PCollection<KV<String, ReadableFile>> expand(PBegin input) {
 
     PCollection<KV<String, ReadableFile>> csvFile =
         input
@@ -73,10 +73,6 @@ public abstract class CSVReaderTransform extends PTransform<PBegin, PCollectionT
                     .continuously(interval(), Watch.Growth.never()))
             .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
             .apply("ValidateFile", ParDo.of(new FileSourceDoFn()));
-
-    PCollection<KV<String, String>> contents =
-        csvFile.apply("Read File", ParDo.of(new FileReaderSplitDoFn(delimeter(), keyRange())));
-
-    return PCollectionTuple.of(Util.contentTag, contents).and(Util.headerTag, csvFile);
+    return csvFile;
   }
 }

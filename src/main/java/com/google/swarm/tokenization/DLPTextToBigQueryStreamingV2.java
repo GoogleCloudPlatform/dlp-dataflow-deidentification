@@ -20,7 +20,7 @@ import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
 import com.google.swarm.tokenization.common.CSVFileHeaderDoFn;
 import com.google.swarm.tokenization.common.CSVReaderTransform;
 import com.google.swarm.tokenization.common.DLPTransform;
-import com.google.swarm.tokenization.common.Util;
+import com.google.swarm.tokenization.common.FileReaderSplitDoFn;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
@@ -35,16 +35,16 @@ import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
+import org.apache.commons.csv.CSVRecord;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLPTextToBigQueryStreamingV2 {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTextToBigQueryStreamingV2.class);
-  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardMinutes(5);
-  private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(30);
+  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(10);
+  private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(10);
 
   public static void main(String[] args) {
 
@@ -58,7 +58,7 @@ public class DLPTextToBigQueryStreamingV2 {
 
     Pipeline p = Pipeline.create(defaultOptions);
 
-    PCollectionTuple inputTuple =
+    PCollection<KV<String, ReadableFile>> inputFile =
         p.apply(
             "CSVReaderTransform",
             CSVReaderTransform.newBuilder()
@@ -69,8 +69,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .build());
 
     final PCollectionView<List<String>> header =
-        inputTuple
-            .get(Util.headerTag)
+        inputFile
             .apply(
                 "GlobalWindow",
                 Window.<KV<String, ReadableFile>>into(new GlobalWindows())
@@ -80,22 +79,17 @@ public class DLPTextToBigQueryStreamingV2 {
             .apply("ViewAsList", View.asList());
 
     PCollection<KV<String, TableRow>> inspectedContents =
-        inputTuple
-            .get(Util.contentTag)
+        inputFile
+            .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn(defaultOptions.getKeyRange())))
             .apply(
-                "Fixed Window(30 Sec)",
-                Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL))
-                    .triggering(
-                        Repeatedly.forever(
-                            AfterProcessingTime.pastFirstElementInPane()
-                                .plusDelayOf(Duration.ZERO)))
-                    .discardingFiredPanes()
-                    .withAllowedLateness(Duration.ZERO))
+                "Fixed Window",
+                Window.<KV<String, CSVRecord>>into(FixedWindows.of(WINDOW_INTERVAL)))
             .apply(
                 "DLPTransform",
                 DLPTransform.newBuilder()
                     .setBatchSize(defaultOptions.getBatchSize())
                     .setInspectTemplateName(defaultOptions.getInspectTemplateName())
+                    .setDeidTemplateName(defaultOptions.getDeidentifyTemplateName())
                     .setDlpmethod(defaultOptions.getDLPMethod())
                     .setProjectId(defaultOptions.getProject())
                     .setCsvHeader(header)
