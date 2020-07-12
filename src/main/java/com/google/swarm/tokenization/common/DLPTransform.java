@@ -25,6 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nullable;
+
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -46,8 +49,9 @@ public abstract class DLPTransform
     extends PTransform<PCollection<KV<String, CSVRecord>>, PCollection<KV<String, TableRow>>> {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 
+  @Nullable
   public abstract String inspectTemplateName();
-
+  @Nullable
   public abstract String deidTemplateName();
 
   public abstract Integer batchSize();

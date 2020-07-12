@@ -37,7 +37,6 @@ public class CSVFileHeaderDoFn extends DoFn<KV<String, ReadableFile>, String> {
       csvHeader.forEach(
           headerValue -> {
             c.output(headerValue);
-            LOG.info("header value {}", headerValue);
           });
     } catch (IOException e) {
       LOG.error("Failed to get csv header values}", e.getMessage());
