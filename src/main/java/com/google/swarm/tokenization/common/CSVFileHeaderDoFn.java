@@ -21,7 +21,6 @@ import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,11 +32,17 @@ public class CSVFileHeaderDoFn extends DoFn<KV<String, ReadableFile>, String> {
   public void processElement(ProcessContext c) {
     ReadableFile file = c.element().getValue();
     try (BufferedReader br = Util.getReader(file)) {
-      CSVRecord csvHeader = CSVFormat.DEFAULT.parse(br).getRecords().get(0);
-      csvHeader.forEach(
-          headerValue -> {
-            c.output(headerValue);
-          });
+
+      CSVFormat.DEFAULT
+          .withFirstRecordAsHeader()
+          .parse(br)
+          .getHeaderMap()
+          .keySet()
+          .forEach(
+              (key) -> {
+                c.output(key);
+              });
+
     } catch (IOException e) {
       LOG.error("Failed to get csv header values}", e.getMessage());
       throw new RuntimeException(e);

@@ -17,16 +17,15 @@ package com.google.swarm.tokenization.common;
 
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
-import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
-class MapStringToDlpRow extends DoFn<KV<String, CSVRecord>, KV<String, Table.Row>> {
+class MapStringToDlpRow extends DoFn<KV<String, String>, KV<String, Table.Row>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 
@@ -39,17 +38,14 @@ class MapStringToDlpRow extends DoFn<KV<String, CSVRecord>, KV<String, Table.Row
   @ProcessElement
   public void processElement(ProcessContext context) {
     Table.Row.Builder rowBuilder = Table.Row.newBuilder();
-    CSVRecord line = Objects.requireNonNull(context.element().getValue());
-    Iterator<String> valueIterator = line.iterator();
-    while (valueIterator.hasNext()) {
-      String value = valueIterator.next();
-      if (value != null) {
-        rowBuilder.addValues(Value.newBuilder().setStringValue(value.toString()).build());
-      } else {
-        rowBuilder.addValues(Value.newBuilder().setStringValue("").build());
-      }
+    String line = Objects.requireNonNull(context.element().getValue());
+    if (delimiter != null) {
+      List<String> values = Util.parseLine(line, delimiter.charAt(0), '"');
+      values.forEach(
+          value -> rowBuilder.addValues(Value.newBuilder().setStringValue(value).build()));
+    } else {
+      rowBuilder.addValues(Value.newBuilder().setStringValue(line).build());
     }
-
     context.output(KV.of(context.element().getKey(), rowBuilder.build()));
   }
 }

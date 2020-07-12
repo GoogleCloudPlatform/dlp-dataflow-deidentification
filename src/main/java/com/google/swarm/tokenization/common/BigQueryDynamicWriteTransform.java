@@ -103,8 +103,8 @@ public abstract class BigQueryDynamicWriteTransform
 
     @Override
     public TableSchema getSchema(KV<String, TableRow> destination) {
-    	String tableName = destination.getKey().split("\\.")[1];
-    	LOG.info("Table Name {}", tableName);
+      String tableName = destination.getKey().split("\\.")[1];
+      LOG.info("Table Name {}", tableName);
       switch (tableName) {
         case "dlp_inspection_result":
           return BigQueryUtils.toTableSchema(Util.dlpInspectionSchema);

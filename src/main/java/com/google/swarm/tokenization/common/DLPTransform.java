@@ -25,9 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-
 import javax.annotation.Nullable;
-
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -39,18 +37,18 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TupleTagList;
-import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
 @AutoValue
 public abstract class DLPTransform
-    extends PTransform<PCollection<KV<String, CSVRecord>>, PCollection<KV<String, TableRow>>> {
+    extends PTransform<PCollection<KV<String, String>>, PCollection<KV<String, TableRow>>> {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 
   @Nullable
   public abstract String inspectTemplateName();
+
   @Nullable
   public abstract String deidTemplateName();
 
@@ -88,7 +86,7 @@ public abstract class DLPTransform
   }
 
   @Override
-  public PCollection<KV<String, TableRow>> expand(PCollection<KV<String, CSVRecord>> input) {
+  public PCollection<KV<String, TableRow>> expand(PCollection<KV<String, String>> input) {
     PCollection<KV<String, Iterable<Table.Row>>> batchedRows =
         input
             .apply(ParDo.of(new MapStringToDlpRow(columnDelimeter())))

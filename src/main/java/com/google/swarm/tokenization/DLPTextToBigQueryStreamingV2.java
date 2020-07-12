@@ -29,6 +29,7 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
+import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
@@ -36,7 +37,6 @@ import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
-import org.apache.commons.csv.CSVRecord;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,10 +80,14 @@ public class DLPTextToBigQueryStreamingV2 {
 
     PCollection<KV<String, TableRow>> inspectedContents =
         inputFile
-            .apply("ReadFile", ParDo.of(new FileReaderSplitDoFn(defaultOptions.getKeyRange())))
+            .apply(
+                "ReadFile",
+                ParDo.of(
+                    new FileReaderSplitDoFn(
+                        defaultOptions.getKeyRange(), defaultOptions.getDelimeter())))
             .apply(
                 "Fixed Window",
-                Window.<KV<String, CSVRecord>>into(FixedWindows.of(WINDOW_INTERVAL)))
+                Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
             .apply(
                 "DLPTransform",
                 DLPTransform.newBuilder()
