@@ -43,6 +43,7 @@ class MapStringToDlpRow extends DoFn<KV<String, String>, KV<String, Table.Row>> 
       List<String> values = Util.parseLine(line, delimiter.charAt(0), '"');
       values.forEach(
           value -> rowBuilder.addValues(Value.newBuilder().setStringValue(value).build()));
+
     } else {
       rowBuilder.addValues(Value.newBuilder().setStringValue(line).build());
     }

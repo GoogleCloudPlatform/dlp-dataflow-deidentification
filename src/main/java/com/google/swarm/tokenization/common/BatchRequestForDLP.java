@@ -20,8 +20,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.beam.sdk.annotations.Experimental;
-import org.apache.beam.sdk.metrics.Counter;
-import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.state.BagState;
 import org.apache.beam.sdk.state.StateSpec;
 import org.apache.beam.sdk.state.StateSpecs;
@@ -32,6 +30,7 @@ import org.apache.beam.sdk.state.TimerSpecs;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.values.KV;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,16 +40,13 @@ import org.slf4j.LoggerFactory;
 class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable<Table.Row>>> {
   public static final Logger LOG = LoggerFactory.getLogger(BatchRequestForDLP.class);
 
-  private final Counter numberOfRowsBagged =
-      Metrics.counter(BatchRequestForDLP.class, "numberOfRowsBagged");
-
   private final Integer batchSizeBytes;
 
   @StateId("elementsBag")
   private final StateSpec<BagState<KV<String, Table.Row>>> elementsBag = StateSpecs.bag();
 
   @TimerId("eventTimer")
-  private final TimerSpec eventTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
+  private final TimerSpec eventTimer = TimerSpecs.timer(TimeDomain.PROCESSING_TIME);
 
   public BatchRequestForDLP(Integer batchSize) {
     this.batchSizeBytes = batchSize;
@@ -63,7 +59,8 @@ class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable
       @TimerId("eventTimer") Timer eventTimer,
       BoundedWindow w) {
     elementsBag.add(element);
-    eventTimer.set(w.maxTimestamp());
+    // eventTimer.set(w.maxTimestamp());
+    eventTimer.offset(Duration.standardSeconds(5)).setRelative();
   }
 
   @OnTimer("eventTimer")
@@ -83,7 +80,6 @@ class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable
                 if (clearBuffer) {
                   LOG.debug(
                       "Clear buffer of {} bytes, Key {}", bufferSize.intValue(), element.getKey());
-                  numberOfRowsBagged.inc(rows.size());
                   output.output(KV.of(element.getKey(), rows));
                   rows.clear();
                   bufferSize.set(0);
@@ -93,7 +89,6 @@ class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable
               });
       if (!rows.isEmpty()) {
         LOG.debug("Outputting remaining {} rows.", rows.size());
-        numberOfRowsBagged.inc(rows.size());
         output.output(KV.of(key, rows));
       }
     }

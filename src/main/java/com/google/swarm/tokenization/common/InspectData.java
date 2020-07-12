@@ -29,10 +29,15 @@ import java.util.stream.Collectors;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollectionView;
+import org.apache.beam.sdk.values.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
 public class InspectData
     extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, InspectContentResponse>> {
+  public static final Logger LOG = LoggerFactory.getLogger(InspectData.class);
+
   private final String projectId;
   private final String inspectTemplateName;
   private final PCollectionView<List<String>> headerColumns;
@@ -63,8 +68,9 @@ public class InspectData
   }
 
   @ProcessElement
-  public void processElement(ProcessContext c) throws IOException {
+  public void processElement(ProcessContext c, MultiOutputReceiver out) throws IOException {
     List<FieldId> tableHeaders;
+    List<Table.Row> tableRows = new ArrayList<>();
     if (headerColumns != null) {
       tableHeaders =
           c.sideInput(headerColumns).stream()
@@ -74,11 +80,41 @@ public class InspectData
       tableHeaders = new ArrayList<>();
       tableHeaders.add(FieldId.newBuilder().setName("value").build());
     }
-    Table table =
-        Table.newBuilder().addAllHeaders(tableHeaders).addAllRows(c.element().getValue()).build();
+
+    int headerLength = tableHeaders.size();
+    c.element()
+        .getValue()
+        .forEach(
+            row -> {
+              if (row.getValuesCount() == headerLength) {
+                tableRows.add(row);
+
+              } else {
+                LOG.warn(
+                    "Number of Columns: {} Mismatch with Header: {} for Row: {}",
+                    row.getValuesCount(),
+                    headerLength,
+                    row);
+              }
+            });
+
+    Table table = Table.newBuilder().addAllHeaders(tableHeaders).addAllRows(tableRows).build();
     ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
     this.requestBuilder.setItem(contentItem);
-    InspectContentResponse response = dlpServiceClient.inspectContent(this.requestBuilder.build());
-    c.output(KV.of(c.element().getKey(), response));
+    try {
+      InspectContentResponse response =
+          dlpServiceClient.inspectContent(this.requestBuilder.build());
+      out.get(Util.inspectApiCallSuccess).output(KV.of(c.element().getKey(), response));
+
+    } catch (Exception e) {
+      out.get(Util.inspectApiCallError)
+          .output(
+              KV.of(
+                  Util.BQ_ERROR_TABLE_NAME,
+                  Util.toTableRow(
+                      Row.withSchema(Util.errorSchema)
+                          .addValues(null, Util.getTimeStamp(), e.toString(), null)
+                          .build())));
+    }
   }
 }

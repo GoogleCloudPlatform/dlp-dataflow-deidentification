@@ -19,6 +19,7 @@ import static org.apache.beam.sdk.schemas.Schema.toSchema;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.common.base.Charsets;
+import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
 import java.io.BufferedReader;
@@ -73,6 +74,12 @@ public class Util {
       new TupleTag<KV<String, TableRow>>() {};
   public static final TupleTag<KV<String, TableRow>> deidFailure =
       new TupleTag<KV<String, TableRow>>() {};
+
+  public static final TupleTag<KV<String, InspectContentResponse>> inspectApiCallSuccess =
+      new TupleTag<KV<String, InspectContentResponse>>() {};
+  public static final TupleTag<KV<String, TableRow>> inspectApiCallError =
+      new TupleTag<KV<String, TableRow>>() {};
+
   public static final String BQ_DLP_INSPECT_TABLE_NAME = String.valueOf("dlp_inspection_result");
   public static final String BQ_ERROR_TABLE_NAME = String.valueOf("error_log");
 

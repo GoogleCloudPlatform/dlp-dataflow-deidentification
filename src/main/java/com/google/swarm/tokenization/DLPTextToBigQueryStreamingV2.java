@@ -29,7 +29,6 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
-import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
@@ -43,7 +42,7 @@ import org.slf4j.LoggerFactory;
 
 public class DLPTextToBigQueryStreamingV2 {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTextToBigQueryStreamingV2.class);
-  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(10);
+  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(60);
   private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(10);
 
   public static void main(String[] args) {
@@ -86,8 +85,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     new FileReaderSplitDoFn(
                         defaultOptions.getKeyRange(), defaultOptions.getDelimeter())))
             .apply(
-                "Fixed Window",
-                Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
+                "Fixed Window", Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
             .apply(
                 "DLPTransform",
                 DLPTransform.newBuilder()

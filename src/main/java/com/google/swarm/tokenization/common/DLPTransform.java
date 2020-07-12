@@ -98,7 +98,10 @@ public abstract class DLPTransform
               .apply(
                   "DLPInspect",
                   ParDo.of(new InspectData(projectId(), inspectTemplateName(), csvHeader()))
-                      .withSideInputs(csvHeader()))
+                      .withSideInputs(csvHeader())
+                      .withOutputTags(
+                          Util.inspectApiCallSuccess, TupleTagList.of(Util.inspectApiCallError)))
+              .get(Util.inspectApiCallSuccess)
               .apply(
                   "CnvertInspectResponse",
                   ParDo.of(new ConvertInspectResponse())
@@ -183,7 +186,7 @@ public abstract class DLPTransform
 
   static class ConvertInspectResponse
       extends DoFn<KV<String, InspectContentResponse>, KV<String, TableRow>> {
-    private final Counter numberOfBytesInspected =
+    private final Counter numberOfInspectionFindings =
         Metrics.counter(ConvertInspectResponse.class, "NumberOfBytesInspected");
 
     @ProcessElement
@@ -191,8 +194,6 @@ public abstract class DLPTransform
         @Element KV<String, InspectContentResponse> element, MultiOutputReceiver out) {
       String fileName = element.getKey().split("\\~")[0];
       String timeStamp = Util.getTimeStamp();
-      LOG.info("fileName {} timestamp {}", fileName, timeStamp);
-      numberOfBytesInspected.inc(element.getValue().getResult().getSerializedSize());
       element
           .getValue()
           .getResult()
@@ -210,7 +211,8 @@ public abstract class DLPTransform
                             finding.getLocation().getCodepointRange().getStart(),
                             finding.getLocation().getCodepointRange().getEnd())
                         .build();
-                LOG.info("Row{}", row);
+                LOG.debug("Row{}", row);
+                numberOfInspectionFindings.inc();
                 out.get(Util.inspectSuccess)
                     .output(KV.of(Util.BQ_DLP_INSPECT_TABLE_NAME, Util.toTableRow(row)));
               });
