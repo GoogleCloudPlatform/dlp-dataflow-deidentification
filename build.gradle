@@ -15,24 +15,24 @@
  */
 buildscript {
     ext {
-        dataflowBeamVersion = '2.16.0'
+        dataflowBeamVersion = '2.23.0-SNAPSHOT'
     }
     repositories {
         mavenCentral()
         jcenter()
         maven {
-     		 url "https://plugins.gradle.org/m2/"
-    	}
-    	dependencies {
-        classpath "net.ltgt.gradle:gradle-apt-plugin:0.19"
-        classpath "com.diffplug.spotless:spotless-plugin-gradle:3.24.2"
-        classpath "gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:1.4.0"
-        
-        
+            url "https://plugins.gradle.org/m2/"
+        }
+        dependencies {
+            classpath "net.ltgt.gradle:gradle-apt-plugin:0.19"
+            classpath "com.diffplug.spotless:spotless-plugin-gradle:3.24.2"
+            classpath "gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:2.4.0"
+
+
+        }
+
     }
-    	
-    }
-    
+
 }
 
 apply plugin: 'java'
@@ -42,35 +42,52 @@ apply plugin: 'idea'
 apply plugin: "net.ltgt.apt"
 apply plugin: 'com.google.cloud.tools.jib'
 apply plugin: "com.diffplug.gradle.spotless"
-
-mainClassName = System.getProperty("mainClass")
-//mainClassName = 'com.google.swarm.tokenization.tool.DLPTemplateHelper' 
+// Licence header enforced by spotless
+def javaLicenseHeader = """/*
+ * Copyright 2020 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+"""
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+applicationDefaultJvmArgs = ['-Xms4g', '-Xmx16g']
+mainClassName = System.getProperty('mainClass', 'com.google.swarm.tokenization.DLPS3ScannerPipeline')
 jib {
-  from {
-    image = 'gcr.io/dataflow-templates-base/java8-template-launcher-base:latest'
-  }
-  container {
-    appRoot = '/template/df-dlp-inspect-template'
-    entrypoint = 'INHERIT'
-	environment = [DATAFLOW_JAVA_COMMAND_SPEC:'/template/df-dlp-inspect-template/resources/java_command_spec.json']
-	
-  }
+    from {
+        image = 'gcr.io/dataflow-templates-base/java8-template-launcher-base:latest'
+    }
+    container {
+        appRoot = '/template/df-dlp-inspect-template'
+        entrypoint = 'INHERIT'
+        environment = [DATAFLOW_JAVA_COMMAND_SPEC: '/template/df-dlp-inspect-template/resources/java_command_spec.json']
+
+    }
 }
 group 'com.google.swarm'
 version '0.1.0'
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
 
-applicationDefaultJvmArgs = ['-Xms4g', '-Xmx16g']
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
 repositories {
-   mavenCentral()
-    
+    mavenCentral()
+    maven {
+                 url "https://repository.apache.org/content/repositories/snapshots/"
+        }
 
 }
 
@@ -78,34 +95,34 @@ dependencies {
     compile group: 'org.apache.beam', name: 'beam-sdks-java-core', version: dataflowBeamVersion
     compile group: 'org.apache.beam', name: 'beam-runners-google-cloud-dataflow-java', version: dataflowBeamVersion
     compile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
-	compile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
-	compile 'com.google.cloud:google-cloud-kms:0.70.0-beta'   
+    compile group: 'org.apache.beam', name: 'beam-sdks-java-extensions-ml', version: dataflowBeamVersion
+    compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
+    compile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
+    compile 'com.google.cloud:google-cloud-kms:0.70.0-beta'
     compile 'com.google.guava:guava:27.0-jre'
-	compile group: 'com.google.cloud', name: 'google-cloud-dlp', version: '0.99.0-beta'
+    compile group: 'com.google.cloud', name: 'google-cloud-dlp', version: '1.1.4'
     compile 'com.google.api-client:google-api-client:1.27.0'
     compile group: 'com.google.apis', name: 'google-api-services-cloudkms', version: 'v1-rev53-1.23.0'
-	compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
-	compile "com.google.auto.value:auto-value-annotations:1.6.2"
-    compile 'com.google.cloud:google-cloud-storage:1.101.0'    
+    compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
+    compile "com.google.auto.value:auto-value-annotations:1.6.2"
+    compile 'com.google.cloud:google-cloud-storage:1.101.0'
     annotationProcessor "com.google.auto.value:auto-value:1.6.2"
-	compile group: 'org.apache.commons', name: 'commons-csv', version: '1.4'
-	testCompile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
-	testCompile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
+    compile group: 'org.apache.commons', name: 'commons-csv', version: '1.4'
+    testCompile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
+    testCompile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
     testCompile group: 'org.hamcrest', name: 'hamcrest-core', version: '1.3'
     testCompile group: 'org.hamcrest', name: 'hamcrest-library', version: '1.3'
-	testCompile 'junit:junit:4.12'
+    testCompile 'junit:junit:4.12'
 
 
 
 }
 
 jar {
-    
-    manifest {
-        attributes ('Main-Class': mainClassName)
-    }
-    
 
+    manifest {
+        attributes('Main-Class': mainClassName)
+    }
 
 
 }
@@ -116,7 +133,7 @@ compileJava {
 }
 
 // default tasks when you run ./gradlew
-defaultTasks 'clean', 'assemble','jar'
+defaultTasks 'clean', 'assemble', 'jar'
 // Google cloud dataflow requires the resource/main directory to exist
 task resources {
     def resourcesDir = new File('build/resources/main')
@@ -129,19 +146,27 @@ run {
     }
 }
 
+def enableSpotlessCheck = project.hasProperty('enableSpotlessCheck') && project.enableSpotlessCheck == 'true'
 spotless {
+  enforceCheck enableSpotlessCheck
   java {
+    licenseHeader javaLicenseHeader
     googleJavaFormat()
   }
 }
 run.mustRunAfter 'resources'
+run.mustRunAfter 'resources'
 task fatJar(type: Jar) {
-	manifest {
-        attributes 'Implementation-Title': 'dlp-demo-tool',  
-        	'Implementation-Version': version,
-        	'Main-Class': mainClassName
+    manifest {
+        attributes 'Implementation-Title': 'dlp-demo-tool',
+            'Implementation-Version': version,
+            'Main-Class': mainClassName
     }
     baseName = project.name + '-all'
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    from {
+        configurations.compile.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
     with jar
 }

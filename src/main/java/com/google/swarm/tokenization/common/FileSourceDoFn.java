@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Google LLC
+ * Copyright 2020 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,26 +15,21 @@
  */
 package com.google.swarm.tokenization.common;
 
-import com.google.cloud.dlp.v2.DlpServiceClient;
-import java.io.IOException;
-import java.security.GeneralSecurityException;
+import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.values.KV;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DLPServiceFactory {
-  public static final Logger LOG = LoggerFactory.getLogger(DLPServiceFactory.class);
-  private static DlpServiceClient instance = null;
+@SuppressWarnings("serial")
+public class FileSourceDoFn extends DoFn<ReadableFile, KV<String, ReadableFile>> {
+  public static final Logger LOG = LoggerFactory.getLogger(FileSourceDoFn.class);
 
-  public static synchronized DlpServiceClient getService()
-      throws IOException, GeneralSecurityException {
-    if (instance == null) {
-      instance = buildService();
-    }
-    return instance;
-  }
+  @ProcessElement
+  public void processElement(ProcessContext c) {
 
-  private static DlpServiceClient buildService() throws IOException, GeneralSecurityException {
-
-    return DlpServiceClient.create();
+    ReadableFile file = c.element();
+    String fileName = Util.getFileName(file);
+    c.output(KV.of(fileName, file));
   }
 }

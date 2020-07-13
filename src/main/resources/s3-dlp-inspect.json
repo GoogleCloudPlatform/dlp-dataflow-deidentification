@@ -1,0 +1,38 @@
+[ 
+  {
+      "mode":"NULLABLE",
+      "name":"source_file",
+      "type":"STRING"
+   },
+   {
+      "mode":"NULLABLE",
+      "name":"transaction_time",
+      "type":"STRING"
+   },
+   {
+      "mode":"NULLABLE",
+      "name":"info_type_name",
+      "type":"STRING"
+   },
+   {
+      "mode":"NULLABLE",
+      "name":"likelihood",
+      "type":"STRING"
+   },
+   {
+      "mode":"NULLABLE",
+      "name":"quote",
+      "type":"STRING"
+   },
+   {
+      "mode":"NULLABLE",
+      "name":"location_start_byte_range",
+      "type":"NUMERIC"
+   },
+   {
+      "mode":"NULLABLE",
+      "name":"location_end_byte_range",
+      "type":"NUMERIC"
+   }  
+   
+]

@@ -12,7 +12,7 @@
 	* [Reference Architecture](#reference-architecture).  
 	* [Quick Start- Setup Data Tokenization Demo](#quick-start).    	
 
-* [Quick Start To S3 Inspection PoC](#quick-start-to-s3-inspection-poc).  
+* [V2 Solution By Using In Built Java Beam Transform](#v2-solution-by-using-in-built-java-beam-transform).  
    
 
 ## Reference Architecture
@@ -44,18 +44,34 @@ sh deploy-data-tokeninzation-solution.sh
 
 For re-identification (getting back the original data in a Pub/Sub topic), please follow this instruction [here](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data#re-identifying_the_dataset_from_bigquery).  
 
-## Quick Start To S3 Inspection PoC
-This is a hybrid solution for customers who would like to use Cloud DLP to scan PII data stored in a S3 bucket. Solution stores the inspection result in a BigQuery table. 
+## V2 Solution By Using In Built Java Beam Transform
+This part of the repo provides a reference implementation to process large scale files for  any DLP transformation like Inspect, Deidentify or ReIdentify.  Solution can be used for CSV / Avro files stored in either GCS or AWS S3 bucket. It uses State and Timer API for efficient batching to process the files in optimal manner.  Please note parameters like --runMode=S3, DLPMethod=deid. Addition to these, you can also use --keyRange, --windowInterval, parameters to increase parallelism. 
 
-[![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git)
+## Build and Run
+```
+gradle spotlessApply
 
-* Note: Please modify the shell script below to update the required env variables before executing.    
+gradle build
+
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--project=<projct_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --CSVFilePattern=gs://<path>.csv --dataset=<name>   --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --DLPMethod=deid"
+```
+## S3 Scanner
 
 ```
-gcloud config set project <project_id>
-sh deploy-s3-inspect-solution.sh
+export AWS_ACCESS_KEY="<access_key>"
+export AWS_SECRET_KEY="<secret_key>"
+export AWS_CRED="{\"@type\":\"AWSStaticCredentialsProvider\",\"awsAccessKeyId\":\"${AWS_ACCESS_KEY}\",\"awsSecretKey\":\"${AWS_SECRET_KEY}\"}"
 ```
+```
+gradle spotlessApply
 
+gradle build
+
+// inspect is default as DLP Method
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --CSVFilePattern=s3://<bucket>>/file.csv --dataset=<name>  --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate>  --runMode=s3 --awsRegion=<aws_region> --awsCredentialsProvider=$AWS_CRED"
+```
+## Dataflow DAG
+![v2_dag_](diagrams/dlp_dataflow_v2_dag.png)	   	
 ## To Do
-- S3 Scanner accuracy. 
-- Faul tolerant deployment scripts. 
+- Integrate with Beam DLP Transform 
+- Flex Template

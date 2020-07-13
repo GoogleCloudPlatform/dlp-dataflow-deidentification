@@ -1,4 +1,4 @@
 {
-  "mainClass": "com.google.swarm.tokenization.S3Import",
+  "mainClass": "com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2",
   "classPath": "/template/df-dlp-inspect-template/libs/*:/template/df-dlp-inspect-template/classes"
 }

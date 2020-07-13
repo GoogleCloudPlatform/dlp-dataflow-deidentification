@@ -1,5 +1,0 @@
-{
-  "docker_template_spec": {
-    "docker_image": "gcr.io/s3-dlp-experiment/df-dlp-inspect-pipeline:latest"
-  }
-}

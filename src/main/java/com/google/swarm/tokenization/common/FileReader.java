@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Google LLC
+ * Copyright 2020 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TextBasedReader {
-  public static final Logger LOG = LoggerFactory.getLogger(TextBasedReader.class);
-  private static final int READ_BUFFER_SIZE = 524000;
+public class FileReader {
+  public static final Logger LOG = LoggerFactory.getLogger(FileReader.class);
+  private static final int READ_BUFFER_SIZE = 8192;
   private final ByteBuffer readBuffer = ByteBuffer.allocate(READ_BUFFER_SIZE);
   private ByteString buffer;
   private int startOfDelimiterInBuffer;
@@ -39,9 +39,8 @@ public class TextBasedReader {
   private @Nullable SeekableByteChannel inChannel;
   private @Nullable byte[] delimiter;
 
-  public TextBasedReader(SeekableByteChannel channel, long startOfRecord, byte[] delimiter)
+  public FileReader(SeekableByteChannel channel, long startOfRecord, byte[] delimiter)
       throws IOException {
-
     buffer = ByteString.EMPTY;
     this.delimiter = delimiter;
     this.inChannel = channel;
@@ -70,10 +69,8 @@ public class TextBasedReader {
   public void startReading() throws IOException {
     long startOffset = this.startOfRecord;
     if (startOffset > 0) {
-
       long requiredPosition = startOffset - 1;
       if (delimiter != null && startOffset >= delimiter.length) {
-
         requiredPosition = startOffset - delimiter.length;
       }
       ((SeekableByteChannel) this.inChannel).position(requiredPosition);
@@ -92,9 +89,7 @@ public class TextBasedReader {
         startOfDelimiterInBuffer = endOfDelimiterInBuffer = bytePositionInBuffer;
         break;
       }
-
       byte currentByte = buffer.byteAt(bytePositionInBuffer);
-
       if (delimiter == null) {
         // default delimiter
         if (currentByte == '\n') {
@@ -104,7 +99,6 @@ public class TextBasedReader {
         } else if (currentByte == '\r') {
           startOfDelimiterInBuffer = bytePositionInBuffer;
           endOfDelimiterInBuffer = startOfDelimiterInBuffer + 1;
-
           if (tryToEnsureNumberOfBytesInBuffer(bytePositionInBuffer + 2)) {
             currentByte = buffer.byteAt(bytePositionInBuffer + 1);
             if (currentByte == '\n') {
@@ -143,14 +137,12 @@ public class TextBasedReader {
   public boolean readNextRecord() throws IOException {
     startOfRecord = startOfNextRecord;
     findDelimiterBounds();
-
     // If we have reached EOF file and consumed all of the buffer then we know
     // that there are no more records.
     if (eof && buffer.isEmpty()) {
       elementIsPresent = false;
       return false;
     }
-
     decodeCurrentElement();
     startOfNextRecord = startOfRecord + endOfDelimiterInBuffer;
     return true;
@@ -162,7 +154,6 @@ public class TextBasedReader {
     elementIsPresent = true;
     buffer = buffer.substring(endOfDelimiterInBuffer);
   }
-
   /** Returns false if we were unable to ensure the minimum capacity by consuming the channel. */
   private boolean tryToEnsureNumberOfBytesInBuffer(int minCapacity) throws IOException {
     // While we aren't at EOF or haven't fulfilled the minimum buffer capacity,
