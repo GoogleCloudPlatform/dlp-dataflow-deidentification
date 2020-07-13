@@ -47,10 +47,9 @@ public class DLPTextToBigQueryStreamingV2 {
 
   public static void main(String[] args) {
 
-    DLPTextToBigQueryStreamingV2PipelineOptions defaultoptions =
+    DLPTextToBigQueryStreamingV2PipelineOptions options =
         PipelineOptionsFactory.fromArgs(args).as(DLPTextToBigQueryStreamingV2PipelineOptions.class);
-
-    run(defaultoptions);
+    run(options);
   }
 
   public static PipelineResult run(DLPTextToBigQueryStreamingV2PipelineOptions defaultOptions) {
@@ -77,7 +76,7 @@ public class DLPTextToBigQueryStreamingV2 {
             .apply("ReadHeader", ParDo.of(new CSVFileHeaderDoFn()))
             .apply("ViewAsList", View.asList());
 
-    PCollection<KV<String, TableRow>> inspectedContents =
+    PCollection<KV<String, TableRow>> transformedContents =
         inputFile
             .apply(
                 "ReadFile",
@@ -98,7 +97,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setColumnDelimeter(defaultOptions.getColumnDelimeter())
                     .build());
 
-    inspectedContents.apply(
+    transformedContents.apply(
         "StreamInsertToBQ",
         BigQueryDynamicWriteTransform.newBuilder()
             .setDatasetId(defaultOptions.getDataset())

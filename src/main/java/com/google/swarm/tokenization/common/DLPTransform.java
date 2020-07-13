@@ -89,8 +89,8 @@ public abstract class DLPTransform
   public PCollection<KV<String, TableRow>> expand(PCollection<KV<String, String>> input) {
     PCollection<KV<String, Iterable<Table.Row>>> batchedRows =
         input
-            .apply(ParDo.of(new MapStringToDlpRow(columnDelimeter())))
-            .apply("Batch Contents", ParDo.of(new BatchRequestForDLP(batchSize())));
+            .apply("DLPRowConverts", ParDo.of(new MapStringToDlpRow(columnDelimeter())))
+            .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())));
     switch (dlpmethod()) {
       case "inspect":
         {
@@ -187,7 +187,7 @@ public abstract class DLPTransform
   static class ConvertInspectResponse
       extends DoFn<KV<String, InspectContentResponse>, KV<String, TableRow>> {
     private final Counter numberOfInspectionFindings =
-        Metrics.counter(ConvertInspectResponse.class, "NumberOfBytesInspected");
+        Metrics.counter(ConvertInspectResponse.class, "NumberOfInspectionFindings");
 
     @ProcessElement
     public void processElement(

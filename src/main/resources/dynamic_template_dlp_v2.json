@@ -1,0 +1,5 @@
+{
+  "docker_template_spec": {
+    "docker_image": "gcr.io/cloud-solutions-images/dlp-dataflow-v2-solutions:latest"
+  }
+}
