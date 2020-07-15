@@ -518,7 +518,7 @@ public class DLPTextToBigQueryStreaming {
      */
     //
     @GetInitialRestriction
-    public OffsetRange getInitialRestriction(KV<String, ReadableFile> csvFile) throws IOException {
+    public OffsetRange getInitialRestriction(@Element KV<String, ReadableFile> csvFile) throws IOException {
 
       int rowCount = 0;
       int totalSplit = 0;
@@ -552,7 +552,7 @@ public class DLPTextToBigQueryStreaming {
      */
     @SplitRestriction
     public void splitRestriction(
-        KV<String, ReadableFile> csvFile, OffsetRange range, OutputReceiver<OffsetRange> out) {
+       @Element KV<String, ReadableFile> csvFile, @Restriction OffsetRange range, OutputReceiver<OffsetRange> out) {
       /** split the initial restriction by 1 */
       for (final OffsetRange p : range.split(1, 1)) {
         out.output(p);
@@ -560,7 +560,7 @@ public class DLPTextToBigQueryStreaming {
     }
 
     @NewTracker
-    public OffsetRangeTracker newTracker(OffsetRange range) {
+    public OffsetRangeTracker newTracker(@Restriction OffsetRange range) {
       return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
     }
     // [END loadSnippet_3]

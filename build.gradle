@@ -62,7 +62,7 @@ def javaLicenseHeader = """/*
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 applicationDefaultJvmArgs = ['-Xms4g', '-Xmx16g']
-mainClassName = System.getProperty('mainClass', 'com.google.swarm.tokenization.DLPS3ScannerPipeline')
+mainClassName = System.getProperty('mainClass', 'com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2')
 jib {
     from {
         image = 'gcr.io/dataflow-templates-base/java8-template-launcher-base:latest'
