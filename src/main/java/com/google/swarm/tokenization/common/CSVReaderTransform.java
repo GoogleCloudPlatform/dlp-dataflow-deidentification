@@ -22,10 +22,14 @@ import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Watch;
+import org.apache.beam.sdk.transforms.WithTimestamps;
+import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.Duration;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +37,7 @@ import org.slf4j.LoggerFactory;
 @AutoValue
 public abstract class CSVReaderTransform
     extends PTransform<PBegin, PCollection<KV<String, ReadableFile>>> {
+
   public static final Logger LOG = LoggerFactory.getLogger(CSVReaderTransform.class);
 
   public abstract String delimeter();
@@ -72,7 +77,14 @@ public abstract class CSVReaderTransform
                     .filepattern(filePattern())
                     .continuously(interval(), Watch.Growth.never()))
             .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
-            .apply("ValidateFile", ParDo.of(new FileSourceDoFn()));
+            .apply("ValidateFile", ParDo.of(new FileSourceDoFn()))
+            .apply(
+                "AssignEventTimestamp",
+                WithTimestamps.of((KV<String, ReadableFile> rec) -> Instant.now()))
+            .apply(
+                "Fixed Window",
+                Window.<KV<String, ReadableFile>>into(
+                    FixedWindows.of(Duration.standardSeconds(1))));
     return csvFile;
   }
 }

@@ -18,6 +18,7 @@ package com.google.swarm.tokenization.common;
 import com.google.cloud.dlp.v2.DlpServiceClient;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.FieldId;
+import com.google.privacy.dlp.v2.InspectConfig;
 import com.google.privacy.dlp.v2.InspectContentRequest;
 import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.privacy.dlp.v2.ProjectName;
@@ -26,6 +27,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.beam.sdk.metrics.Counter;
+import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollectionView;
@@ -44,6 +47,9 @@ public class InspectData
   private transient DlpServiceClient dlpServiceClient;
   private transient InspectContentRequest.Builder requestBuilder;
 
+  private final Counter numberOfRowsInspected =
+      Metrics.counter(InspectData.class, "NumberOfRowsInspected");
+
   public InspectData(
       String projectId, String inspectTemplateName, PCollectionView<List<String>> headerColumns) {
     this.projectId = projectId;
@@ -59,6 +65,8 @@ public class InspectData
       requestBuilder.setInspectTemplateName(this.inspectTemplateName);
     }
 
+    InspectConfig config = InspectConfig.newBuilder().setIncludeQuote(true).build();
+    this.requestBuilder.setInspectConfig(config);
     dlpServiceClient = DlpServiceClient.create();
   }
 
@@ -71,39 +79,47 @@ public class InspectData
   public void processElement(ProcessContext c, MultiOutputReceiver out) throws IOException {
     List<FieldId> tableHeaders;
     List<Table.Row> tableRows = new ArrayList<>();
-    if (headerColumns != null) {
-      tableHeaders =
-          c.sideInput(headerColumns).stream()
-              .map(header -> FieldId.newBuilder().setName(header).build())
-              .collect(Collectors.toList());
-    } else {
-      tableHeaders = new ArrayList<>();
-      tableHeaders.add(FieldId.newBuilder().setName("value").build());
-    }
 
-    int headerLength = tableHeaders.size();
-    c.element()
-        .getValue()
-        .forEach(
-            row -> {
-              if (row.getValuesCount() == headerLength) {
-                tableRows.add(row);
+    tableHeaders =
+        c.sideInput(headerColumns).stream()
+            .map(header -> FieldId.newBuilder().setName(header).build())
+            .collect(Collectors.toList());
 
-              } else {
-                LOG.warn(
-                    "Number of Columns: {} Mismatch with Header: {} for Row: {}",
-                    row.getValuesCount(),
-                    headerLength,
-                    row);
-              }
-            });
+    //    if (headerColumns != null) {
+    //      tableHeaders =
+    //          c.sideInput(headerColumns).stream()
+    //              .map(header -> FieldId.newBuilder().setName(header).build())
+    //              .collect(Collectors.toList());
+    //    } else {
+    //      tableHeaders = new ArrayList<>();
+    //      tableHeaders.add(FieldId.newBuilder().setName("value").build());
+    //    }
+    //
+    //    int headerLength = tableHeaders.size();
+    //    c.element()
+    //        .getValue()
+    //        .forEach(
+    //            row -> {
+    //              if (row.getValuesCount() == headerLength) {
+    //                tableRows.add(row);
+    //
+    //              } else {
+    //                LOG.warn(
+    //                    "Number of Columns: {} Mismatch with Header: {} for Row: {}",
+    //                    row.getValuesCount(),
+    //                    headerLength,
+    //                    row);
+    //              }
+    //            });
 
-    Table table = Table.newBuilder().addAllHeaders(tableHeaders).addAllRows(tableRows).build();
+    Table table =
+        Table.newBuilder().addAllHeaders(tableHeaders).addAllRows(c.element().getValue()).build();
     ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
     this.requestBuilder.setItem(contentItem);
     try {
       InspectContentResponse response =
           dlpServiceClient.inspectContent(this.requestBuilder.build());
+      numberOfRowsInspected.inc(table.getRowsCount());
       out.get(Util.inspectApiCallSuccess).output(KV.of(c.element().getKey(), response));
 
     } catch (Exception e) {

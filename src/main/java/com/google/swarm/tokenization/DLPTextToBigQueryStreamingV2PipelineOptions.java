@@ -85,4 +85,9 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   String getRunMode();
 
   void setRunMode(String value);
+
+  @Description("GCS Location to write Bad Records")
+  String getBadRecordsLocation();
+
+  void setBadRecordsLocation(String badRecordsLocation);
 }

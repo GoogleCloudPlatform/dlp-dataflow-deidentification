@@ -60,6 +60,8 @@ public abstract class DLPTransform
 
   public abstract String dlpmethod();
 
+  public abstract String jobName();
+
   public abstract PCollectionView<List<String>> csvHeader();
 
   @AutoValue.Builder
@@ -77,6 +79,8 @@ public abstract class DLPTransform
     public abstract Builder setColumnDelimeter(String columnDelimeter);
 
     public abstract Builder setDlpmethod(String method);
+
+    public abstract Builder setJobName(String jobName);
 
     public abstract DLPTransform build();
   }
@@ -103,8 +107,8 @@ public abstract class DLPTransform
                           Util.inspectApiCallSuccess, TupleTagList.of(Util.inspectApiCallError)))
               .get(Util.inspectApiCallSuccess)
               .apply(
-                  "CnvertInspectResponse",
-                  ParDo.of(new ConvertInspectResponse())
+                  "ConvertInspectResponse",
+                  ParDo.of(new ConvertInspectResponse(jobName()))
                       .withOutputTags(Util.inspectSuccess, TupleTagList.of(Util.inspectFailure)))
               .get(Util.inspectSuccess);
         }
@@ -186,14 +190,34 @@ public abstract class DLPTransform
 
   static class ConvertInspectResponse
       extends DoFn<KV<String, InspectContentResponse>, KV<String, TableRow>> {
+
+    private String jobName;
+
+    public ConvertInspectResponse(String jobName) {
+      this.jobName = jobName;
+    }
+
     private final Counter numberOfInspectionFindings =
         Metrics.counter(ConvertInspectResponse.class, "NumberOfInspectionFindings");
+
+    private final Counter numberOfTimesFindingsTruncated =
+        Metrics.counter(ConvertInspectResponse.class, "NumberOfTimesFindingsTruncated");
+
+    private final Counter numberOfTimesFindingsGenerated =
+        Metrics.counter(ConvertInspectResponse.class, "NumberOfTimesFindingsGenerated");
 
     @ProcessElement
     public void processElement(
         @Element KV<String, InspectContentResponse> element, MultiOutputReceiver out) {
       String fileName = element.getKey().split("\\~")[0];
       String timeStamp = Util.getTimeStamp();
+
+      if (element.getValue().getResult().getFindingsTruncated()) {
+        numberOfTimesFindingsTruncated.inc();
+      } else {
+        numberOfTimesFindingsGenerated.inc();
+      }
+
       element
           .getValue()
           .getResult()
@@ -203,13 +227,21 @@ public abstract class DLPTransform
                 Row row =
                     Row.withSchema(Util.dlpInspectionSchema)
                         .addValues(
+                            jobName,
                             fileName,
                             timeStamp,
+                            finding.getQuote(),
                             finding.getInfoType().getName(),
                             finding.getLikelihood().name(),
-                            finding.getQuote(),
                             finding.getLocation().getCodepointRange().getStart(),
-                            finding.getLocation().getCodepointRange().getEnd())
+                            finding.getLocation().getCodepointRange().getEnd(),
+                            finding
+                                .getLocation()
+                                .getContentLocationsList()
+                                .get(0)
+                                .getRecordLocation()
+                                .getFieldId()
+                                .getName())
                         .build();
                 LOG.debug("Row{}", row);
                 numberOfInspectionFindings.inc();

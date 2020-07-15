@@ -21,26 +21,33 @@ import com.google.swarm.tokenization.common.CSVFileHeaderDoFn;
 import com.google.swarm.tokenization.common.CSVReaderTransform;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.FileReaderSplitDoFn;
+import com.google.swarm.tokenization.common.FilterBadRecordsDoFn;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
-import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
+import org.apache.beam.sdk.values.TupleTag;
+import org.apache.beam.sdk.values.TupleTagList;
+import org.apache.beam.sdk.values.TypeDescriptors;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLPTextToBigQueryStreamingV2 {
+
   public static final Logger LOG = LoggerFactory.getLogger(DLPTextToBigQueryStreamingV2.class);
   private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(60);
   private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(10);
@@ -53,6 +60,11 @@ public class DLPTextToBigQueryStreamingV2 {
   }
 
   public static PipelineResult run(DLPTextToBigQueryStreamingV2PipelineOptions defaultOptions) {
+
+    TupleTag<KV<String, String>> goodRecords = new TupleTag<KV<String, String>>() {
+    };
+    TupleTag<KV<String, String>> badRecords = new TupleTag<KV<String, String>>() {
+    };
 
     Pipeline p = Pipeline.create(defaultOptions);
 
@@ -76,7 +88,7 @@ public class DLPTextToBigQueryStreamingV2 {
             .apply("ReadHeader", ParDo.of(new CSVFileHeaderDoFn()))
             .apply("ViewAsList", View.asList());
 
-    PCollection<KV<String, TableRow>> transformedContents =
+    PCollectionTuple inputContents =
         inputFile
             .apply(
                 "ReadFile",
@@ -84,7 +96,14 @@ public class DLPTextToBigQueryStreamingV2 {
                     new FileReaderSplitDoFn(
                         defaultOptions.getKeyRange(), defaultOptions.getDelimeter())))
             .apply(
-                "Fixed Window", Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
+                "FilterBadRecords",
+                ParDo.of(new FilterBadRecordsDoFn(goodRecords, badRecords, header))
+                    .withSideInputs(header)
+                    .withOutputTags(goodRecords, TupleTagList.of(badRecords)));
+
+    PCollection<KV<String, TableRow>> transformedContents =
+        inputContents
+            .get(goodRecords)
             .apply(
                 "DLPTransform",
                 DLPTransform.newBuilder()
@@ -95,6 +114,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setProjectId(defaultOptions.getProject())
                     .setCsvHeader(header)
                     .setColumnDelimeter(defaultOptions.getColumnDelimeter())
+                    .setJobName(defaultOptions.getJobName())
                     .build());
 
     transformedContents.apply(
@@ -103,6 +123,19 @@ public class DLPTextToBigQueryStreamingV2 {
             .setDatasetId(defaultOptions.getDataset())
             .setProjectId(defaultOptions.getProject())
             .build());
+
+    inputContents
+        .get(badRecords)
+        .apply(
+            "ExtractBadRecords",
+            MapElements.into(TypeDescriptors.strings()).via(element -> element.getValue()))
+        .apply(
+            "LogBadRecords",
+            TextIO.write()
+                .to(defaultOptions.getBadRecordsLocation() + "/badrecords")
+                .withWindowedWrites()
+                .withNumShards(20));
+
     return p.run();
   }
 }

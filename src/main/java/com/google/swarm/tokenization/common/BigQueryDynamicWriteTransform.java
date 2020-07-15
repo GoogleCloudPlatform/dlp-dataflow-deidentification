@@ -88,7 +88,7 @@ public abstract class BigQueryDynamicWriteTransform
     @Override
     public TableDestination getTable(KV<String, TableRow> destination) {
       TableDestination dest =
-          new TableDestination(destination.getKey(), "vision api data from dataflow");
+          new TableDestination(destination.getKey(), "DLP Findings from Dataflow");
       LOG.debug("Table Destination {}", dest.getTableSpec());
       return dest;
     }
