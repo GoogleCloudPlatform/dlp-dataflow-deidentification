@@ -78,12 +78,7 @@ You can use the gcloud command to trigger the pipeline using Dataflow flex templ
 
 ```
 gcloud beta dataflow flex-template run "dlp-s3-scanner-deid-demo" --project=<project_id> \
-<<<<<<< HEAD
 --region=<region> --template-file-gcs-location=gs://dataflow-dlp-solution-sample-data/dynamic_template_dlp_v2.json \
-=======
---region=<region> \
---template-file-gcs-location=gs://dataflow-dlp-solution-sample-data/dynamic_template_dlp_v2.json \
->>>>>>> 584a43a3161e59aa39b430bdc2868d9eac4fd583
 --parameters=^~^streaming=true~enableStreamingEngine=true~tempLocation=gs://<path>/temp~numWorkers=5~maxNumWorkers=5~runner=DataflowRunner~CSVFilePattern=<s3orgcspath>/filename.csv~dataset=<bq_dataset>~autoscalingAlgorithm=THROUGHPUT_BASED~workerMachineType=n1-highmem-8~inspectTemplateName=<inspect_template>~deidentifyTemplateName=<deid_template>~runMode=s3~awsRegion=ca-central-1~awsCredentialsProvider=$AWS_CRED~batchSize=100000~DLPMethod=deid
 
 ```
