@@ -72,6 +72,17 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 ```
 ## Dataflow DAG
 ![v2_dag_](diagrams/dlp_dataflow_v2_dag.png)	   	
+
+## Trigger Pipeline Using Public Image
+You can use the gcloud command to trigger the pipeline using Dataflow flex template. Below is an example for de-identification transform from a S3 bucket.
+
+```
+gcloud beta dataflow flex-template run "dlp-s3-scanner-deid-demo" --project=<project_id> \
+--region=<region> \
+--template-file-gcs-location=gs://dataflow-dlp-solution-sample-data/dynamic_template_dlp_v2.json \
+--parameters=^~^streaming=true~enableStreamingEngine=true~tempLocation=gs://<path>/temp~numWorkers=5~maxNumWorkers=5~runner=DataflowRunner~CSVFilePattern=<s3orgcspath>/filename.csv~dataset=<bq_dataset>~autoscalingAlgorithm=THROUGHPUT_BASED~workerMachineType=n1-highmem-8~inspectTemplateName=<inspect_template>~deidentifyTemplateName=<deid_template>~runMode=s3~awsRegion=ca-central-1~awsCredentialsProvider=$AWS_CRED~batchSize=100000~DLPMethod=deid
+
+```
 ## To Do
 - Integrate with Beam DLP Transform 
 - Flex Template
