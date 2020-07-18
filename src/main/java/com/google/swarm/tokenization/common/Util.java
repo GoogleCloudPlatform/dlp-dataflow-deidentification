@@ -17,6 +17,7 @@ package com.google.swarm.tokenization.common;
 
 import static org.apache.beam.sdk.schemas.Schema.toSchema;
 
+import com.google.api.services.bigquery.model.TableCell;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.common.base.Charsets;
 import com.google.privacy.dlp.v2.InspectContentResponse;
@@ -28,6 +29,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.schemas.Schema;
@@ -73,6 +75,11 @@ public class Util {
   public static final TupleTag<KV<String, TableRow>> deidSuccess =
       new TupleTag<KV<String, TableRow>>() {};
   public static final TupleTag<KV<String, TableRow>> deidFailure =
+      new TupleTag<KV<String, TableRow>>() {};
+
+  public static final TupleTag<KV<String, TableRow>> reidSuccess =
+      new TupleTag<KV<String, TableRow>>() {};
+  public static final TupleTag<KV<String, TableRow>> reidFailure =
       new TupleTag<KV<String, TableRow>>() {};
 
   public static final TupleTag<KV<String, InspectContentResponse>> inspectApiCallSuccess =
@@ -349,5 +356,22 @@ public class Util {
     result.add(curVal.toString());
 
     return result;
+  }
+
+  public static TableRow createBqRow(Table.Row tokenizedValue, String[] headers) {
+    TableRow bqRow = new TableRow();
+    AtomicInteger headerIndex = new AtomicInteger(0);
+    List<TableCell> cells = new ArrayList<>();
+    tokenizedValue
+        .getValuesList()
+        .forEach(
+            value -> {
+              String checkedHeaderName =
+                  Util.checkHeaderName(headers[headerIndex.getAndIncrement()].toString());
+              bqRow.set(checkedHeaderName, value.getStringValue());
+              cells.add(new TableCell().set(checkedHeaderName, value.getStringValue()));
+            });
+    bqRow.setF(cells);
+    return bqRow;
   }
 }

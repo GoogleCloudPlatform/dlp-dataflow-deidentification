@@ -93,7 +93,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setDeidTemplateName(defaultOptions.getDeidentifyTemplateName())
                     .setDlpmethod(defaultOptions.getDLPMethod())
                     .setProjectId(defaultOptions.getProject())
-                    .setCsvHeader(header)
+                    .setHeader(header)
                     .setColumnDelimeter(defaultOptions.getColumnDelimeter())
                     .build());
 
