@@ -26,7 +26,6 @@ import com.google.privacy.dlp.v2.ReidentifyContentResponse;
 import com.google.privacy.dlp.v2.Table;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -181,8 +180,10 @@ public abstract class DLPTransform
                       });
               String jsonMessage = Util.gson.toJson(convertMap);
               LOG.info("Json message {}", jsonMessage);
-              PubsubMessage message = new PubsubMessage(jsonMessage.toString().getBytes(),
-            		  ImmutableMap.<String, String>builder().put("table_name", tableRef).build());
+              PubsubMessage message =
+                  new PubsubMessage(
+                      jsonMessage.toString().getBytes(),
+                      ImmutableMap.<String, String>builder().put("table_name", tableRef).build());
               out.get(Util.reidSuccess).output(message);
             });
 

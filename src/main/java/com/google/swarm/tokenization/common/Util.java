@@ -18,7 +18,6 @@ package com.google.swarm.tokenization.common;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.beam.sdk.schemas.Schema.toSchema;
 
-import com.google.api.client.json.GenericJson;
 import com.google.api.services.bigquery.model.TableCell;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.storage.BlobId;
@@ -26,14 +25,9 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.google.common.base.Charsets;
 import com.google.gson.Gson;
-import com.google.gson.JsonSyntaxException;
-import com.google.gson.reflect.TypeToken;
 import com.google.privacy.dlp.v2.InspectContentResponse;
-import com.google.privacy.dlp.v2.ReidentifyContentResponse;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.util.JsonFormat;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.URI;
@@ -383,7 +377,6 @@ public class Util {
     bqRow.setF(cells);
     return bqRow;
   }
-
 
   public static String getQueryFromGcs(String gcsPath) {
     GcsPath path = GcsPath.fromUri(URI.create(gcsPath));
