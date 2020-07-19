@@ -16,29 +16,27 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.api.services.bigquery.model.TableRow;
-import java.util.Iterator;
+import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.Value;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
-public class BigQueryTableHeaderDoFn extends DoFn<KV<String, Iterable<TableRow>>, String> {
-  public static final Logger LOG = LoggerFactory.getLogger(BigQueryTableHeaderDoFn.class);
+public class MergeBigQueryRowToDlpRow extends DoFn<KV<String, TableRow>, KV<String, Table.Row>> {
 
   @ProcessElement
   public void processElement(ProcessContext c) {
+    TableRow rows = c.element().getValue();
+    Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
 
-    Iterator<TableRow> rows = c.element().getValue().iterator();
-
-    while (rows.hasNext()) {
-      rows.next()
-          .entrySet()
-          .forEach(
-              value -> {
-                c.output(value.getKey());
-              });
-      break;
-    }
+    rows.entrySet()
+        .forEach(
+            element -> {
+              String value = element.getValue().toString();
+              tableRowBuilder.addValues(
+                  Value.newBuilder().setStringValue(value.toString()).build());
+            });
+    Table.Row dlpRow = tableRowBuilder.build();
+    c.output(KV.of(c.element().getKey(), dlpRow));
   }
 }

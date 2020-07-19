@@ -15,7 +15,6 @@
  */
 package com.google.swarm.tokenization;
 
-import java.util.List;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
@@ -23,7 +22,6 @@ import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.TypedRead.Method;
 import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.Validation;
-import org.apache.beam.sdk.options.Validation.Required;
 
 public interface DLPTextToBigQueryStreamingV2PipelineOptions
     extends DataflowPipelineOptions, S3Options {
@@ -90,20 +88,20 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   void setRunMode(String value);
 
   @Description("BigQuery table to export from in the form <project>:<dataset>.<table>")
-  @Required
   String getTableRef();
 
   void setTableRef(String tableRef);
 
-  @Description("Optional: Comma separated list of fields to select from the table.")
-  List<String> getFields();
-
-  void setFields(List<String> fields);
-
-  @Description("read method direct, export")
+  @Description("read method default, direct, export")
+  @Default.Enum("EXPORT")
   Method getReadMethod();
 
   void setReadMethod(Method method);
+
+  @Description("Query")
+  String getQueryPath();
+
+  void setQueryPath(String topic);
 
   @Description("Topic to use for reid result")
   String getTopic();

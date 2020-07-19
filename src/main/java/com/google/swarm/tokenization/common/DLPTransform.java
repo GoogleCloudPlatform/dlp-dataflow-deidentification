@@ -17,13 +17,17 @@ package com.google.swarm.tokenization.common;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonSyntaxException;
 import com.google.privacy.dlp.v2.DeidentifyContentResponse;
+import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.privacy.dlp.v2.ReidentifyContentResponse;
 import com.google.privacy.dlp.v2.Table;
-import com.google.protobuf.InvalidProtocolBufferException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.repackaged.core.org.apache.commons.lang3.exception.ExceptionUtils;
@@ -34,6 +38,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.DoFn.Element;
 import org.apache.beam.sdk.transforms.DoFn.MultiOutputReceiver;
 import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
+import org.apache.beam.sdk.transforms.GroupIntoBatches;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
@@ -48,7 +53,7 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings("serial")
 @AutoValue
 public abstract class DLPTransform
-    extends PTransform<PCollection<KV<String, String>>, PCollectionTuple> {
+    extends PTransform<PCollection<KV<String, Table.Row>>, PCollectionTuple> {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 
   @Nullable
@@ -91,15 +96,12 @@ public abstract class DLPTransform
   }
 
   @Override
-  public PCollectionTuple expand(PCollection<KV<String, String>> input) {
-    PCollection<KV<String, Iterable<Table.Row>>> batchedRows =
-        input
-            .apply("DLPRowConverts", ParDo.of(new MapStringToDlpRow(columnDelimeter())))
-            .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())));
+  public PCollectionTuple expand(PCollection<KV<String, Table.Row>> input) {
     switch (dlpmethod()) {
       case "inspect":
         {
-          return batchedRows
+          return input
+              .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())))
               .apply(
                   "DLPInspect",
                   ParDo.of(new InspectData(projectId(), inspectTemplateName(), header()))
@@ -115,7 +117,8 @@ public abstract class DLPTransform
         }
       case "deid":
         {
-          return batchedRows
+          return input
+              .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())))
               .apply(
                   "DLPDeidentify",
                   ParDo.of(
@@ -130,7 +133,8 @@ public abstract class DLPTransform
         }
       case "reid":
         {
-          return batchedRows
+          return input
+              .apply("GroupIntoBatches", GroupIntoBatches.ofSize(100))
               .apply(
                   "DLPReidentify",
                   ParDo.of(
@@ -161,9 +165,29 @@ public abstract class DLPTransform
       String tableRef = element.getKey().split("\\~")[0];
       Table originalData = element.getValue().getItem().getTable();
       numberOfBytesReidentified.inc(originalData.toByteArray().length);
+      List<FieldId> dlpTableHeaders = originalData.getHeadersList();
       try {
-        out.get(Util.reidSuccess).output(Util.convertPubSubMessage(element.getValue()));
-      } catch (JsonSyntaxException | InvalidProtocolBufferException e) {
+
+        List<Table.Row> outputRows = element.getValue().getItem().getTable().getRowsList();
+        outputRows.forEach(
+            row -> {
+              HashMap<String, String> convertMap = new HashMap<String, String>();
+              AtomicInteger index = new AtomicInteger(0);
+              row.getValuesList()
+                  .forEach(
+                      value -> {
+                        String header = dlpTableHeaders.get(index.getAndIncrement()).getName();
+                        convertMap.put(header, value.getStringValue());
+                      });
+              String jsonMessage = Util.gson.toJson(convertMap);
+              LOG.info("Json message {}", jsonMessage);
+              PubsubMessage message = new PubsubMessage(jsonMessage.toString().getBytes(),
+            		  ImmutableMap.<String, String>builder().put("table_name", tableRef).build());
+              out.get(Util.reidSuccess).output(message);
+            });
+
+      } catch (JsonSyntaxException e) {
+        LOG.error("error {}", e.getMessage());
         out.get(Util.reidFailure)
             .output(
                 KV.of(

@@ -33,10 +33,14 @@ import org.apache.beam.sdk.transforms.DoFn.Setup;
 import org.apache.beam.sdk.transforms.DoFn.Teardown;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollectionView;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
 public class ReidentifyData
     extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, ReidentifyContentResponse>> {
+  public static final Logger LOG = LoggerFactory.getLogger(ReidentifyData.class);
+
   private final String projectId;
   private final String inspectTemplateName;
   private final String reidentifyTemplateName;
@@ -76,22 +80,19 @@ public class ReidentifyData
 
   @ProcessElement
   public void processElement(ProcessContext context) throws IOException {
-    List<FieldId> tableHeaders;
+    List<FieldId> tableHeaders = new ArrayList<>();
     if (headerColumns != null) {
       tableHeaders =
           context.sideInput(headerColumns).stream()
               .map(header -> FieldId.newBuilder().setName(header).build())
               .collect(Collectors.toList());
-    } else {
-      // handle unstructured input.
-      tableHeaders = new ArrayList<>();
-      tableHeaders.add(FieldId.newBuilder().setName("value").build());
     }
     Table table =
         Table.newBuilder()
             .addAllHeaders(tableHeaders)
             .addAllRows(context.element().getValue())
             .build();
+
     ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
     this.requestBuilder.setItem(contentItem);
     ReidentifyContentResponse response = dlpServiceClient.reidentifyContent(requestBuilder.build());

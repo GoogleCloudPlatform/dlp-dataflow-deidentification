@@ -15,11 +15,15 @@
  */
 package com.google.swarm.tokenization.common;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.beam.sdk.schemas.Schema.toSchema;
 
 import com.google.api.client.json.GenericJson;
 import com.google.api.services.bigquery.model.TableCell;
 import com.google.api.services.bigquery.model.TableRow;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
 import com.google.common.base.Charsets;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
@@ -32,12 +36,14 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
+import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.schemas.Schema;
@@ -63,7 +69,7 @@ import org.slf4j.LoggerFactory;
 public class Util {
 
   public static final Logger LOG = LoggerFactory.getLogger(Util.class);
-  public static Gson gson = new Gson();
+  public static final Gson gson = new Gson();
   private static final char DEFAULT_SEPARATOR = ',';
   private static final char DEFAULT_QUOTE = '"';
   private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
@@ -378,12 +384,14 @@ public class Util {
     return bqRow;
   }
 
-  public static PubsubMessage convertPubSubMessage(ReidentifyContentResponse response)
-      throws JsonSyntaxException, InvalidProtocolBufferException {
-    GenericJson jsonMessage =
-        gson.fromJson(
-            JsonFormat.printer().print(response), new TypeToken<GenericJson>() {}.getType());
-    PubsubMessage message = new PubsubMessage(jsonMessage.toString().getBytes(), null);
-    return message;
+
+  public static String getQueryFromGcs(String gcsPath) {
+    GcsPath path = GcsPath.fromUri(URI.create(gcsPath));
+    Storage storage = StorageOptions.getDefaultInstance().getService();
+    BlobId blobId = BlobId.of(path.getBucket(), path.getObject());
+    byte[] content = storage.readAllBytes(blobId);
+    String contentString = new String(content, UTF_8);
+    LOG.debug("Query: {}", contentString);
+    return contentString;
   }
 }

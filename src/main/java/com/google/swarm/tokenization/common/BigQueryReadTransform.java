@@ -15,29 +15,12 @@
  */
 package com.google.swarm.tokenization.common;
 
-import com.google.api.gax.rpc.InvalidArgumentException;
-import com.google.api.services.bigquery.model.TableReference;
+import com.google.api.services.bigquery.model.TableRow;
 import com.google.auto.value.AutoValue;
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.ReadOptions.TableReadOptions;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.CreateReadSessionRequest;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadSession;
-import com.google.cloud.bigquery.storage.v1beta1.TableReferenceProto;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.stream.Collectors;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.beam.sdk.coders.AvroCoder;
-import org.apache.beam.sdk.io.gcp.bigquery.BigQueryHelpers;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.TypedRead.Method;
-import org.apache.beam.sdk.io.gcp.bigquery.SchemaAndRecord;
-import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
-import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
@@ -47,16 +30,16 @@ import org.slf4j.LoggerFactory;
 @AutoValue
 @SuppressWarnings({"deprecation", "serial"})
 public abstract class BigQueryReadTransform
-    extends PTransform<PBegin, PCollection<KV<String, String>>> {
+    extends PTransform<PBegin, PCollection<KV<String, TableRow>>> {
   public static final Logger LOG = LoggerFactory.getLogger(BigQueryReadTransform.class);
 
   public abstract String tableRef();
 
   public abstract Method readMethod();
 
-  public abstract List<String> fields();
-
   public abstract Integer keyRange();
+
+  public abstract String query();
 
   @AutoValue.Builder
   public abstract static class Builder {
@@ -65,9 +48,9 @@ public abstract class BigQueryReadTransform
 
     public abstract Builder setReadMethod(Method readMethod);
 
-    public abstract Builder setFields(List<String> fields);
-
     public abstract Builder setKeyRange(Integer keyRange);
+
+    public abstract Builder setQuery(String query);
 
     public abstract BigQueryReadTransform build();
   }
@@ -77,103 +60,33 @@ public abstract class BigQueryReadTransform
   }
 
   @Override
-  public PCollection<KV<String, String>> expand(PBegin input) {
+  public PCollection<KV<String, TableRow>> expand(PBegin input) {
 
-    TableReadOptions.Builder builder = TableReadOptions.newBuilder();
-    if (fields() != null) {
-      builder.addAllSelectedFields(fields());
-    }
-    TableReadOptions tableReadOptions = builder.build();
-    BigQueryStorageClient client = BigQueryStorageClientFactory.create();
-    ReadSession session = ReadSessionFactory.create(client, tableRef(), tableReadOptions);
+    switch (readMethod()) {
+      case DEFAULT:
+        return input
+            .apply(
+                "ReadFromBigQuery",
+                BigQueryIO.readTableRows()
+                    .fromQuery(query())
+                    .usingStandardSql()
+                    .withMethod(Method.DEFAULT))
+            .apply("AddTableNameAsKey", WithKeys.of(tableRef()));
+      case EXPORT:
+        return input
+            .apply(
+                "ReadFromBigQuery",
+                BigQueryIO.readTableRows()
+                    .fromQuery(query())
+                    .usingStandardSql()
+                    .withMethod(Method.DEFAULT))
+            .apply("AddTableNameAsKey", WithKeys.of(tableRef()));
 
-    // Extract schema from ReadSession
-    Schema schema = getTableSchema(session);
-    client.close();
+      case DIRECT_READ:
+        throw new IllegalArgumentException("Direct read not supported");
 
-    return input
-        .apply(
-            "ReadFromBigQuery",
-            BigQueryIO.read(SchemaAndRecord::getRecord)
-                .from(tableRef())
-                .withTemplateCompatibility()
-                .withMethod(readMethod())
-                .withCoder(AvroCoder.of(schema))
-                .withReadOptions(tableReadOptions))
-        .apply("StringConvert", ParDo.of(new ConvertToString(keyRange(), tableRef())));
-  }
-
-  static class ConvertToString extends DoFn<GenericRecord, KV<String, String>> {
-
-    private Integer keyRange;
-    String tableRef;
-
-    public ConvertToString(Integer keyRange, String tableRef) {
-      this.keyRange = keyRange;
-      this.tableRef = tableRef;
-    }
-
-    @ProcessElement
-    public void processElement(ProcessContext c) {
-      List<String> values = new ArrayList<>();
-      String key = String.format("%s~%d", tableRef, new Random().nextInt(keyRange));
-      c.element()
-          .getSchema()
-          .getFields()
-          .forEach(
-              field -> {
-                values.add(c.element().get(field.name()).toString());
-              });
-
-      c.output(KV.of(key, values.stream().collect(Collectors.joining(","))));
-    }
-  }
-
-  static class BigQueryStorageClientFactory {
-
-    static BigQueryStorageClient create() {
-      try {
-        return BigQueryStorageClient.create();
-      } catch (IOException e) {
-        LOG.error("Error connecting to BigQueryStorage API: " + e.getMessage());
-        throw new RuntimeException(e);
-      }
-    }
-  }
-
-  private static Schema getTableSchema(ReadSession session) {
-    Schema avroSchema;
-
-    avroSchema = new Schema.Parser().parse(session.getAvroSchema().getSchema());
-    LOG.info("Schema for export is: " + avroSchema.toString());
-
-    return avroSchema;
-  }
-
-  static class ReadSessionFactory {
-    static ReadSession create(
-        BigQueryStorageClient client, String tableString, TableReadOptions tableReadOptions) {
-      TableReference tableReference = BigQueryHelpers.parseTableSpec(tableString);
-      String parentProjectId = "projects/" + tableReference.getProjectId();
-
-      TableReferenceProto.TableReference storageTableRef =
-          TableReferenceProto.TableReference.newBuilder()
-              .setProjectId(tableReference.getProjectId())
-              .setDatasetId(tableReference.getDatasetId())
-              .setTableId(tableReference.getTableId())
-              .build();
-
-      CreateReadSessionRequest.Builder builder =
-          CreateReadSessionRequest.newBuilder()
-              .setParent(parentProjectId)
-              .setReadOptions(tableReadOptions)
-              .setTableReference(storageTableRef);
-      try {
-        return client.createReadSession(builder.build());
-      } catch (InvalidArgumentException iae) {
-        LOG.error("Error creating ReadSession: " + iae.getMessage());
-        throw new RuntimeException(iae);
-      }
+      default:
+        throw new IllegalArgumentException("Not a valid method");
     }
   }
 }

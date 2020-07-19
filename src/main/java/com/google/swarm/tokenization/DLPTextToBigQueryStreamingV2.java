@@ -15,12 +15,17 @@
  */
 package com.google.swarm.tokenization;
 
+import com.google.api.services.bigquery.model.TableRow;
+import com.google.privacy.dlp.v2.Table;
 import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
 import com.google.swarm.tokenization.common.BigQueryReadTransform;
+import com.google.swarm.tokenization.common.BigQueryTableHeaderDoFn;
 import com.google.swarm.tokenization.common.CSVFileHeaderDoFn;
 import com.google.swarm.tokenization.common.CSVReaderTransform;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.FileReaderSplitDoFn;
+import com.google.swarm.tokenization.common.MapStringToDlpRow;
+import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
 import com.google.swarm.tokenization.common.Util;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
@@ -28,7 +33,7 @@ import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
@@ -94,8 +99,10 @@ public class DLPTextToBigQueryStreamingV2 {
                     ParDo.of(
                         new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())))
                 .apply(
+                    "ConvertDLPRow", ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())))
+                .apply(
                     "Fixed Window",
-                    Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
+                    Window.<KV<String, Table.Row>>into(FixedWindows.of(WINDOW_INTERVAL)))
                 .apply(
                     "DLPTransform",
                     DLPTransform.newBuilder()
@@ -119,43 +126,49 @@ public class DLPTextToBigQueryStreamingV2 {
         return p.run();
 
       case "reid":
-        // side input
-        final PCollectionView<List<String>> selectedColumns =
-            p.apply(Create.of(options.getFields())).apply("ViewAsList", View.asList());
-
-        PCollectionTuple recordWithKey =
+        PCollection<KV<String, TableRow>> record =
             p.apply(
-                    "ReadFromBQ",
-                    BigQueryReadTransform.newBuilder()
-                        .setTableRef(options.getTableRef())
-                        .setReadMethod(options.getReadMethod())
-                        .setFields(options.getFields())
-                        .build())
+                "ReadFromBQ",
+                BigQueryReadTransform.newBuilder()
+                    .setTableRef(options.getTableRef())
+                    .setReadMethod(options.getReadMethod())
+                    .setKeyRange(options.getKeyRange())
+                    .setQuery(Util.getQueryFromGcs(options.getQueryPath()))
+                    .build());
+
+        PCollectionView<List<String>> selectedColumns =
+            record
                 .apply(
-                    "Fixed Window",
-                    Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
-                .apply(
-                    "DLPTransform",
-                    DLPTransform.newBuilder()
-                        .setBatchSize(options.getBatchSize())
-                        .setInspectTemplateName(options.getInspectTemplateName())
-                        .setDeidTemplateName(options.getDeidentifyTemplateName())
-                        .setDlpmethod(options.getDLPMethod())
-                        .setProjectId(options.getProject())
-                        .setHeader(selectedColumns)
-                        .setColumnDelimeter(options.getColumnDelimeter())
-                        .build());
-        recordWithKey
+                    "GlobalWindow",
+                    Window.<KV<String, TableRow>>into(new GlobalWindows())
+                        .triggering(
+                            Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
+                        .discardingFiredPanes())
+                .apply("GroupByTableName", GroupByKey.create())
+                .apply("GetHeader", ParDo.of(new BigQueryTableHeaderDoFn()))
+                .apply("ViewAsList", View.asList());
+
+        record
+            .apply("ConvertDLPRow", ParDo.of(new MergeBigQueryRowToDlpRow()))
+            .apply(
+                "DLPTransform",
+                DLPTransform.newBuilder()
+                    .setBatchSize(options.getBatchSize())
+                    .setInspectTemplateName(options.getInspectTemplateName())
+                    .setDeidTemplateName(options.getDeidentifyTemplateName())
+                    .setDlpmethod(options.getDLPMethod())
+                    .setProjectId(options.getProject())
+                    .setHeader(selectedColumns)
+                    .setColumnDelimeter(",")
+                    .build())
             .get(Util.reidSuccess)
             .apply(
                 "PublishToPubSub",
                 PubsubIO.writeMessages()
-                    .withMaxBatchBytesSize(PUB_SUB_BATCH_SIZE_BYTES)
-                    .withMaxBatchSize(PUB_SUB_BATCH_SIZE)
                     .to(options.getTopic()));
         return p.run();
       default:
-        return p.run();
+          throw new IllegalArgumentException("Please validate DLPMethod param!");
     }
   }
 }
