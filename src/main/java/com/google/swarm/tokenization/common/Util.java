@@ -17,12 +17,19 @@ package com.google.swarm.tokenization.common;
 
 import static org.apache.beam.sdk.schemas.Schema.toSchema;
 
+import com.google.api.client.json.GenericJson;
 import com.google.api.services.bigquery.model.TableCell;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.common.base.Charsets;
+import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.reflect.TypeToken;
 import com.google.privacy.dlp.v2.InspectContentResponse;
+import com.google.privacy.dlp.v2.ReidentifyContentResponse;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.util.JsonFormat;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.channels.Channels;
@@ -32,6 +39,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.Schema.Field;
 import org.apache.beam.sdk.schemas.Schema.FieldType;
@@ -55,6 +63,7 @@ import org.slf4j.LoggerFactory;
 public class Util {
 
   public static final Logger LOG = LoggerFactory.getLogger(Util.class);
+  public static Gson gson = new Gson();
   private static final char DEFAULT_SEPARATOR = ',';
   private static final char DEFAULT_QUOTE = '"';
   private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
@@ -67,18 +76,12 @@ public class Util {
   public static final TupleTag<KV<String, ReadableFile>> headerTag =
       new TupleTag<KV<String, ReadableFile>>() {};
 
-  public static final TupleTag<KV<String, TableRow>> inspectSuccess =
+  public static final TupleTag<KV<String, TableRow>> inspectOrDeidSuccess =
       new TupleTag<KV<String, TableRow>>() {};
-  public static final TupleTag<KV<String, TableRow>> inspectFailure =
-      new TupleTag<KV<String, TableRow>>() {};
-
-  public static final TupleTag<KV<String, TableRow>> deidSuccess =
-      new TupleTag<KV<String, TableRow>>() {};
-  public static final TupleTag<KV<String, TableRow>> deidFailure =
+  public static final TupleTag<KV<String, TableRow>> inspectOrDeidFailure =
       new TupleTag<KV<String, TableRow>>() {};
 
-  public static final TupleTag<KV<String, TableRow>> reidSuccess =
-      new TupleTag<KV<String, TableRow>>() {};
+  public static final TupleTag<PubsubMessage> reidSuccess = new TupleTag<PubsubMessage>() {};
   public static final TupleTag<KV<String, TableRow>> reidFailure =
       new TupleTag<KV<String, TableRow>>() {};
 
@@ -373,5 +376,14 @@ public class Util {
             });
     bqRow.setF(cells);
     return bqRow;
+  }
+
+  public static PubsubMessage convertPubSubMessage(ReidentifyContentResponse response)
+      throws JsonSyntaxException, InvalidProtocolBufferException {
+    GenericJson jsonMessage =
+        gson.fromJson(
+            JsonFormat.printer().print(response), new TypeToken<GenericJson>() {}.getType());
+    PubsubMessage message = new PubsubMessage(jsonMessage.toString().getBytes(), null);
+    return message;
   }
 }

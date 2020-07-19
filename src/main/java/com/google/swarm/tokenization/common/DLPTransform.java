@@ -17,20 +17,28 @@ package com.google.swarm.tokenization.common;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.auto.value.AutoValue;
+import com.google.gson.JsonSyntaxException;
 import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.privacy.dlp.v2.ReidentifyContentResponse;
 import com.google.privacy.dlp.v2.Table;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.apache.beam.repackaged.core.org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.DoFn.Element;
+import org.apache.beam.sdk.transforms.DoFn.MultiOutputReceiver;
+import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TupleTagList;
@@ -40,7 +48,7 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings("serial")
 @AutoValue
 public abstract class DLPTransform
-    extends PTransform<PCollection<KV<String, String>>, PCollection<KV<String, TableRow>>> {
+    extends PTransform<PCollection<KV<String, String>>, PCollectionTuple> {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 
   @Nullable
@@ -83,7 +91,7 @@ public abstract class DLPTransform
   }
 
   @Override
-  public PCollection<KV<String, TableRow>> expand(PCollection<KV<String, String>> input) {
+  public PCollectionTuple expand(PCollection<KV<String, String>> input) {
     PCollection<KV<String, Iterable<Table.Row>>> batchedRows =
         input
             .apply("DLPRowConverts", ParDo.of(new MapStringToDlpRow(columnDelimeter())))
@@ -102,8 +110,8 @@ public abstract class DLPTransform
               .apply(
                   "CnvertInspectResponse",
                   ParDo.of(new ConvertInspectResponse())
-                      .withOutputTags(Util.inspectSuccess, TupleTagList.of(Util.inspectFailure)))
-              .get(Util.inspectSuccess);
+                      .withOutputTags(
+                          Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
         }
       case "deid":
         {
@@ -117,8 +125,8 @@ public abstract class DLPTransform
               .apply(
                   "ConvertDeidResponse",
                   ParDo.of(new ConvertDeidResponse())
-                      .withOutputTags(Util.deidSuccess, TupleTagList.of(Util.deidFailure)))
-              .get(Util.deidSuccess);
+                      .withOutputTags(
+                          Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
         }
       case "reid":
         {
@@ -130,20 +138,19 @@ public abstract class DLPTransform
                               projectId(), inspectTemplateName(), deidTemplateName(), header()))
                       .withSideInputs(header()))
               .apply(
-                  "ConvertReeidResponse",
+                  "ConvertReidResponse",
                   ParDo.of(new ConvertReidResponse())
-                      .withOutputTags(Util.reidSuccess, TupleTagList.of(Util.reidFailure)))
-              .get(Util.reidSuccess);
+                      .withOutputTags(Util.reidSuccess, TupleTagList.of(Util.reidFailure)));
         }
       default:
         {
-          throw new IllegalArgumentException("Please double check DLP Method Param!");
+          throw new IllegalArgumentException("Please validate DLPMethod param!");
         }
     }
   }
 
   static class ConvertReidResponse
-      extends DoFn<KV<String, ReidentifyContentResponse>, KV<String, TableRow>> {
+      extends DoFn<KV<String, ReidentifyContentResponse>, PubsubMessage> {
     private final Counter numberOfBytesReidentified =
         Metrics.counter(ConvertDeidResponse.class, "NumberOfBytesReidentified");
 
@@ -154,23 +161,21 @@ public abstract class DLPTransform
       String tableRef = element.getKey().split("\\~")[0];
       Table originalData = element.getValue().getItem().getTable();
       numberOfBytesReidentified.inc(originalData.toByteArray().length);
-      List<String> headers =
-          originalData.getHeadersList().stream()
-              .map(fid -> fid.getName())
-              .collect(Collectors.toList());
-      List<Table.Row> outputRows = originalData.getRowsList();
-      if (outputRows.size() > 0) {
-        for (Table.Row outputRow : outputRows) {
-          if (outputRow.getValuesCount() != headers.size()) {
-            throw new IllegalArgumentException(
-                "Selected Column count must exactly match with data element count");
-          }
-          out.get(Util.reidSuccess)
-              .output(
-                  KV.of(
-                      tableRef,
-                      Util.createBqRow(outputRow, headers.toArray(new String[headers.size()]))));
-        }
+      try {
+        out.get(Util.reidSuccess).output(Util.convertPubSubMessage(element.getValue()));
+      } catch (JsonSyntaxException | InvalidProtocolBufferException e) {
+        out.get(Util.reidFailure)
+            .output(
+                KV.of(
+                    Util.BQ_ERROR_TABLE_NAME,
+                    Util.toTableRow(
+                        Row.withSchema(Util.errorSchema)
+                            .addValues(
+                                tableRef,
+                                Util.getTimeStamp(),
+                                e.toString(),
+                                ExceptionUtils.getStackTrace(e))
+                            .build())));
       }
     }
   }
@@ -198,7 +203,7 @@ public abstract class DLPTransform
             throw new IllegalArgumentException(
                 "CSV file's header count must exactly match with data element count");
           }
-          out.get(Util.deidSuccess)
+          out.get(Util.inspectOrDeidSuccess)
               .output(
                   KV.of(
                       fileName,
@@ -236,7 +241,7 @@ public abstract class DLPTransform
                             finding.getLocation().getCodepointRange().getEnd())
                         .build();
                 numberOfInspectionFindings.inc();
-                out.get(Util.inspectSuccess)
+                out.get(Util.inspectOrDeidSuccess)
                     .output(KV.of(Util.BQ_DLP_INSPECT_TABLE_NAME, Util.toTableRow(row)));
               });
       element
@@ -244,7 +249,7 @@ public abstract class DLPTransform
           .findInitializationErrors()
           .forEach(
               error -> {
-                out.get(Util.inspectFailure)
+                out.get(Util.inspectOrDeidFailure)
                     .output(
                         KV.of(
                             Util.BQ_ERROR_TABLE_NAME,
