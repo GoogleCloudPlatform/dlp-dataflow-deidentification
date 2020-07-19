@@ -165,6 +165,8 @@ public class DLPTextToBigQueryStreamingV2 {
             .apply(
                 "PublishToPubSub",
                 PubsubIO.writeMessages()
+                .withMaxBatchBytesSize(PUB_SUB_BATCH_SIZE_BYTES)
+                .withMaxBatchSize(PUB_SUB_BATCH_SIZE)
                     .to(options.getTopic()));
         return p.run();
       default:
