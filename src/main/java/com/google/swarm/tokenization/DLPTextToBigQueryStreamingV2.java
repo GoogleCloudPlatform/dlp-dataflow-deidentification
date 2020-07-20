@@ -16,16 +16,24 @@
 package com.google.swarm.tokenization;
 
 import com.google.api.services.bigquery.model.TableRow;
+import com.google.privacy.dlp.v2.Table;
 import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
+import com.google.swarm.tokenization.common.BigQueryReadTransform;
+import com.google.swarm.tokenization.common.BigQueryTableHeaderDoFn;
 import com.google.swarm.tokenization.common.CSVFileHeaderDoFn;
 import com.google.swarm.tokenization.common.CSVReaderTransform;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.FileReaderSplitDoFn;
+import com.google.swarm.tokenization.common.MapStringToDlpRow;
+import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
+import com.google.swarm.tokenization.common.Util;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
@@ -35,6 +43,7 @@ import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
@@ -44,6 +53,10 @@ public class DLPTextToBigQueryStreamingV2 {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTextToBigQueryStreamingV2.class);
   private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(60);
   private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(10);
+  /** PubSub configuration for default batch size in number of messages */
+  public static final Integer PUB_SUB_BATCH_SIZE = 1000;
+  /** PubSub configuration for default batch size in bytes */
+  public static final Integer PUB_SUB_BATCH_SIZE_BYTES = 10000;
 
   public static void main(String[] args) {
 
@@ -52,57 +65,112 @@ public class DLPTextToBigQueryStreamingV2 {
     run(options);
   }
 
-  public static PipelineResult run(DLPTextToBigQueryStreamingV2PipelineOptions defaultOptions) {
+  public static PipelineResult run(DLPTextToBigQueryStreamingV2PipelineOptions options) {
 
-    Pipeline p = Pipeline.create(defaultOptions);
+    Pipeline p = Pipeline.create(options);
+    switch (options.getDLPMethod()) {
+      case INSPECT:
+      case DEID:
+        PCollection<KV<String, ReadableFile>> inputFile =
+            p.apply(
+                "CSVReaderTransform",
+                CSVReaderTransform.newBuilder()
+                    .setDelimeter(options.getDelimeter())
+                    .setFilePattern(options.getCSVFilePattern())
+                    .setKeyRange(options.getKeyRange())
+                    .setInterval(DEFAULT_POLL_INTERVAL)
+                    .build());
 
-    PCollection<KV<String, ReadableFile>> inputFile =
-        p.apply(
-            "CSVReaderTransform",
-            CSVReaderTransform.newBuilder()
-                .setDelimeter(defaultOptions.getDelimeter())
-                .setFilePattern(defaultOptions.getCSVFilePattern())
-                .setKeyRange(defaultOptions.getKeyRange())
-                .setInterval(DEFAULT_POLL_INTERVAL)
-                .build());
+        final PCollectionView<List<String>> header =
+            inputFile
+                .apply(
+                    "GlobalWindow",
+                    Window.<KV<String, ReadableFile>>into(new GlobalWindows())
+                        .triggering(
+                            Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
+                        .discardingFiredPanes())
+                .apply("ReadHeader", ParDo.of(new CSVFileHeaderDoFn()))
+                .apply("ViewAsList", View.asList());
 
-    final PCollectionView<List<String>> header =
-        inputFile
+        PCollectionTuple transformedContents =
+            inputFile
+                .apply(
+                    "ReadFile",
+                    ParDo.of(
+                        new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())))
+                .apply(
+                    "ConvertDLPRow", ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())))
+                .apply(
+                    "Fixed Window",
+                    Window.<KV<String, Table.Row>>into(FixedWindows.of(WINDOW_INTERVAL)))
+                .apply(
+                    "DLPTransform",
+                    DLPTransform.newBuilder()
+                        .setBatchSize(options.getBatchSize())
+                        .setInspectTemplateName(options.getInspectTemplateName())
+                        .setDeidTemplateName(options.getDeidentifyTemplateName())
+                        .setDlpmethod(options.getDLPMethod())
+                        .setProjectId(options.getProject())
+                        .setHeader(header)
+                        .setColumnDelimeter(options.getColumnDelimeter())
+                        .build());
+
+        transformedContents
+            .get(Util.inspectOrDeidSuccess)
             .apply(
-                "GlobalWindow",
-                Window.<KV<String, ReadableFile>>into(new GlobalWindows())
-                    .triggering(Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
-                    .discardingFiredPanes())
-            .apply("ReadHeader", ParDo.of(new CSVFileHeaderDoFn()))
-            .apply("ViewAsList", View.asList());
+                "StreamInsertToBQ",
+                BigQueryDynamicWriteTransform.newBuilder()
+                    .setDatasetId(options.getDataset())
+                    .setProjectId(options.getProject())
+                    .build());
+        return p.run();
 
-    PCollection<KV<String, TableRow>> transformedContents =
-        inputFile
-            .apply(
-                "ReadFile",
-                ParDo.of(
-                    new FileReaderSplitDoFn(
-                        defaultOptions.getKeyRange(), defaultOptions.getDelimeter())))
-            .apply(
-                "Fixed Window", Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
+      case REID:
+        PCollection<KV<String, TableRow>> record =
+            p.apply(
+                "ReadFromBQ",
+                BigQueryReadTransform.newBuilder()
+                    .setTableRef(options.getTableRef())
+                    .setReadMethod(options.getReadMethod())
+                    .setKeyRange(options.getKeyRange())
+                    .setQuery(Util.getQueryFromGcs(options.getQueryPath()))
+                    .build());
+
+        PCollectionView<List<String>> selectedColumns =
+            record
+                .apply(
+                    "GlobalWindow",
+                    Window.<KV<String, TableRow>>into(new GlobalWindows())
+                        .triggering(
+                            Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
+                        .discardingFiredPanes())
+                .apply("GroupByTableName", GroupByKey.create())
+                .apply("GetHeader", ParDo.of(new BigQueryTableHeaderDoFn()))
+                .apply("ViewAsList", View.asList());
+
+        record
+            .apply("ConvertDLPRow", ParDo.of(new MergeBigQueryRowToDlpRow()))
             .apply(
                 "DLPTransform",
                 DLPTransform.newBuilder()
-                    .setBatchSize(defaultOptions.getBatchSize())
-                    .setInspectTemplateName(defaultOptions.getInspectTemplateName())
-                    .setDeidTemplateName(defaultOptions.getDeidentifyTemplateName())
-                    .setDlpmethod(defaultOptions.getDLPMethod())
-                    .setProjectId(defaultOptions.getProject())
-                    .setCsvHeader(header)
-                    .setColumnDelimeter(defaultOptions.getColumnDelimeter())
-                    .build());
-
-    transformedContents.apply(
-        "StreamInsertToBQ",
-        BigQueryDynamicWriteTransform.newBuilder()
-            .setDatasetId(defaultOptions.getDataset())
-            .setProjectId(defaultOptions.getProject())
-            .build());
-    return p.run();
+                    .setBatchSize(options.getBatchSize())
+                    .setInspectTemplateName(options.getInspectTemplateName())
+                    .setDeidTemplateName(options.getDeidentifyTemplateName())
+                    .setDlpmethod(options.getDLPMethod())
+                    .setProjectId(options.getProject())
+                    .setHeader(selectedColumns)
+                    .setColumnDelimeter(",")
+                    .build())
+            .get(Util.reidSuccess)
+            .apply(
+                "PublishToPubSub",
+                PubsubIO.writeMessages()
+                    .withMaxBatchBytesSize(PUB_SUB_BATCH_SIZE_BYTES)
+                    .withMaxBatchSize(PUB_SUB_BATCH_SIZE)
+                    .to(options.getTopic()));
+        return p.run();
+      default:
+        throw new IllegalArgumentException("Please validate DLPMethod param!");
+    }
   }
 }

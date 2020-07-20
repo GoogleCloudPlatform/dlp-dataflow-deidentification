@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
-class MapStringToDlpRow extends DoFn<KV<String, String>, KV<String, Table.Row>> {
+public class MapStringToDlpRow extends DoFn<KV<String, String>, KV<String, Table.Row>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 

@@ -15,9 +15,11 @@
  */
 package com.google.swarm.tokenization;
 
+import com.google.swarm.tokenization.common.Util.DLPMethod;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.TypedRead.Method;
 import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.Validation;
@@ -40,10 +42,10 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   void setDeidentifyTemplateName(String value);
 
   @Description("DLP method deid,inspect,reid")
-  @Default.String("inspect")
-  String getDLPMethod();
+  @Default.Enum("INSPECT")
+  DLPMethod getDLPMethod();
 
-  void setDLPMethod(String value);
+  void setDLPMethod(DLPMethod value);
 
   @Description("Batch Size (max 524kb)")
   @Default.Integer(500000)
@@ -80,9 +82,24 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setColumnDelimeter(String value);
 
-  @Description("Run mode S3, default(gcs)")
-  @Default.String("default")
-  String getRunMode();
+  @Description("BigQuery table to export from in the form <project>:<dataset>.<table>")
+  String getTableRef();
 
-  void setRunMode(String value);
+  void setTableRef(String tableRef);
+
+  @Description("read method default, direct, export")
+  @Default.Enum("EXPORT")
+  Method getReadMethod();
+
+  void setReadMethod(Method method);
+
+  @Description("Query")
+  String getQueryPath();
+
+  void setQueryPath(String topic);
+
+  @Description("Topic to use for reid result")
+  String getTopic();
+
+  void setTopic(String topic);
 }

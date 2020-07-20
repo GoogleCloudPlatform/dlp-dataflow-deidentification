@@ -15,25 +15,35 @@
  */
 package com.google.swarm.tokenization.common;
 
-import com.google.api.services.bigquery.model.TableCell;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableMap;
+import com.google.gson.JsonSyntaxException;
 import com.google.privacy.dlp.v2.DeidentifyContentResponse;
+import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.InspectContentResponse;
+import com.google.privacy.dlp.v2.ReidentifyContentResponse;
 import com.google.privacy.dlp.v2.Table;
-import java.util.ArrayList;
+import com.google.swarm.tokenization.common.Util.DLPMethod;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.apache.beam.repackaged.core.org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.DoFn.Element;
 import org.apache.beam.sdk.transforms.DoFn.MultiOutputReceiver;
+import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
+import org.apache.beam.sdk.transforms.GroupIntoBatches;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TupleTagList;
@@ -43,7 +53,7 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings("serial")
 @AutoValue
 public abstract class DLPTransform
-    extends PTransform<PCollection<KV<String, String>>, PCollection<KV<String, TableRow>>> {
+    extends PTransform<PCollection<KV<String, Table.Row>>, PCollectionTuple> {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 
   @Nullable
@@ -58,9 +68,9 @@ public abstract class DLPTransform
 
   public abstract String columnDelimeter();
 
-  public abstract String dlpmethod();
+  public abstract DLPMethod dlpmethod();
 
-  public abstract PCollectionView<List<String>> csvHeader();
+  public abstract PCollectionView<List<String>> header();
 
   @AutoValue.Builder
   public abstract static class Builder {
@@ -72,11 +82,11 @@ public abstract class DLPTransform
 
     public abstract Builder setProjectId(String projectId);
 
-    public abstract Builder setCsvHeader(PCollectionView<List<String>> header);
+    public abstract Builder setHeader(PCollectionView<List<String>> header);
 
     public abstract Builder setColumnDelimeter(String columnDelimeter);
 
-    public abstract Builder setDlpmethod(String method);
+    public abstract Builder setDlpmethod(DLPMethod method);
 
     public abstract DLPTransform build();
   }
@@ -86,58 +96,120 @@ public abstract class DLPTransform
   }
 
   @Override
-  public PCollection<KV<String, TableRow>> expand(PCollection<KV<String, String>> input) {
-    PCollection<KV<String, Iterable<Table.Row>>> batchedRows =
-        input
-            .apply("DLPRowConverts", ParDo.of(new MapStringToDlpRow(columnDelimeter())))
-            .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())));
+  public PCollectionTuple expand(PCollection<KV<String, Table.Row>> input) {
     switch (dlpmethod()) {
-      case "inspect":
+      case INSPECT:
         {
-          return batchedRows
+          return input
+              .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())))
               .apply(
                   "DLPInspect",
-                  ParDo.of(new InspectData(projectId(), inspectTemplateName(), csvHeader()))
-                      .withSideInputs(csvHeader())
+                  ParDo.of(new InspectData(projectId(), inspectTemplateName(), header()))
+                      .withSideInputs(header())
                       .withOutputTags(
                           Util.inspectApiCallSuccess, TupleTagList.of(Util.inspectApiCallError)))
               .get(Util.inspectApiCallSuccess)
               .apply(
                   "CnvertInspectResponse",
                   ParDo.of(new ConvertInspectResponse())
-                      .withOutputTags(Util.inspectSuccess, TupleTagList.of(Util.inspectFailure)))
-              .get(Util.inspectSuccess);
+                      .withOutputTags(
+                          Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
         }
-      case "deid":
+      case DEID:
         {
-          return batchedRows
+          return input
+              .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())))
               .apply(
                   "DLPDeidentify",
                   ParDo.of(
                           new DeidentifyData(
-                              projectId(), inspectTemplateName(), deidTemplateName(), csvHeader()))
-                      .withSideInputs(csvHeader()))
+                              projectId(), inspectTemplateName(), deidTemplateName(), header()))
+                      .withSideInputs(header()))
               .apply(
                   "ConvertDeidResponse",
                   ParDo.of(new ConvertDeidResponse())
-                      .withOutputTags(Util.deidSuccess, TupleTagList.of(Util.deidFailure)))
-              .get(Util.deidSuccess);
+                      .withOutputTags(
+                          Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
         }
-      case "reid":
+      case REID:
         {
-          throw new IllegalArgumentException("Not Supported yet");
+          return input
+              .apply("GroupIntoBatches", GroupIntoBatches.ofSize(100))
+              .apply(
+                  "DLPReidentify",
+                  ParDo.of(
+                          new ReidentifyData(
+                              projectId(), inspectTemplateName(), deidTemplateName(), header()))
+                      .withSideInputs(header()))
+              .apply(
+                  "ConvertReidResponse",
+                  ParDo.of(new ConvertReidResponse())
+                      .withOutputTags(Util.reidSuccess, TupleTagList.of(Util.reidFailure)));
         }
       default:
         {
-          throw new IllegalArgumentException("Please double check DLP Method Param!");
+          throw new IllegalArgumentException("Please validate DLPMethod param!");
         }
+    }
+  }
+
+  static class ConvertReidResponse
+      extends DoFn<KV<String, ReidentifyContentResponse>, PubsubMessage> {
+    private final Counter numberOfBytesReidentified =
+        Metrics.counter(ConvertDeidResponse.class, "NumberOfBytesReidentified");
+
+    @ProcessElement
+    public void processElement(
+        @Element KV<String, ReidentifyContentResponse> element, MultiOutputReceiver out) {
+
+      String tableRef = element.getKey().split("\\~")[0];
+      Table originalData = element.getValue().getItem().getTable();
+      numberOfBytesReidentified.inc(originalData.toByteArray().length);
+      List<FieldId> dlpTableHeaders = originalData.getHeadersList();
+      try {
+
+        List<Table.Row> outputRows = element.getValue().getItem().getTable().getRowsList();
+        outputRows.forEach(
+            row -> {
+              HashMap<String, String> convertMap = new HashMap<String, String>();
+              AtomicInteger index = new AtomicInteger(0);
+              row.getValuesList()
+                  .forEach(
+                      value -> {
+                        String header = dlpTableHeaders.get(index.getAndIncrement()).getName();
+                        convertMap.put(header, value.getStringValue());
+                      });
+              String jsonMessage = Util.gson.toJson(convertMap);
+              LOG.info("Json message {}", jsonMessage);
+              PubsubMessage message =
+                  new PubsubMessage(
+                      jsonMessage.toString().getBytes(),
+                      ImmutableMap.<String, String>builder().put("table_name", tableRef).build());
+              out.get(Util.reidSuccess).output(message);
+            });
+
+      } catch (JsonSyntaxException e) {
+        LOG.error("error {}", e.getMessage());
+        out.get(Util.reidFailure)
+            .output(
+                KV.of(
+                    Util.BQ_ERROR_TABLE_NAME,
+                    Util.toTableRow(
+                        Row.withSchema(Util.errorSchema)
+                            .addValues(
+                                tableRef,
+                                Util.getTimeStamp(),
+                                e.toString(),
+                                ExceptionUtils.getStackTrace(e))
+                            .build())));
+      }
     }
   }
 
   static class ConvertDeidResponse
       extends DoFn<KV<String, DeidentifyContentResponse>, KV<String, TableRow>> {
     private final Counter numberOfBytesDeidentified =
-        Metrics.counter(ConvertInspectResponse.class, "NumberOfBytesDeidentified");
+        Metrics.counter(ConvertDeidResponse.class, "NumberOfBytesDeidentified");
 
     @ProcessElement
     public void processElement(
@@ -157,30 +229,13 @@ public abstract class DLPTransform
             throw new IllegalArgumentException(
                 "CSV file's header count must exactly match with data element count");
           }
-          out.get(Util.deidSuccess)
+          out.get(Util.inspectOrDeidSuccess)
               .output(
                   KV.of(
                       fileName,
-                      createBqRow(outputRow, headers.toArray(new String[headers.size()]))));
+                      Util.createBqRow(outputRow, headers.toArray(new String[headers.size()]))));
         }
       }
-    }
-
-    private static TableRow createBqRow(Table.Row tokenizedValue, String[] headers) {
-      TableRow bqRow = new TableRow();
-      AtomicInteger headerIndex = new AtomicInteger(0);
-      List<TableCell> cells = new ArrayList<>();
-      tokenizedValue
-          .getValuesList()
-          .forEach(
-              value -> {
-                String checkedHeaderName =
-                    Util.checkHeaderName(headers[headerIndex.getAndIncrement()].toString());
-                bqRow.set(checkedHeaderName, value.getStringValue());
-                cells.add(new TableCell().set(checkedHeaderName, value.getStringValue()));
-              });
-      bqRow.setF(cells);
-      return bqRow;
     }
   }
 
@@ -211,9 +266,8 @@ public abstract class DLPTransform
                             finding.getLocation().getCodepointRange().getStart(),
                             finding.getLocation().getCodepointRange().getEnd())
                         .build();
-                LOG.debug("Row{}", row);
                 numberOfInspectionFindings.inc();
-                out.get(Util.inspectSuccess)
+                out.get(Util.inspectOrDeidSuccess)
                     .output(KV.of(Util.BQ_DLP_INSPECT_TABLE_NAME, Util.toTableRow(row)));
               });
       element
@@ -221,7 +275,7 @@ public abstract class DLPTransform
           .findInitializationErrors()
           .forEach(
               error -> {
-                out.get(Util.inspectFailure)
+                out.get(Util.inspectOrDeidFailure)
                     .output(
                         KV.of(
                             Util.BQ_ERROR_TABLE_NAME,
