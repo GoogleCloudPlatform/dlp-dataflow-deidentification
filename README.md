@@ -45,7 +45,7 @@ sh deploy-data-tokeninzation-solution.sh
 For re-identification (getting back the original data in a Pub/Sub topic), please follow this instruction [here](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data#re-identifying_the_dataset_from_bigquery).  
 
 ## V2 Solution By Using In Built Java Beam Transform
-This part of the repo provides a reference implementation to process large scale files for  any DLP transformation like Inspect, Deidentify or ReIdentify.  Solution can be used for CSV / Avro files stored in either GCS or AWS S3 bucket. It uses State and Timer API for efficient batching to process the files in optimal manner.  Please note parameters like --runMode=S3, DLPMethod=deid. Addition to these, you can also use --keyRange, --windowInterval, parameters to increase parallelism. 
+This part of the repo provides a reference implementation to process large scale files for  any DLP transformation like Inspect, Deidentify or ReIdentify.  Solution can be used for CSV / Avro files stored in either GCS or AWS S3 bucket. It uses State and Timer API for efficient batching to process the files in optimal manner. 
 
 ## Build and Run
 ```
