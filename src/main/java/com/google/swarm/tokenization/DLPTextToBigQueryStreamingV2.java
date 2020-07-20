@@ -69,8 +69,8 @@ public class DLPTextToBigQueryStreamingV2 {
 
     Pipeline p = Pipeline.create(options);
     switch (options.getDLPMethod()) {
-      case "deid":
-      case "inspect":
+      case INSPECT:
+      case DEID:
         PCollection<KV<String, ReadableFile>> inputFile =
             p.apply(
                 "CSVReaderTransform",
@@ -125,7 +125,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .build());
         return p.run();
 
-      case "reid":
+      case REID:
         PCollection<KV<String, TableRow>> record =
             p.apply(
                 "ReadFromBQ",

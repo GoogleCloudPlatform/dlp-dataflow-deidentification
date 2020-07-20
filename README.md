@@ -53,7 +53,7 @@ gradle spotlessApply
 
 gradle build
 
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--project=<projct_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --CSVFilePattern=gs://<path>.csv --dataset=<name>   --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --DLPMethod=deid"
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--project=<projct_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --CSVFilePattern=gs://<path>.csv --dataset=<name>   --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --DLPMethod=DEID"
 ```
 ## S3 Scanner
 
@@ -67,11 +67,41 @@ gradle spotlessApply
 
 gradle build
 
-// inspect is default as DLP Method
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --CSVFilePattern=s3://<bucket>>/file.csv --dataset=<name>  --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate>  --runMode=s3 --awsRegion=<aws_region> --awsCredentialsProvider=$AWS_CRED"
+// inspect is default as DLP Method; For deid: --DLPMethod=DEID
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --CSVFilePattern=s3://<bucket>>/file.csv --dataset=<name>  --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --awsRegion=<aws_region> --awsCredentialsProvider=$AWS_CRED"
+```
+
+## ReIdentification From BigQuery 
+You can. use the pipeline to read from BgQuery table and publish the re-identification data in a secure pub sub topic.
+
+Export the Standard SQL Query to read data from bigQuery
+One example from our solution guide:
+```
+export QUERY="select id,card_number,card_holders_name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.100000CCRecords\` where safe_cast(credit_limit as int64)>100000 and safe_cast (age as int64)>50 group by id,card_number,card_holders_name limit 10"
+```
+Create a gcs file with the query:
+
+```
+export GCS_REID_QUERY_BUCKET=<name>
+cat << EOF | gsutil cp - gs://${REID_QUERY_BUCKET}/reid_query.sql
+${QUERY}
+EOF
+```
+Run the pipeline by passing required parameters:
+```
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=5 --maxNumWorkers=10 --runner=DataflowRunner --tableRef=<project_id>:<dataset>.<table> --topic=projects/<project_id>/topics/<name> --autoscalingAlgorithm=THROUGHPUT_BASED --workerMachineType=n1-highmem-4 --deidentifyTemplateName=projects/<project_id>/deidentifyTemplates/<name> --DLPMethod=REID --keyRange=1024 --queryPath=gs://<gcs_reid_query_bucket>/reid_query.sql"
+
 ```
 ## Dataflow DAG
-![v2_dag_](diagrams/dlp_dataflow_v2_dag.png)	   	
+For Deid and Inspect:
+![v2_dag_](diagrams/dlp_dag_new.png)	   	
+
+
+For Reid:
+
+![v2_dag_](diagrams/dlp_reid_dag.png)	   	
+
+
 
 ## Trigger Pipeline Using Public Image
 You can use the gcloud command to trigger the pipeline using Dataflow flex template. Below is an example for de-identification transform from a S3 bucket.
@@ -79,9 +109,10 @@ You can use the gcloud command to trigger the pipeline using Dataflow flex templ
 ```
 gcloud beta dataflow flex-template run "dlp-s3-scanner-deid-demo" --project=<project_id> \
 --region=<region> --template-file-gcs-location=gs://dataflow-dlp-solution-sample-data/dynamic_template_dlp_v2.json \
---parameters=^~^streaming=true~enableStreamingEngine=true~tempLocation=gs://<path>/temp~numWorkers=5~maxNumWorkers=5~runner=DataflowRunner~CSVFilePattern=<s3orgcspath>/filename.csv~dataset=<bq_dataset>~autoscalingAlgorithm=THROUGHPUT_BASED~workerMachineType=n1-highmem-8~inspectTemplateName=<inspect_template>~deidentifyTemplateName=<deid_template>~runMode=s3~awsRegion=ca-central-1~awsCredentialsProvider=$AWS_CRED~batchSize=100000~DLPMethod=deid
+--parameters=^~^streaming=true~enableStreamingEngine=true~tempLocation=gs://<path>/temp~numWorkers=5~maxNumWorkers=5~runner=DataflowRunner~CSVFilePattern=<s3orgcspath>/filename.csv~dataset=<bq_dataset>~autoscalingAlgorithm=THROUGHPUT_BASED~workerMachineType=n1-highmem-8~inspectTemplateName=<inspect_template>~deidentifyTemplateName=<deid_template>~awsRegion=ca-central-1~awsCredentialsProvider=$AWS_CRED~batchSize=100000~DLPMethod=DEID
 
 ```
 ## To Do
-- Integrate with Beam DLP Transform 
-- Flex Template
+- take out first row as header before processing 
+
+

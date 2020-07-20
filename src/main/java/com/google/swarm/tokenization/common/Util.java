@@ -63,6 +63,13 @@ import org.slf4j.LoggerFactory;
 public class Util {
 
   public static final Logger LOG = LoggerFactory.getLogger(Util.class);
+
+  public enum DLPMethod {
+    INSPECT,
+    DEID,
+    REID
+  }
+
   public static final Gson gson = new Gson();
   private static final char DEFAULT_SEPARATOR = ',';
   private static final char DEFAULT_QUOTE = '"';

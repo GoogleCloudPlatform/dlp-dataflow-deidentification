@@ -24,6 +24,7 @@ import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.privacy.dlp.v2.ReidentifyContentResponse;
 import com.google.privacy.dlp.v2.Table;
+import com.google.swarm.tokenization.common.Util.DLPMethod;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -67,7 +68,7 @@ public abstract class DLPTransform
 
   public abstract String columnDelimeter();
 
-  public abstract String dlpmethod();
+  public abstract DLPMethod dlpmethod();
 
   public abstract PCollectionView<List<String>> header();
 
@@ -85,7 +86,7 @@ public abstract class DLPTransform
 
     public abstract Builder setColumnDelimeter(String columnDelimeter);
 
-    public abstract Builder setDlpmethod(String method);
+    public abstract Builder setDlpmethod(DLPMethod method);
 
     public abstract DLPTransform build();
   }
@@ -97,7 +98,7 @@ public abstract class DLPTransform
   @Override
   public PCollectionTuple expand(PCollection<KV<String, Table.Row>> input) {
     switch (dlpmethod()) {
-      case "inspect":
+      case INSPECT:
         {
           return input
               .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())))
@@ -114,7 +115,7 @@ public abstract class DLPTransform
                       .withOutputTags(
                           Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
         }
-      case "deid":
+      case DEID:
         {
           return input
               .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())))
@@ -130,7 +131,7 @@ public abstract class DLPTransform
                       .withOutputTags(
                           Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
         }
-      case "reid":
+      case REID:
         {
           return input
               .apply("GroupIntoBatches", GroupIntoBatches.ofSize(100))
