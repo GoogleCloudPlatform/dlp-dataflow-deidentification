@@ -93,8 +93,11 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 ```
 ## Dataflow DAG
+
 For Deid and Inspect:
+
 ![v2_dag_](diagrams/dlp_dag_new.png)	   	
+
 
 
 For Reid:
