@@ -214,9 +214,9 @@ public abstract class DLPTransform
 
       if (element.getValue().getResult().getFindingsTruncated()) {
         numberOfTimesFindingsTruncated.inc();
-      } else {
-        numberOfTimesFindingsGenerated.inc();
       }
+
+      numberOfTimesFindingsGenerated.inc();
 
       element
           .getValue()

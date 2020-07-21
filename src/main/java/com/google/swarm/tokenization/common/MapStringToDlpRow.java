@@ -42,13 +42,6 @@ class MapStringToDlpRow extends DoFn<KV<String, String>, KV<String, Table.Row>> 
   public void processElement(ProcessContext context) {
     Table.Row.Builder rowBuilder = Table.Row.newBuilder();
     String line = Objects.requireNonNull(context.element().getValue());
-    //    if (delimiter != null) {
-    //      List<String> values = Util.parseLine(line, delimiter.charAt(0), '"');
-    //      values.forEach(value -> rowBuilder.addValues(Value.newBuilder().setStringValue(value)));
-    //
-    //    } else {
-    //      rowBuilder.addValues(Value.newBuilder().setStringValue(line));
-    //    }
 
     // TODO: Add support for user supplied delimiter to build CSVFormat
     CSVFormat csvFormat = CSVFormat.DEFAULT;

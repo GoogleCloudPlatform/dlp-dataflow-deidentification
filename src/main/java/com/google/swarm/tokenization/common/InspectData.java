@@ -85,33 +85,6 @@ public class InspectData
             .map(header -> FieldId.newBuilder().setName(header).build())
             .collect(Collectors.toList());
 
-    //    if (headerColumns != null) {
-    //      tableHeaders =
-    //          c.sideInput(headerColumns).stream()
-    //              .map(header -> FieldId.newBuilder().setName(header).build())
-    //              .collect(Collectors.toList());
-    //    } else {
-    //      tableHeaders = new ArrayList<>();
-    //      tableHeaders.add(FieldId.newBuilder().setName("value").build());
-    //    }
-    //
-    //    int headerLength = tableHeaders.size();
-    //    c.element()
-    //        .getValue()
-    //        .forEach(
-    //            row -> {
-    //              if (row.getValuesCount() == headerLength) {
-    //                tableRows.add(row);
-    //
-    //              } else {
-    //                LOG.warn(
-    //                    "Number of Columns: {} Mismatch with Header: {} for Row: {}",
-    //                    row.getValuesCount(),
-    //                    headerLength,
-    //                    row);
-    //              }
-    //            });
-
     Table table =
         Table.newBuilder().addAllHeaders(tableHeaders).addAllRows(c.element().getValue()).build();
     ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
