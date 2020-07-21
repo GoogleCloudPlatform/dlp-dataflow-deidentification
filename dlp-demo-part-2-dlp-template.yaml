@@ -17,6 +17,8 @@ steps:
 - name: gcr.io/cloud-builders/gsutil
   args: ['cp', '${_GCS_BUCKET_NAME}/de-identify-config.json', '.']
 - name: gcr.io/cloud-builders/gsutil
+  args: ['cp', '${_GCS_BUCKET_NAME}/re-identify-config.json', '.']
+- name: gcr.io/cloud-builders/gsutil
   args: ['cp', '${_GCS_BUCKET_NAME}/inspect-config.json', '.']  
 - name: 'gcr.io/cloud-builders/docker'
   entrypoint: 'bash'

@@ -30,6 +30,8 @@ set -x
 PROJECT_ID=$1
 DEID_CONFIG="@de-identify-config.json"
 DEID_TEMPLATE_OUTPUT="deid-template.json"
+REID_CONFIG="@re-identify-config.json"
+REID_TEMPLATE_OUTPUT="reid-template.json"
 INSPECT_CONFIG="@inspect-config.json"
 INSPECT_TEMPLATE_OUTPUT="inspect-template.json"
 API_KEY=$2
@@ -45,8 +47,12 @@ curl -X POST -H "Content-Type: application/json" \
 
 curl -X POST -H "Content-Type: application/json" \
  -H "Authorization: Bearer ${API_KEY}" \
+ "${DEID_TEMPLATE_API}"`` \
+ -d "${REID_CONFIG}"\
+ -o "${REID_TEMPLATE_OUTPUT}"
+
+curl -X POST -H "Content-Type: application/json" \
+ -H "Authorization: Bearer ${API_KEY}" \
  "${INSPECT_TEMPLATE_API}"`` \
  -d "${INSPECT_CONFIG}"\
  -o "${INSPECT_TEMPLATE_OUTPUT}"
-
-

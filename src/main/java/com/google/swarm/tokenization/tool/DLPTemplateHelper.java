@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 public class DLPTemplateHelper {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTemplateHelper.class);
   public static final String DLP_DEID_CONFIG_FILE = "de-identify-config.config";
+  public static final String DLP_REID_CONFIG_FILE = "re-identify-config.config";
   public static final String DLP_INSPECT_CONFIG_FILE = "inspect-config.config";
 
   public static final Gson gson = new Gson();
@@ -43,6 +44,7 @@ public class DLPTemplateHelper {
   public static void main(String[] args) {
     long timeStamp = Instant.now().getMillis();
     String deidDlpConfig = getDLPConfigJson(DLP_DEID_CONFIG_FILE);
+    String reidDlpConfig = getDLPConfigJson(DLP_REID_CONFIG_FILE);
     String gcsBucket = args[0];
     JsonObject kekConfig =
         gson.fromJson(getKekDetails(gcsBucket), new TypeToken<JsonObject>() {}.getType());
@@ -55,6 +57,11 @@ public class DLPTemplateHelper {
     LOG.info(
         "*****Successfully Updated DLP De-Identification Configuration With KEK {} *****",
         uploadConfig(updatedDeidConfig, gcsBucket, "de-identify-config.json"));
+
+    String updatedReidConfig = String.format(reidDlpConfig, kek, keyName, timeStamp);
+    LOG.info(
+        "*****Successfully Updated DLP Re-Identification Configuration With KEK {} *****",
+        uploadConfig(updatedReidConfig, gcsBucket, "re-identify-config.json"));
 
     LOG.info(
         "*****Successfully Uploaded DLP Inspect Configuration With Info Types {} *****",
