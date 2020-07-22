@@ -30,7 +30,6 @@ import org.apache.beam.sdk.state.TimerSpecs;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.values.KV;
-import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,7 +58,7 @@ class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable
       @TimerId("eventTimer") Timer eventTimer,
       BoundedWindow w) {
     elementsBag.add(element);
-     eventTimer.set(w.maxTimestamp());
+    eventTimer.set(w.maxTimestamp());
   }
 
   @OnTimer("eventTimer")
