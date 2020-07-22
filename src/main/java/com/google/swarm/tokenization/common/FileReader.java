@@ -36,8 +36,8 @@ public class FileReader {
   private volatile boolean eof;
   private volatile boolean elementIsPresent;
   private @Nullable String currentValue;
-  private @Nullable SeekableByteChannel inChannel;
-  private @Nullable byte[] delimiter;
+  private @Nullable final SeekableByteChannel inChannel;
+  private @Nullable final byte[] delimiter;
 
   public FileReader(SeekableByteChannel channel, long startOfRecord, byte[] delimiter)
       throws IOException {
@@ -73,7 +73,7 @@ public class FileReader {
       if (delimiter != null && startOffset >= delimiter.length) {
         requiredPosition = startOffset - delimiter.length;
       }
-      ((SeekableByteChannel) this.inChannel).position(requiredPosition);
+      this.inChannel.position(requiredPosition);
       findDelimiterBounds();
       buffer = buffer.substring(endOfDelimiterInBuffer);
       startOfNextRecord = requiredPosition + endOfDelimiterInBuffer;
