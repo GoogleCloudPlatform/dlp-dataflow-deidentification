@@ -46,7 +46,7 @@ class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable
   private final StateSpec<BagState<KV<String, Table.Row>>> elementsBag = StateSpecs.bag();
 
   @TimerId("eventTimer")
-  private final TimerSpec eventTimer = TimerSpecs.timer(TimeDomain.PROCESSING_TIME);
+  private final TimerSpec eventTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
 
   public BatchRequestForDLP(Integer batchSize) {
     this.batchSizeBytes = batchSize;
@@ -59,8 +59,7 @@ class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable
       @TimerId("eventTimer") Timer eventTimer,
       BoundedWindow w) {
     elementsBag.add(element);
-    // eventTimer.set(w.maxTimestamp());
-    eventTimer.offset(Duration.standardSeconds(5)).setRelative();
+     eventTimer.set(w.maxTimestamp());
   }
 
   @OnTimer("eventTimer")
