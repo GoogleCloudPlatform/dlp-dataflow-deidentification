@@ -208,8 +208,8 @@ public abstract class DLPTransform
 
   static class ConvertDeidResponse
       extends DoFn<KV<String, DeidentifyContentResponse>, KV<String, TableRow>> {
-    private final Counter numberOfBytesDeidentified =
-        Metrics.counter(ConvertDeidResponse.class, "NumberOfBytesDeidentified");
+    private final Counter numberOfRowDeidentified =
+        Metrics.counter(ConvertDeidResponse.class, "numberOfRowDeidentified");
 
     @ProcessElement
     public void processElement(
@@ -217,7 +217,7 @@ public abstract class DLPTransform
 
       String fileName = element.getKey().split("\\~")[0];
       Table tokenizedData = element.getValue().getItem().getTable();
-      numberOfBytesDeidentified.inc(tokenizedData.toByteArray().length);
+      numberOfRowDeidentified.inc(tokenizedData.getRowsCount());
       List<String> headers =
           tokenizedData.getHeadersList().stream()
               .map(fid -> fid.getName())

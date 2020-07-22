@@ -27,6 +27,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.KV;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,7 +58,7 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
         String contents = reader.getCurrent();
         String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
         numberOfRowsRead.inc();
-        c.outputWithTimestamp(KV.of(key, contents), c.timestamp());
+        c.outputWithTimestamp(KV.of(key, contents), Instant.now());
       }
     }
   }
