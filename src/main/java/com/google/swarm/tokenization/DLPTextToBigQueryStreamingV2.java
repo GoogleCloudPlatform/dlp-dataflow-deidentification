@@ -98,11 +98,9 @@ public class DLPTextToBigQueryStreamingV2 {
                     "ReadFile",
                     ParDo.of(
                         new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())))
-                .apply(
-                    "ConvertDLPRow", ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())))
-                .apply(
+             .apply(
                     "Fixed Window",
-                    Window.<KV<String, Table.Row>>into(FixedWindows.of(WINDOW_INTERVAL)))
+                    Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
                 .apply(
                     "DLPTransform",
                     DLPTransform.newBuilder()
