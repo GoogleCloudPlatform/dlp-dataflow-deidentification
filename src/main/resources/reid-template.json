@@ -1,0 +1,35 @@
+// [START reid_template]
+{
+  "name": "projects/<project_id>/deidentifyTemplates/<template_id>",
+  "displayName": "Config to ReIdentify Sample Dataset",
+  "description": "Used to re-identify Card Number and Card Holder's Name",
+  "createTime": "2019-12-01T19:21:07.306279Z",
+  "updateTime": "2019-12-01T19:21:07.306279Z",
+  "deidentifyConfig": {
+    "recordTransformations": {
+      "fieldTransformations": [
+        {
+          "fields": [
+            {
+              "name": "Card Holder's Name"
+            },
+            {
+              "name": "Card Number"
+            }
+          ],
+          "primitiveTransformation": {
+            "cryptoDeterministicConfig": {
+              "cryptoKey": {
+                "kmsWrapped": {
+                  "wrappedKey": "<var>kms-wrapped-key</var>",
+                  "cryptoKeyName": "<var>kms-key-resource-name</var>"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+// [END reid_template]
