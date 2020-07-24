@@ -37,6 +37,7 @@ import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
+import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
@@ -86,7 +87,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .apply(
                     "GlobalWindow",
                     Window.<KV<String, ReadableFile>>into(new GlobalWindows())
-                        .triggering(
+                    .triggering(
                             Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
                         .discardingFiredPanes())
                 .apply("ReadHeader", ParDo.of(new CSVFileHeaderDoFn()))
