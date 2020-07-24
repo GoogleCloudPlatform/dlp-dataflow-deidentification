@@ -50,6 +50,11 @@ public class InspectData
   private final Counter numberOfRowsInspected =
       Metrics.counter(InspectData.class, "NumberOfRowsInspected");
 
+  private final Counter numberOfDlpApiCalls =
+      Metrics.counter(InspectData.class, "NumberOfDlpApiCalls");
+
+  private final Counter numberOfBadRows = Metrics.counter(InspectData.class, "NumberOfBadRows");
+
   public InspectData(
       String projectId, String inspectTemplateName, PCollectionView<List<String>> headerColumns) {
     this.projectId = projectId;
@@ -93,9 +98,11 @@ public class InspectData
       InspectContentResponse response =
           dlpServiceClient.inspectContent(this.requestBuilder.build());
       numberOfRowsInspected.inc(table.getRowsCount());
+      numberOfDlpApiCalls.inc();
       out.get(Util.inspectApiCallSuccess).output(KV.of(c.element().getKey(), response));
 
     } catch (Exception e) {
+      numberOfBadRows.inc(table.getRowsCount());
       out.get(Util.inspectApiCallError)
           .output(
               KV.of(
