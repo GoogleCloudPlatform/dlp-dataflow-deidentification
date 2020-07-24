@@ -100,7 +100,7 @@ public class DLPTextToBigQueryStreamingV2 {
                         new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())))
              .apply(
                     "Fixed Window",
-                    Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
+                    Window.<KV<String,String>>into(FixedWindows.of(WINDOW_INTERVAL)))
                 .apply(
                     "DLPTransform",
                     DLPTransform.newBuilder()

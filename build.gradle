@@ -82,8 +82,9 @@ tasks.withType(JavaCompile) {
 repositories {
     mavenCentral()
     maven {
-      url "https://repository.apache.org/content/repositories/staging/"
+      url "https://repository.apache.org/content/repositories/orgapachebeam-1106/"
     }
+    
 }
 
 dependencies {
