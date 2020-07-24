@@ -22,10 +22,15 @@ import com.google.privacy.dlp.v2.InspectContentRequest;
 import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
+import com.google.swarm.tokenization.common.DLPTransform.ConvertInspectResponse;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import org.apache.beam.sdk.metrics.Counter;
+import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollectionView;
@@ -37,7 +42,6 @@ import org.slf4j.LoggerFactory;
 public class InspectData
     extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, InspectContentResponse>> {
   public static final Logger LOG = LoggerFactory.getLogger(InspectData.class);
-
   private final String projectId;
   private final String inspectTemplateName;
   private final PCollectionView<List<String>> headerColumns;
