@@ -49,7 +49,7 @@ import org.slf4j.LoggerFactory;
 public class DLPTextToBigQueryStreamingV2 {
 
   public static final Logger LOG = LoggerFactory.getLogger(DLPTextToBigQueryStreamingV2.class);
-  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(60);
+  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(1);
   private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(10);
 
   public static void main(String[] args) {
@@ -61,10 +61,8 @@ public class DLPTextToBigQueryStreamingV2 {
 
   public static PipelineResult run(DLPTextToBigQueryStreamingV2PipelineOptions defaultOptions) {
 
-    TupleTag<KV<String, String>> goodRecords = new TupleTag<KV<String, String>>() {
-    };
-    TupleTag<KV<String, String>> badRecords = new TupleTag<KV<String, String>>() {
-    };
+    TupleTag<KV<String, String>> goodRecords = new TupleTag<KV<String, String>>() {};
+    TupleTag<KV<String, String>> badRecords = new TupleTag<KV<String, String>>() {};
 
     Pipeline p = Pipeline.create(defaultOptions);
 

@@ -15,7 +15,6 @@
  */
 package com.google.swarm.tokenization.common;
 
-import java.io.IOException;
 import java.util.List;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
@@ -23,8 +22,6 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.TupleTag;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,24 +50,26 @@ public class FilterBadRecordsDoFn extends DoFn<KV<String, String>, KV<String, St
   public void processElement(
       @Element KV<String, String> element, MultiOutputReceiver out, ProcessContext c) {
 
-    CSVFormat csvFormat = CSVFormat.DEFAULT;
-    try {
-      CSVParser parser = CSVParser.parse(element.getValue(), csvFormat);
+    //    CSVFormat csvFormat = CSVFormat.DEFAULT;
+    //    try {
+    //      CSVParser parser = CSVParser.parse(element.getValue(), csvFormat);
+    //
+    //      if (parser.getRecords().get(0).size() == c.sideInput(csvHeader).size()) {
+    //        out.get(goodRecords).output(element);
+    //      } else {
+    //        out.get(badRecords).output(element);
+    //        numberOfBadRecords.inc();
+    //      }
+    //
+    //    } catch (IOException e) {
+    //
+    //      LOG.error("Failed to parse element: {}", e.getMessage());
+    //
+    //      LOG.error("Bad record: {}", element.getValue());
+    //      out.get(badRecords).output(element);
+    //      numberOfBadRecords.inc();
+    //    }
 
-      if (parser.getRecords().get(0).size() == c.sideInput(csvHeader).size()) {
-        out.get(goodRecords).output(element);
-      } else {
-        out.get(badRecords).output(element);
-        numberOfBadRecords.inc();
-      }
-
-    } catch (IOException e) {
-
-      LOG.error("Failed to parse element: {}", e.getMessage());
-
-      LOG.error("Bad record: {}", element.getValue());
-      out.get(badRecords).output(element);
-      numberOfBadRecords.inc();
-    }
+    out.get(goodRecords).output(element);
   }
 }

@@ -93,7 +93,10 @@ public abstract class DLPTransform
   public PCollection<KV<String, TableRow>> expand(PCollection<KV<String, String>> input) {
     PCollection<KV<String, Iterable<Table.Row>>> batchedRows =
         input
-            .apply("DLPRowConverts", ParDo.of(new MapStringToDlpRow(columnDelimeter())))
+            .apply(
+                "DLPRowConverts",
+                ParDo.of(new MapStringToDlpRow(columnDelimeter(), csvHeader()))
+                    .withSideInputs(csvHeader()))
             .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())));
     switch (dlpmethod()) {
       case "inspect":
