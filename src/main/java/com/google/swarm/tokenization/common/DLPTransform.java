@@ -41,7 +41,6 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.DoFn.Element;
 import org.apache.beam.sdk.transforms.DoFn.MultiOutputReceiver;
 import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
-import org.apache.beam.sdk.transforms.GroupIntoBatches;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
@@ -104,11 +103,15 @@ public abstract class DLPTransform
       case INSPECT:
         {
           return input
-              .apply("InspectTransform",DLPInspectText.newBuilder().setBatchSizeBytes(batchSize())
-            		  .setColumnDelimiter(columnDelimeter())
-            		  .setHeaderColumns(header())
-            		  .setInspectTemplateName(inspectTemplateName())
-            		  .setProjectId(projectId()).build())
+              .apply(
+                  "InspectTransform",
+                  DLPInspectText.newBuilder()
+                      .setBatchSizeBytes(batchSize())
+                      .setColumnDelimiter(columnDelimeter())
+                      .setHeaderColumns(header())
+                      .setInspectTemplateName(inspectTemplateName())
+                      .setProjectId(projectId())
+                      .build())
               .apply(
                   "CnvertInspectResponse",
                   ParDo.of(new ConvertInspectResponse())
@@ -117,15 +120,17 @@ public abstract class DLPTransform
         }
       case DEID:
         {
-         
-        	
-        	return input.apply("DeIdTransform",
-        		DLPDeidentifyText.newBuilder().setBatchSizeBytes(batchSize())
-          		  .setColumnDelimiter(columnDelimeter())
-          		  .setHeaderColumns(header())
-          		  .setInspectTemplateName(inspectTemplateName())
-          		  .setDeidentifyTemplateName(deidTemplateName())
-          		  .setProjectId(projectId()).build())
+          return input
+              .apply(
+                  "DeIdTransform",
+                  DLPDeidentifyText.newBuilder()
+                      .setBatchSizeBytes(batchSize())
+                      .setColumnDelimiter(columnDelimeter())
+                      .setHeaderColumns(header())
+                      .setInspectTemplateName(inspectTemplateName())
+                      .setDeidentifyTemplateName(deidTemplateName())
+                      .setProjectId(projectId())
+                      .build())
               .apply(
                   "ConvertDeidResponse",
                   ParDo.of(new ConvertDeidResponse())
@@ -135,12 +140,16 @@ public abstract class DLPTransform
       case REID:
         {
           return input
-              .apply("ReIdTransform",DLPReidentifyText.newBuilder().setBatchSizeBytes(batchSize())
-            		  .setColumnDelimiter(columnDelimeter())
-            		  .setHeaderColumns(header())
-            		  .setInspectTemplateName(inspectTemplateName())
-            		  .setReidentifyTemplateName(deidTemplateName())
-            		  .setProjectId(projectId()).build())
+              .apply(
+                  "ReIdTransform",
+                  DLPReidentifyText.newBuilder()
+                      .setBatchSizeBytes(batchSize())
+                      .setColumnDelimiter(columnDelimeter())
+                      .setHeaderColumns(header())
+                      .setInspectTemplateName(inspectTemplateName())
+                      .setReidentifyTemplateName(deidTemplateName())
+                      .setProjectId(projectId())
+                      .build())
               .apply(
                   "ConvertReidResponse",
                   ParDo.of(new ConvertReidResponse())

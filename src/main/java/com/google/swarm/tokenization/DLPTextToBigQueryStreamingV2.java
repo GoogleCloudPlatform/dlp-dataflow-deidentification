@@ -16,7 +16,6 @@
 package com.google.swarm.tokenization;
 
 import com.google.api.services.bigquery.model.TableRow;
-import com.google.privacy.dlp.v2.Table;
 import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
 import com.google.swarm.tokenization.common.BigQueryReadTransform;
 import com.google.swarm.tokenization.common.BigQueryTableHeaderDoFn;
@@ -24,7 +23,6 @@ import com.google.swarm.tokenization.common.CSVFileHeaderDoFn;
 import com.google.swarm.tokenization.common.CSVReaderTransform;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.FileReaderSplitDoFn;
-import com.google.swarm.tokenization.common.MapStringToDlpRow;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
 import com.google.swarm.tokenization.common.Util;
 import java.util.List;
@@ -37,7 +35,6 @@ import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
-import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
@@ -87,7 +84,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .apply(
                     "GlobalWindow",
                     Window.<KV<String, ReadableFile>>into(new GlobalWindows())
-                    .triggering(
+                        .triggering(
                             Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
                         .discardingFiredPanes())
                 .apply("ReadHeader", ParDo.of(new CSVFileHeaderDoFn()))
@@ -99,9 +96,9 @@ public class DLPTextToBigQueryStreamingV2 {
                     "ReadFile",
                     ParDo.of(
                         new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())))
-             .apply(
+                .apply(
                     "Fixed Window",
-                    Window.<KV<String,String>>into(FixedWindows.of(WINDOW_INTERVAL)))
+                    Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
                 .apply(
                     "DLPTransform",
                     DLPTransform.newBuilder()

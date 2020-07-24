@@ -16,13 +16,9 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.api.services.bigquery.model.TableRow;
-import com.google.privacy.dlp.v2.Table;
-import com.google.privacy.dlp.v2.Value;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 
@@ -39,7 +35,7 @@ public class MergeBigQueryRowToDlpRow extends DoFn<KV<String, TableRow>, KV<Stri
               String value = element.getValue().toString();
               values.add(value);
             });
-   String row = values.stream().collect(Collectors.joining(","));
+    String row = values.stream().collect(Collectors.joining(","));
     c.output(KV.of(c.element().getKey(), row));
   }
 }
