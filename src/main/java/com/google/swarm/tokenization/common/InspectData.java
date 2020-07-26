@@ -26,6 +26,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.beam.sdk.metrics.Counter;
+import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollectionView;
@@ -43,6 +45,14 @@ public class InspectData
   private final PCollectionView<List<String>> headerColumns;
   private transient DlpServiceClient dlpServiceClient;
   private transient InspectContentRequest.Builder requestBuilder;
+
+  private final Counter numberOfRowsInspected =
+      Metrics.counter(InspectData.class, "NumberOfRowsInspected");
+
+  private final Counter numberOfDlpApiCalls =
+      Metrics.counter(InspectData.class, "NumberOfDlpApiCalls");
+
+  private final Counter numberOfBadRows = Metrics.counter(InspectData.class, "NumberOfBadRows");
 
   public InspectData(
       String projectId, String inspectTemplateName, PCollectionView<List<String>> headerColumns) {
@@ -104,9 +114,12 @@ public class InspectData
     try {
       InspectContentResponse response =
           dlpServiceClient.inspectContent(this.requestBuilder.build());
+      numberOfRowsInspected.inc(table.getRowsCount());
+      numberOfDlpApiCalls.inc();
       out.get(Util.inspectApiCallSuccess).output(KV.of(c.element().getKey(), response));
 
     } catch (Exception e) {
+      numberOfBadRows.inc(table.getRowsCount());
       out.get(Util.inspectApiCallError)
           .output(
               KV.of(
