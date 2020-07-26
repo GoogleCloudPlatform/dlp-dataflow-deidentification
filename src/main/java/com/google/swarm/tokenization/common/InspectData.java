@@ -47,10 +47,10 @@ public class InspectData
   private transient InspectContentRequest.Builder requestBuilder;
 
   private final Counter numberOfRowsInspected =
-      Metrics.counter(InspectData.class, "NumberOfRowsInspected");
+      Metrics.counter(InspectData.class, "numberOfRowsInspected");
 
   private final Counter numberOfDlpApiCalls =
-      Metrics.counter(InspectData.class, "NumberOfDlpApiCalls");
+      Metrics.counter(InspectData.class, "numberOfDlpApiCalls");
 
   private final Counter numberOfBadRows = Metrics.counter(InspectData.class, "NumberOfBadRows");
 

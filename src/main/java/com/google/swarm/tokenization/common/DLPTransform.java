@@ -253,13 +253,13 @@ public abstract class DLPTransform
     }
 
     private final Counter numberOfInspectionFindings =
-        Metrics.counter(ConvertInspectResponse.class, "NumberOfInspectionFindings");
+        Metrics.counter(ConvertInspectResponse.class, "numberOfInspectionFindings");
 
     private final Counter numberOfTimesFindingsTruncated =
-        Metrics.counter(ConvertInspectResponse.class, "NumberOfTimesFindingsTruncated");
+        Metrics.counter(ConvertInspectResponse.class, "numberOfTimesFindingsTruncated");
 
     private final Counter numberOfTimesFindingsGenerated =
-        Metrics.counter(ConvertInspectResponse.class, "NumberOfTimesFindingsGenerated");
+        Metrics.counter(ConvertInspectResponse.class, "numberOfTimesFindingsGenerated");
 
     @ProcessElement
     public void processElement(
