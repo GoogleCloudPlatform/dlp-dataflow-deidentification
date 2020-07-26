@@ -18,6 +18,7 @@ package com.google.swarm.tokenization.common;
 import com.google.cloud.dlp.v2.DlpServiceClient;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.FieldId;
+import com.google.privacy.dlp.v2.InspectConfig;
 import com.google.privacy.dlp.v2.InspectContentRequest;
 import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.privacy.dlp.v2.ProjectName;
@@ -69,6 +70,8 @@ public class InspectData
       requestBuilder.setInspectTemplateName(this.inspectTemplateName);
     }
 
+    InspectConfig config = InspectConfig.newBuilder().setIncludeQuote(true).build();
+    this.requestBuilder.setInspectConfig(config);
     dlpServiceClient = DlpServiceClient.create();
   }
 
