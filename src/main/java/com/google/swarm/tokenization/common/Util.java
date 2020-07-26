@@ -124,6 +124,7 @@ public class Util {
 
   public static final Schema dlpInspectionSchema =
       Stream.of(
+              Schema.Field.of("job_name", FieldType.STRING).withNullable(true),
               Schema.Field.of("source_file", FieldType.STRING).withNullable(true),
               Schema.Field.of("transaction_time", FieldType.STRING).withNullable(true),
               Schema.Field.of("info_type_name", FieldType.STRING).withNullable(true),

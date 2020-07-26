@@ -118,6 +118,7 @@ public class DLPTextToBigQueryStreamingV2 {
                         .setProjectId(options.getProject())
                         .setHeader(header)
                         .setColumnDelimeter(options.getColumnDelimeter())
+                        .setJobName(options.getJobName())
                         .build());
 
         transformedContents

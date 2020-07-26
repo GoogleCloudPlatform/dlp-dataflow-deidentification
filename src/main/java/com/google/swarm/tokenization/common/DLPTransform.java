@@ -70,6 +70,8 @@ public abstract class DLPTransform
 
   public abstract DLPMethod dlpmethod();
 
+  public abstract String jobName();
+
   public abstract PCollectionView<List<String>> header();
 
   @AutoValue.Builder
@@ -87,6 +89,8 @@ public abstract class DLPTransform
     public abstract Builder setColumnDelimeter(String columnDelimeter);
 
     public abstract Builder setDlpmethod(DLPMethod method);
+
+    public abstract Builder setJobName(String jobName);
 
     public abstract DLPTransform build();
   }
@@ -110,8 +114,8 @@ public abstract class DLPTransform
                           Util.inspectApiCallSuccess, TupleTagList.of(Util.inspectApiCallError)))
               .get(Util.inspectApiCallSuccess)
               .apply(
-                  "CnvertInspectResponse",
-                  ParDo.of(new ConvertInspectResponse())
+                  "ConvertInspectResponse",
+                  ParDo.of(new ConvertInspectResponse(jobName()))
                       .withOutputTags(
                           Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
         }
@@ -241,6 +245,13 @@ public abstract class DLPTransform
 
   static class ConvertInspectResponse
       extends DoFn<KV<String, InspectContentResponse>, KV<String, TableRow>> {
+
+    private String jobName;
+
+    public ConvertInspectResponse(String jobName) {
+      this.jobName = jobName;
+    }
+
     private final Counter numberOfInspectionFindings =
         Metrics.counter(ConvertInspectResponse.class, "NumberOfInspectionFindings");
 
@@ -258,6 +269,7 @@ public abstract class DLPTransform
                 Row row =
                     Row.withSchema(Util.dlpInspectionSchema)
                         .addValues(
+                            jobName,
                             fileName,
                             timeStamp,
                             finding.getInfoType().getName(),
