@@ -37,7 +37,6 @@ import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
-import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
@@ -51,12 +50,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLPTextToBigQueryStreamingV2 {
+
   public static final Logger LOG = LoggerFactory.getLogger(DLPTextToBigQueryStreamingV2.class);
   private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(10);
   private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(10);
-  /** PubSub configuration for default batch size in number of messages */
+  /**
+   * PubSub configuration for default batch size in number of messages
+   */
   public static final Integer PUB_SUB_BATCH_SIZE = 1000;
-  /** PubSub configuration for default batch size in bytes */
+  /**
+   * PubSub configuration for default batch size in bytes
+   */
   public static final Integer PUB_SUB_BATCH_SIZE_BYTES = 10000;
 
   public static void main(String[] args) {
@@ -87,7 +91,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .apply(
                     "GlobalWindow",
                     Window.<KV<String, ReadableFile>>into(new GlobalWindows())
-                    .triggering(
+                        .triggering(
                             Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
                         .discardingFiredPanes())
                 .apply("ReadHeader", ParDo.of(new CSVFileHeaderDoFn()))
