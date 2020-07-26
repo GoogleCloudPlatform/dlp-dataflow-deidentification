@@ -255,11 +255,24 @@ public abstract class DLPTransform
     private final Counter numberOfInspectionFindings =
         Metrics.counter(ConvertInspectResponse.class, "NumberOfInspectionFindings");
 
+    private final Counter numberOfTimesFindingsTruncated =
+        Metrics.counter(ConvertInspectResponse.class, "NumberOfTimesFindingsTruncated");
+
+    private final Counter numberOfTimesFindingsGenerated =
+        Metrics.counter(ConvertInspectResponse.class, "NumberOfTimesFindingsGenerated");
+
     @ProcessElement
     public void processElement(
         @Element KV<String, InspectContentResponse> element, MultiOutputReceiver out) {
       String fileName = element.getKey().split("\\~")[0];
       String timeStamp = Util.getTimeStamp();
+
+      if (element.getValue().getResult().getFindingsTruncated()) {
+        numberOfTimesFindingsTruncated.inc();
+      }
+
+      numberOfTimesFindingsGenerated.inc();
+
       element
           .getValue()
           .getResult()
