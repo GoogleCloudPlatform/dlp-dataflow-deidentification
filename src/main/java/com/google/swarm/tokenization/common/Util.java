@@ -127,11 +127,12 @@ public class Util {
               Schema.Field.of("job_name", FieldType.STRING).withNullable(true),
               Schema.Field.of("source_file", FieldType.STRING).withNullable(true),
               Schema.Field.of("transaction_time", FieldType.STRING).withNullable(true),
+              Schema.Field.of("quote", FieldType.STRING).withNullable(true),
               Schema.Field.of("info_type_name", FieldType.STRING).withNullable(true),
               Schema.Field.of("likelihood", FieldType.STRING).withNullable(true),
-              Schema.Field.of("quote", FieldType.STRING).withNullable(true),
               Schema.Field.of("location_start_byte_range", FieldType.INT64).withNullable(true),
-              Schema.Field.of("location_end_byte_range", FieldType.INT64).withNullable(true))
+              Schema.Field.of("location_end_byte_range", FieldType.INT64).withNullable(true),
+              Schema.Field.of("record_loc_field_id", FieldType.STRING).withNullable(true))
           .collect(toSchema());
 
   public static final Schema errorSchema =

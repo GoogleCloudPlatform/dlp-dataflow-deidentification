@@ -285,11 +285,18 @@ public abstract class DLPTransform
                             jobName,
                             fileName,
                             timeStamp,
+                            finding.getQuote(),
                             finding.getInfoType().getName(),
                             finding.getLikelihood().name(),
-                            finding.getQuote(),
                             finding.getLocation().getCodepointRange().getStart(),
-                            finding.getLocation().getCodepointRange().getEnd())
+                            finding.getLocation().getCodepointRange().getEnd(),
+                            finding
+                                .getLocation()
+                                .getContentLocationsList()
+                                .get(0)
+                                .getRecordLocation()
+                                .getFieldId()
+                                .getName())
                         .build();
                 numberOfInspectionFindings.inc();
                 out.get(Util.inspectOrDeidSuccess)
