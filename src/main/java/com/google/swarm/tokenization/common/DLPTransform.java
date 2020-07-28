@@ -256,12 +256,17 @@ public abstract class DLPTransform
       this.jobName = jobName;
     }
 
+    // Counter to track total number of Inspection Findings fetched from DLP Inspection response
     private final Counter numberOfInspectionFindings =
         Metrics.counter(ConvertInspectResponse.class, "numberOfInspectionFindings");
 
+    // Counter to track total number of times Inspection Findings got truncated in the
+    // in the DLP Inspection response
     private final Counter numberOfTimesFindingsTruncated =
         Metrics.counter(ConvertInspectResponse.class, "numberOfTimesFindingsTruncated");
 
+    // Counter to track total number of times Inspection Findings generated in the
+    // this should be same number as number of total DLP API calls
     private final Counter numberOfTimesFindingsGenerated =
         Metrics.counter(ConvertInspectResponse.class, "numberOfTimesFindingsGenerated");
 

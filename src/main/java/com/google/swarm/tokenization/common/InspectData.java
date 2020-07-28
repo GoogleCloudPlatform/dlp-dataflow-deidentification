@@ -47,12 +47,16 @@ public class InspectData
   private transient DlpServiceClient dlpServiceClient;
   private transient InspectContentRequest.Builder requestBuilder;
 
+  // Counter to track total number of Rows inspected from DLP inspection
   private final Counter numberOfRowsInspected =
       Metrics.counter(InspectData.class, "numberOfRowsInspected");
 
+  // Counter to track total number of DLP API calls made for DLP Inspection
   private final Counter numberOfDlpApiCalls =
       Metrics.counter(InspectData.class, "numberOfDlpApiCalls");
 
+  // Counter to track total number of Bad Rows - Rows where the values count doesn't match the
+  // header columns count
   private final Counter numberOfBadRows = Metrics.counter(InspectData.class, "numberOfBadRows");
 
   public InspectData(
