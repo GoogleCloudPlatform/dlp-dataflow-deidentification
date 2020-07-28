@@ -54,6 +54,7 @@ import org.slf4j.LoggerFactory;
 @AutoValue
 public abstract class DLPTransform
     extends PTransform<PCollection<KV<String, Table.Row>>, PCollectionTuple> {
+
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 
   @Nullable
@@ -76,6 +77,7 @@ public abstract class DLPTransform
 
   @AutoValue.Builder
   public abstract static class Builder {
+
     public abstract Builder setInspectTemplateName(String inspectTemplateName);
 
     public abstract Builder setDeidTemplateName(String inspectTemplateName);
@@ -159,6 +161,7 @@ public abstract class DLPTransform
 
   static class ConvertReidResponse
       extends DoFn<KV<String, ReidentifyContentResponse>, PubsubMessage> {
+
     private final Counter numberOfBytesReidentified =
         Metrics.counter(ConvertDeidResponse.class, "NumberOfBytesReidentified");
 
@@ -212,6 +215,7 @@ public abstract class DLPTransform
 
   static class ConvertDeidResponse
       extends DoFn<KV<String, DeidentifyContentResponse>, KV<String, TableRow>> {
+
     private final Counter numberOfRowDeidentified =
         Metrics.counter(ConvertDeidResponse.class, "numberOfRowDeidentified");
 

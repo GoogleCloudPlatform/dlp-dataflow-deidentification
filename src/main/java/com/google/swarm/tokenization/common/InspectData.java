@@ -53,7 +53,7 @@ public class InspectData
   private final Counter numberOfDlpApiCalls =
       Metrics.counter(InspectData.class, "numberOfDlpApiCalls");
 
-  private final Counter numberOfBadRows = Metrics.counter(InspectData.class, "NumberOfBadRows");
+  private final Counter numberOfBadRows = Metrics.counter(InspectData.class, "numberOfBadRows");
 
   public InspectData(
       String projectId, String inspectTemplateName, PCollectionView<List<String>> headerColumns) {
@@ -108,6 +108,7 @@ public class InspectData
                     row.getValuesCount(),
                     headerLength,
                     row);
+                numberOfBadRows.inc();
               }
             });
 
@@ -122,7 +123,6 @@ public class InspectData
       out.get(Util.inspectApiCallSuccess).output(KV.of(c.element().getKey(), response));
 
     } catch (Exception e) {
-      numberOfBadRows.inc(table.getRowsCount());
       out.get(Util.inspectApiCallError)
           .output(
               KV.of(
