@@ -16,6 +16,7 @@
 package com.google.swarm.tokenization;
 
 import com.google.swarm.tokenization.common.Util.DLPMethod;
+import com.google.swarm.tokenization.common.Util.FileType;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
@@ -26,10 +27,11 @@ import org.apache.beam.sdk.options.Validation;
 
 public interface DLPTextToBigQueryStreamingV2PipelineOptions
     extends DataflowPipelineOptions, S3Options {
-  @Validation.Required
-  String getCSVFilePattern();
 
-  void setCSVFilePattern(String csvFilePattern);
+  @Validation.Required
+  String getFilePattern();
+
+  void setFilePattern(String csvFilePattern);
 
   @Description("DLP Inspect Template Name")
   String getInspectTemplateName();
@@ -102,4 +104,16 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   String getTopic();
 
   void setTopic(String topic);
+
+  @Default.Long(10000000)
+  Long getAvroMaxSplitSize();
+
+  void setAvroMaxSplitSize(Long value);
+
+  @Validation.Required
+  @Default.Enum("CSV")
+  FileType getFileType();
+
+  void setFileType(FileType fileType);
+
 }

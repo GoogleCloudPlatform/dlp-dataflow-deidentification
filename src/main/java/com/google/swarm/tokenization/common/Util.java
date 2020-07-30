@@ -70,12 +70,14 @@ public class Util {
     REID
   }
 
+  public enum FileType {
+    CSV,
+    AVRO
+  }
+
   public static final Gson gson = new Gson();
   private static final char DEFAULT_SEPARATOR = ',';
   private static final char DEFAULT_QUOTE = '"';
-  private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
-  /** Regular expression that matches valid BQ table IDs. */
-  private static final String TABLE_REGEXP = "[-\\w$@]{1,1024}";
 
   private static final DateTimeFormatter BIGQUERY_TIMESTAMP_PRINTER;
   public static final TupleTag<KV<String, String>> contentTag =
@@ -267,24 +269,6 @@ public class Util {
       throw new RuntimeException(e);
     }
     return headers;
-  }
-
-  public static String getFileName(ReadableFile file) {
-    String csvFileName = file.getMetadata().resourceId().getFilename().toString();
-    /** taking out .csv extension from file name e.g fileName.csv->fileName */
-    String[] fileKey = csvFileName.split("\\.", 2);
-
-    if (!fileKey[1].equals(ALLOWED_FILE_EXTENSION) || !fileKey[0].matches(TABLE_REGEXP)) {
-      throw new RuntimeException(
-          "[Filename must contain a CSV extension "
-              + " BQ table name must contain only letters, numbers, or underscores ["
-              + fileKey[1]
-              + "], ["
-              + fileKey[0]
-              + "]");
-    }
-    /** returning file name without extension */
-    return fileKey[0];
   }
 
   @SuppressWarnings("null")

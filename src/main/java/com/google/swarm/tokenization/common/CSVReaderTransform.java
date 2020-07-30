@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.google.swarm.tokenization.common;
 
 import com.google.auto.value.AutoValue;
@@ -26,53 +27,42 @@ import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.Duration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-@SuppressWarnings("serial")
+/**
+ * Transform that polls for new files and sanitizes file names.
+ */
 @AutoValue
-public abstract class CSVReaderTransform
-    extends PTransform<PBegin, PCollection<KV<String, ReadableFile>>> {
-  public static final Logger LOG = LoggerFactory.getLogger(CSVReaderTransform.class);
+public abstract class FilePollingTransform extends PTransform<PBegin, PCollection<KV<String, ReadableFile>>> {
 
-  public abstract String delimeter();
+    public abstract String filePattern();
 
-  public abstract String filePattern();
+    public abstract Duration interval();
 
-  public abstract Duration interval();
+    @AutoValue.Builder
+    public abstract static class Builder {
 
-  public abstract Integer keyRange();
+        public abstract FilePollingTransform.Builder setFilePattern(String filePattern);
 
-  @AutoValue.Builder
-  public abstract static class Builder {
+        public abstract FilePollingTransform.Builder setInterval(Duration interval);
 
-    public abstract Builder setDelimeter(String delimeter);
+        public abstract FilePollingTransform build();
 
-    public abstract Builder setFilePattern(String filePattern);
+    }
 
-    public abstract Builder setInterval(Duration interval);
+    public static FilePollingTransform.Builder newBuilder() {
+        return new AutoValue_FilePollingTransform.Builder();
+    }
 
-    public abstract Builder setKeyRange(Integer keyRange);
-
-    public abstract CSVReaderTransform build();
-  }
-
-  public static Builder newBuilder() {
-    return new AutoValue_CSVReaderTransform.Builder();
-  }
-
-  @Override
-  public PCollection<KV<String, ReadableFile>> expand(PBegin input) {
-
-    PCollection<KV<String, ReadableFile>> csvFile =
-        input
+    @Override
+    public PCollection<KV<String, ReadableFile>> expand(PBegin input) {
+        return input
             .apply(
-                "Poll Input Files",
+            "Poll Input Files",
                 FileIO.match()
                     .filepattern(filePattern())
                     .continuously(interval(), Watch.Growth.never()))
             .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
-            .apply("ValidateFile", ParDo.of(new FileSourceDoFn()));
-    return csvFile;
-  }
+            .apply(ParDo.of(new SanitizeFileNameDoFn()));
+    }
+
 }
