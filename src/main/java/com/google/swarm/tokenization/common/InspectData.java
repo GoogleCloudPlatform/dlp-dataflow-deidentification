@@ -18,17 +18,15 @@ package com.google.swarm.tokenization.common;
 import com.google.cloud.dlp.v2.DlpServiceClient;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.FieldId;
+import com.google.privacy.dlp.v2.InspectConfig;
 import com.google.privacy.dlp.v2.InspectContentRequest;
 import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
-import com.google.swarm.tokenization.common.DLPTransform.ConvertInspectResponse;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -41,12 +39,25 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings("serial")
 public class InspectData
     extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, InspectContentResponse>> {
+
   public static final Logger LOG = LoggerFactory.getLogger(InspectData.class);
   private final String projectId;
   private final String inspectTemplateName;
   private final PCollectionView<List<String>> headerColumns;
   private transient DlpServiceClient dlpServiceClient;
   private transient InspectContentRequest.Builder requestBuilder;
+
+  // Counter to track total number of Rows inspected from DLP inspection
+  private final Counter numberOfRowsInspected =
+      Metrics.counter(InspectData.class, "numberOfRowsInspected");
+
+  // Counter to track total number of DLP API calls made for DLP Inspection
+  private final Counter numberOfDlpApiCalls =
+      Metrics.counter(InspectData.class, "numberOfDlpApiCalls");
+
+  // Counter to track total number of Bad Rows - Rows where the values count doesn't match the
+  // header columns count
+  private final Counter numberOfBadRows = Metrics.counter(InspectData.class, "numberOfBadRows");
 
   public InspectData(
       String projectId, String inspectTemplateName, PCollectionView<List<String>> headerColumns) {
@@ -63,6 +74,8 @@ public class InspectData
       requestBuilder.setInspectTemplateName(this.inspectTemplateName);
     }
 
+    InspectConfig config = InspectConfig.newBuilder().setIncludeQuote(true).build();
+    this.requestBuilder.setInspectConfig(config);
     dlpServiceClient = DlpServiceClient.create();
   }
 
@@ -99,6 +112,7 @@ public class InspectData
                     row.getValuesCount(),
                     headerLength,
                     row);
+                numberOfBadRows.inc();
               }
             });
 
@@ -108,6 +122,8 @@ public class InspectData
     try {
       InspectContentResponse response =
           dlpServiceClient.inspectContent(this.requestBuilder.build());
+      numberOfRowsInspected.inc(table.getRowsCount());
+      numberOfDlpApiCalls.inc();
       out.get(Util.inspectApiCallSuccess).output(KV.of(c.element().getKey(), response));
 
     } catch (Exception e) {

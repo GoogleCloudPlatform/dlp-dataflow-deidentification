@@ -20,6 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.beam.sdk.annotations.Experimental;
+import org.apache.beam.sdk.metrics.Counter;
+import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.state.BagState;
 import org.apache.beam.sdk.state.StateSpec;
 import org.apache.beam.sdk.state.StateSpecs;
@@ -38,6 +40,9 @@ import org.slf4j.LoggerFactory;
 @Experimental
 class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable<Table.Row>>> {
   public static final Logger LOG = LoggerFactory.getLogger(BatchRequestForDLP.class);
+
+  private final Counter numberOfRowsBagged =
+      Metrics.counter(BatchRequestForDLP.class, "numberOfRowsBagged");
 
   private final Integer batchSizeBytes;
 
@@ -78,6 +83,7 @@ class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable
                 if (clearBuffer) {
                   LOG.debug(
                       "Clear buffer of {} bytes, Key {}", bufferSize.intValue(), element.getKey());
+                  numberOfRowsBagged.inc(rows.size());
                   output.output(KV.of(element.getKey(), rows));
                   rows.clear();
                   bufferSize.set(0);
@@ -87,6 +93,7 @@ class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable
               });
       if (!rows.isEmpty()) {
         LOG.debug("Outputting remaining {} rows.", rows.size());
+        numberOfRowsBagged.inc(rows.size());
         output.output(KV.of(key, rows));
       }
     }
