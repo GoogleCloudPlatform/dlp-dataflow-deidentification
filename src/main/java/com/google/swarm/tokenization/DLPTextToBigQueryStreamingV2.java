@@ -104,7 +104,7 @@ public class DLPTextToBigQueryStreamingV2 {
                   .apply("ReadHeader", ParDo.of(new AvroHeaderDoFn()))
                   .apply("ViewAsList", View.asList());
           inputRows = inputFiles
-              .apply(ParDo.of(new DefineSplitsDoFn(options.getAvroMaxSplitSize())))
+              .apply(ParDo.of(new DefineSplitsDoFn(options.getAvroMaxBytesPerSplit(), options.getAvroMaxCellsPerSplit())))
               .apply(ParDo.of(new ReadSplitDoFn(options.getKeyRange())));
         }
         else if (options.getFileType() == Util.FileType.CSV) {

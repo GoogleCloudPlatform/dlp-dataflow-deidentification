@@ -35,15 +35,17 @@ import org.slf4j.LoggerFactory;
 public class DefineSplitsDoFn extends DoFn<KV<String, ReadableFile>, KV<String, ReadableFile>> {
 
     public static final Logger LOG = LoggerFactory.getLogger(DefineSplitsDoFn.class);
-    public long maxSplitSize;
+    public long maxBytesPerSplit;
+    public long maxCellsPerSplit;
 
-    public DefineSplitsDoFn(long maxSplitSize) {
-        this.maxSplitSize = maxSplitSize;
+    public DefineSplitsDoFn(long maxBytesPerSplit, long maxCellsPerSplit) {
+        this.maxBytesPerSplit = maxBytesPerSplit;
+        this.maxCellsPerSplit = maxCellsPerSplit;
     }
 
     private void outputValue(ProcessContext c, String fileName, ReadableFile avroFile, long fromPosition, long toPosition) throws IOException {
         String key = String.format("%s~%d~%d",
-            avroFile.getMetadata().resourceId().getFilename(),
+            fileName,
             fromPosition,
             toPosition
         );
@@ -65,6 +67,9 @@ public class DefineSplitsDoFn extends DoFn<KV<String, ReadableFile>, KV<String, 
             // Get the current position, which corresponds to the header size.
             long headerOffset = fileReader.tell();
 
+            // Get number of fields/columns, so we can later limit the number of cells per split
+            int numFields = fileReader.getSchema().getFields().size();
+
             // Bail if the file doesn't contain any data
             if (!fileReader.hasNext()) {
                 LOG.info("File does not contain any data: {}", fileName);
@@ -75,13 +80,17 @@ public class DefineSplitsDoFn extends DoFn<KV<String, ReadableFile>, KV<String, 
             long splitStart = 0;
             long splitEnd;
             long byteCounter = 0;
+            long cellCounter = 0;
 
             while (true) {
+                // Update the counters
                 byteCounter += fileReader.getBlockSize();
+                cellCounter += fileReader.getBlockCount() * numFields;
 
                 // Look ahead to the next block
                 fileReader.nextBlock();
                 long nextBlockSize = fileReader.getBlockSize();
+                long nextBlockCells = fileReader.getBlockCount() * numFields;
                 splitEnd = fileReader.tell() - headerOffset;
 
                 // Check if we've reached the end of the file
@@ -96,11 +105,12 @@ public class DefineSplitsDoFn extends DoFn<KV<String, ReadableFile>, KV<String, 
                 }
 
                 // Check if we've reached the end of a split
-                if (byteCounter + nextBlockSize > maxSplitSize) {
+                if (byteCounter + nextBlockSize > maxBytesPerSplit || cellCounter + nextBlockCells > maxCellsPerSplit) {
                     outputValue(c, fileName, file, splitStart, splitEnd);
-                    // Update the cursors for the next split
+                    // Reset the counters for the next split
                     splitStart = splitEnd;
                     byteCounter = 0;
+                    cellCounter = 0;
                 }
 
             }

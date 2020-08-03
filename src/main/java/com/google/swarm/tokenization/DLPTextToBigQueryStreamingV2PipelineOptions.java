@@ -105,10 +105,15 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setTopic(String topic);
 
-  @Default.Long(10000000)
-  Long getAvroMaxSplitSize();
+  @Default.Long(500 * 1000)
+  Long getAvroMaxBytesPerSplit();
 
-  void setAvroMaxSplitSize(Long value);
+  void setAvroMaxBytesPerSplit(Long value);
+
+  @Default.Long(50 * 1000)
+  Long getAvroMaxCellsPerSplit();
+
+  void setAvroMaxCellsPerSplit(Long value);
 
   @Validation.Required
   @Default.Enum("CSV")
