@@ -15,15 +15,13 @@
  */
 package com.google.swarm.tokenization;
 
+import com.google.swarm.tokenization.common.Util;
 import com.google.swarm.tokenization.common.Util.DLPMethod;
-import com.google.swarm.tokenization.common.Util.FileType;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.TypedRead.Method;
-import org.apache.beam.sdk.options.Default;
-import org.apache.beam.sdk.options.Description;
-import org.apache.beam.sdk.options.Validation;
+import org.apache.beam.sdk.options.*;
 
 public interface DLPTextToBigQueryStreamingV2PipelineOptions
     extends DataflowPipelineOptions, S3Options {
@@ -115,10 +113,22 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setAvroMaxCellsPerSplit(Long value);
 
-  @Validation.Required
-  @Default.Enum("CSV")
-  FileType getFileType();
+  class FileTypeFactory implements DefaultValueFactory<String> {
+    @Override
+    public String create(PipelineOptions options) {
+      if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getFilePattern().toLowerCase().endsWith(".avro")) {
+        return Util.AVRO;
+      }
+      else {
+        return Util.CSV;
+      }
+    }
+  }
 
-  void setFileType(FileType fileType);
+  @Validation.Required
+  @Default.InstanceFactory(FileTypeFactory.class)
+  String getFileType();
+
+  void setFileType(String fileType);
 
 }

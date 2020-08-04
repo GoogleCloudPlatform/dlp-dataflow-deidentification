@@ -70,10 +70,9 @@ public class Util {
     REID
   }
 
-  public enum FileType {
-    CSV,
-    AVRO
-  }
+  // File type options
+  public static final String CSV = "csv";
+  public static final String AVRO = "avro";
 
   public static final Gson gson = new Gson();
   private static final char DEFAULT_SEPARATOR = ',';

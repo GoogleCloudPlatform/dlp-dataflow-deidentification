@@ -39,13 +39,13 @@ import org.slf4j.LoggerFactory;
  * Reads all records in the given split (i.e. a group of avro data blocks) and then converts
  * those records to DLP table rows.
  */
-public class ReadSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, Table.Row>> {
+public class ReadAvroSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, Table.Row>> {
 
-    public static final Logger LOG = LoggerFactory.getLogger(ReadSplitDoFn.class);
+    public static final Logger LOG = LoggerFactory.getLogger(ReadAvroSplitDoFn.class);
 
     private final Integer keyRange;
 
-    public ReadSplitDoFn(Integer keyRange) {
+    public ReadAvroSplitDoFn(Integer keyRange) {
         this.keyRange = keyRange;
     }
 

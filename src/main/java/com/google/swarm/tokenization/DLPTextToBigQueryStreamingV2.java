@@ -19,11 +19,12 @@ import com.google.api.services.bigquery.model.TableRow;
 import com.google.privacy.dlp.v2.Table;
 import com.google.swarm.tokenization.avro.AvroHeaderDoFn;
 import com.google.swarm.tokenization.common.FilePollingTransform;
-import com.google.swarm.tokenization.avro.ReadSplitDoFn;
-import com.google.swarm.tokenization.avro.DefineSplitsDoFn;
+import com.google.swarm.tokenization.avro.ReadAvroSplitDoFn;
+import com.google.swarm.tokenization.avro.DefineAvroSplitsDoFn;
 import com.google.swarm.tokenization.common.*;
 
 import java.util.List;
+
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
@@ -68,21 +69,9 @@ public class DLPTextToBigQueryStreamingV2 {
       case INSPECT:
       case DEID:
 
-        PCollection<KV<String, Table.Row>> inputRows;
-        PCollection<KV<String, ReadableFile>> inputFiles;
         final PCollectionView<List<String>> header;
-
-        // Figure out which file type to use for the pipeline
-        Util.FileType fileType = options.getFileType();
-        // Override file type if the filePattern option contains a file extension
-        if (options.getFilePattern().toLowerCase().endsWith(".csv")) {
-          fileType = Util.FileType.CSV;
-        }
-        if (options.getFilePattern().toLowerCase().endsWith(".avro")) {
-          fileType = Util.FileType.AVRO;
-        }
-
-        inputFiles =
+        PCollection<KV<String, Table.Row>> inputRows;
+        PCollection<KV<String, ReadableFile>> inputFiles =
             p
                 .apply(
                     FilePollingTransform
@@ -92,42 +81,45 @@ public class DLPTextToBigQueryStreamingV2 {
                         .build()
                 );
 
-        if (fileType == Util.FileType.AVRO) {
-          header =
-              inputFiles
-                  .apply(
-                      "GlobalWindow",
-                      Window.<KV<String, ReadableFile>>into(new GlobalWindows())
-                          .triggering(
-                              Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
-                          .discardingFiredPanes())
-                  .apply("ReadHeader", ParDo.of(new AvroHeaderDoFn()))
-                  .apply("ViewAsList", View.asList());
-          inputRows = inputFiles
-              .apply(ParDo.of(new DefineSplitsDoFn(options.getAvroMaxBytesPerSplit(), options.getAvroMaxCellsPerSplit())))
-              .apply(ParDo.of(new ReadSplitDoFn(options.getKeyRange())));
-        }
-        else if (options.getFileType() == Util.FileType.CSV) {
-          header =
-              inputFiles
-                  .apply(
-                      "GlobalWindow",
-                      Window.<KV<String, ReadableFile>>into(new GlobalWindows())
-                          .triggering(
-                              Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
-                          .discardingFiredPanes())
-                  .apply("ReadHeader", ParDo.of(new CSVFileHeaderDoFn()))
-                  .apply("ViewAsList", View.asList());
-          inputRows =
-              inputFiles
-                  .apply(
-                      "ReadFile",
-                      ParDo.of(
-                          new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())))
-                  .apply(
-                      "ConvertDLPRow", ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())));
-        }
-        else {
+        switch (options.getFileType().toLowerCase()) {
+          case Util.AVRO:
+            header =
+                inputFiles
+                    .apply(
+                        "GlobalWindow",
+                        Window.<KV<String, ReadableFile>>into(new GlobalWindows())
+                            .triggering(
+                                Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
+                            .discardingFiredPanes())
+                    .apply("ReadHeader", ParDo.of(new AvroHeaderDoFn()))
+                    .apply("ViewAsList", View.asList());
+            inputRows = inputFiles
+                .apply(ParDo.of(new DefineAvroSplitsDoFn(options.getAvroMaxBytesPerSplit(), options.getAvroMaxCellsPerSplit())))
+                .apply(ParDo.of(new ReadAvroSplitDoFn(options.getKeyRange())));
+            break;
+
+          case Util.CSV:
+            header =
+                inputFiles
+                    .apply(
+                        "GlobalWindow",
+                        Window.<KV<String, ReadableFile>>into(new GlobalWindows())
+                            .triggering(
+                                Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
+                            .discardingFiredPanes())
+                    .apply("ReadHeader", ParDo.of(new CSVFileHeaderDoFn()))
+                    .apply("ViewAsList", View.asList());
+            inputRows =
+                inputFiles
+                    .apply(
+                        "ReadFile",
+                        ParDo.of(
+                            new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())))
+                    .apply(
+                        "ConvertDLPRow", ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())));
+            break;
+
+          default:
             throw new IllegalArgumentException("Please validate FileType parameter");
         }
 

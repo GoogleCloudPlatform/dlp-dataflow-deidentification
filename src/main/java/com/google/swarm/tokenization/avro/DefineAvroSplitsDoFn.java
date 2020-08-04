@@ -32,13 +32,13 @@ import org.slf4j.LoggerFactory;
  * Scans all data blocks in the given avro file, then defines "splits" (i.e. block ranges) whose length fits
  * within a configurable byte size.
  */
-public class DefineSplitsDoFn extends DoFn<KV<String, ReadableFile>, KV<String, ReadableFile>> {
+public class DefineAvroSplitsDoFn extends DoFn<KV<String, ReadableFile>, KV<String, ReadableFile>> {
 
-    public static final Logger LOG = LoggerFactory.getLogger(DefineSplitsDoFn.class);
+    public static final Logger LOG = LoggerFactory.getLogger(DefineAvroSplitsDoFn.class);
     public long maxBytesPerSplit;
     public long maxCellsPerSplit;
 
-    public DefineSplitsDoFn(long maxBytesPerSplit, long maxCellsPerSplit) {
+    public DefineAvroSplitsDoFn(long maxBytesPerSplit, long maxCellsPerSplit) {
         this.maxBytesPerSplit = maxBytesPerSplit;
         this.maxCellsPerSplit = maxCellsPerSplit;
     }
