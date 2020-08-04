@@ -81,8 +81,8 @@ public class DLPTextToBigQueryStreamingV2 {
                         .build()
                 );
 
-        switch (options.getFileType().toLowerCase()) {
-          case Util.AVRO:
+        switch (options.getFileType()) {
+          case AVRO:
             header =
                 inputFiles
                     .apply(
@@ -98,7 +98,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .apply(ParDo.of(new ReadAvroSplitDoFn(options.getKeyRange())));
             break;
 
-          case Util.CSV:
+          case CSV:
             header =
                 inputFiles
                     .apply(

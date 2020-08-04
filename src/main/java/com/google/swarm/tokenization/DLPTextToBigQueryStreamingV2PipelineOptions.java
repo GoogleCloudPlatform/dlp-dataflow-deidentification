@@ -15,7 +15,7 @@
  */
 package com.google.swarm.tokenization;
 
-import com.google.swarm.tokenization.common.Util;
+import com.google.swarm.tokenization.common.Util.FileType;
 import com.google.swarm.tokenization.common.Util.DLPMethod;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
@@ -113,22 +113,22 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setAvroMaxCellsPerSplit(Long value);
 
-  class FileTypeFactory implements DefaultValueFactory<String> {
+  class FileTypeFactory implements DefaultValueFactory<FileType> {
     @Override
-    public String create(PipelineOptions options) {
+    public FileType create(PipelineOptions options) {
       if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getFilePattern().toLowerCase().endsWith(".avro")) {
-        return Util.AVRO;
+        return FileType.AVRO;
       }
       else {
-        return Util.CSV;
+        return FileType.CSV;
       }
     }
   }
 
   @Validation.Required
   @Default.InstanceFactory(FileTypeFactory.class)
-  String getFileType();
+  FileType getFileType();
 
-  void setFileType(String fileType);
+  void setFileType(FileType fileType);
 
 }
