@@ -68,8 +68,6 @@ public class DLPTextToBigQueryStreamingV2 {
     switch (options.getDLPMethod()) {
       case INSPECT:
       case DEID:
-
-        final PCollectionView<List<String>> header;
         PCollection<KV<String, Table.Row>> inputRows;
         PCollection<KV<String, ReadableFile>> inputFiles =
             p
@@ -80,35 +78,22 @@ public class DLPTextToBigQueryStreamingV2 {
                         .setInterval(DEFAULT_POLL_INTERVAL)
                         .build()
                 );
+        final PCollectionView<List<String>> header =
+            inputFiles
+              .apply(
+                  ExtractHeaderTransform
+                      .newBuilder()
+                      .setFileType(options.getFileType())
+                      .build()
+              );
 
         switch (options.getFileType()) {
           case AVRO:
-            header =
-                inputFiles
-                    .apply(
-                        "GlobalWindow",
-                        Window.<KV<String, ReadableFile>>into(new GlobalWindows())
-                            .triggering(
-                                Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
-                            .discardingFiredPanes())
-                    .apply("ReadHeader", ParDo.of(new AvroHeaderDoFn()))
-                    .apply("ViewAsList", View.asList());
             inputRows = inputFiles
                 .apply(ParDo.of(new DefineAvroSplitsDoFn(options.getAvroMaxBytesPerSplit(), options.getAvroMaxCellsPerSplit())))
                 .apply(ParDo.of(new ReadAvroSplitDoFn(options.getKeyRange())));
             break;
-
           case CSV:
-            header =
-                inputFiles
-                    .apply(
-                        "GlobalWindow",
-                        Window.<KV<String, ReadableFile>>into(new GlobalWindows())
-                            .triggering(
-                                Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
-                            .discardingFiredPanes())
-                    .apply("ReadHeader", ParDo.of(new CSVFileHeaderDoFn()))
-                    .apply("ViewAsList", View.asList());
             inputRows =
                 inputFiles
                     .apply(
@@ -118,7 +103,6 @@ public class DLPTextToBigQueryStreamingV2 {
                     .apply(
                         "ConvertDLPRow", ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())));
             break;
-
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");
         }
