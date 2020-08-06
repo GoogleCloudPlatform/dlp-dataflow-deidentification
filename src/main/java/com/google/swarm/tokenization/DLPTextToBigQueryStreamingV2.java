@@ -145,7 +145,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .apply("ViewAsList", View.asList());
 
         record
-            .apply("ConvertDLPRow", ParDo.of(new MergeBigQueryRowToDlpRow()))
+            .apply("ConvertTableRow", ParDo.of(new MergeBigQueryRowToDlpRow()))
             .apply(
                 "DLPTransform",
                 DLPTransform.newBuilder()
