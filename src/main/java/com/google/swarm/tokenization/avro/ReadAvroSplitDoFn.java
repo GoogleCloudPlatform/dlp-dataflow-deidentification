@@ -17,11 +17,10 @@
 package com.google.swarm.tokenization.avro;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import com.google.privacy.dlp.v2.Table;
-import com.google.privacy.dlp.v2.Value;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.generic.GenericData;
@@ -31,6 +30,8 @@ import org.apache.avro.io.DatumReader;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,14 +40,16 @@ import org.slf4j.LoggerFactory;
  * Reads all records in the given split (i.e. a group of avro data blocks) and then converts
  * those records to DLP table rows.
  */
-public class ReadAvroSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, Table.Row>> {
+public class ReadAvroSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
 
     public static final Logger LOG = LoggerFactory.getLogger(ReadAvroSplitDoFn.class);
 
     private final Integer keyRange;
+    public final CSVFormat csvFormat;
 
-    public ReadAvroSplitDoFn(Integer keyRange) {
+    public ReadAvroSplitDoFn(Integer keyRange, String delimiter) {
         this.keyRange = keyRange;
+        this.csvFormat = CSVFormat.newFormat(delimiter.charAt(0));
     }
 
     @ProcessElement
@@ -70,24 +73,27 @@ public class ReadAvroSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String,
                 // Read next record
                 fileReader.next(record);
 
-                // Create a new DLP table row
-                Table.Row.Builder rowBuilder = Table.Row.newBuilder();
-
                 // Loop through all of the record's fields
                 List<Schema.Field> fields = fileReader.getSchema().getFields();
+
+                // Convert Avro record to CSV record
+                StringBuffer sb = new StringBuffer();
+                List<String> valueList = new ArrayList<>();
                 for (Schema.Field field : fields) {
                     Object value = record.get(field.name());
-                    // Insert current record field's value into the DLP table row
-                    if (value != null) {
-                        rowBuilder.addValues(Value.newBuilder().setStringValue(value.toString()).build());
-                    } else {
-                        rowBuilder.addValues(Value.newBuilder().setStringValue("").build());
+                    if (value == null) {
+                        valueList.add("");
+                    }
+                    else {
+                        valueList.add(value.toString());
                     }
                 }
+                CSVPrinter printer = new CSVPrinter(sb, csvFormat);
+                printer.printRecord(valueList);
 
                 // Output the DLP table row
                 String outputKey = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
-                c.outputWithTimestamp(KV.of(outputKey, rowBuilder.build()), Instant.now());
+                c.outputWithTimestamp(KV.of(outputKey, sb.toString()), Instant.now());
             }
         }
     }

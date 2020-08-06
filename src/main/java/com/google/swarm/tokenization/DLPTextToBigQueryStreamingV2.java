@@ -68,7 +68,6 @@ public class DLPTextToBigQueryStreamingV2 {
     switch (options.getDLPMethod()) {
       case INSPECT:
       case DEID:
-        PCollection<KV<String, Table.Row>> inputRows;
         PCollection<KV<String, ReadableFile>> inputFiles =
             p
                 .apply(
@@ -86,29 +85,29 @@ public class DLPTextToBigQueryStreamingV2 {
                       .setFileType(options.getFileType())
                       .build()
               );
+        PCollection<KV<String, String>> records;
 
         switch (options.getFileType()) {
           case AVRO:
-            inputRows = inputFiles
+            records = inputFiles
                 .apply(ParDo.of(new DefineAvroSplitsDoFn(options.getAvroMaxBytesPerSplit(), options.getAvroMaxCellsPerSplit())))
-                .apply(ParDo.of(new ReadAvroSplitDoFn(options.getKeyRange())));
+                .apply(ParDo.of(new ReadAvroSplitDoFn(options.getKeyRange(), options.getDelimeter())));
             break;
           case CSV:
-            inputRows =
-                inputFiles
-                    .apply(
-                        "ReadFile",
-                        ParDo.of(
-                            new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())))
-                    .apply(
-                        "ConvertDLPRow", ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())));
+            records = inputFiles
+                .apply(
+                    "ReadFile",
+                    ParDo.of(
+                        new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())));
             break;
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");
         }
 
 
-        inputRows
+        records
+            .apply(
+                "ConvertDLPRow", ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())))
             .apply(
                 "Fixed Window",
                 Window.<KV<String, Table.Row>>into(FixedWindows.of(WINDOW_INTERVAL)))
