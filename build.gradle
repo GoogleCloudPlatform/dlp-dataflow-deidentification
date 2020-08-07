@@ -15,7 +15,7 @@
  */
 buildscript {
     ext {
-        dataflowBeamVersion = '2.23.0-SNAPSHOT'
+        dataflowBeamVersion = '2.23.0'
     }
     repositories {
         mavenCentral()
@@ -81,9 +81,6 @@ tasks.withType(JavaCompile) {
 
 repositories {
     mavenCentral()
-    maven {
-      url "https://repository.apache.org/content/repositories/snapshots/"
-    }
 }
 
 dependencies {

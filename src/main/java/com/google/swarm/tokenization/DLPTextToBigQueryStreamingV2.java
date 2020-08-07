@@ -16,13 +16,17 @@
 package com.google.swarm.tokenization;
 
 import com.google.api.services.bigquery.model.TableRow;
-import com.google.privacy.dlp.v2.Table;
-import com.google.swarm.tokenization.avro.AvroHeaderDoFn;
 import com.google.swarm.tokenization.common.FilePollingTransform;
 import com.google.swarm.tokenization.avro.ReadAvroSplitDoFn;
 import com.google.swarm.tokenization.avro.DefineAvroSplitsDoFn;
 import com.google.swarm.tokenization.common.*;
-
+import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
+import com.google.swarm.tokenization.common.BigQueryReadTransform;
+import com.google.swarm.tokenization.common.BigQueryTableHeaderDoFn;
+import com.google.swarm.tokenization.common.DLPTransform;
+import com.google.swarm.tokenization.common.FileReaderSplitDoFn;
+import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
+import com.google.swarm.tokenization.common.Util;
 import java.util.List;
 
 import org.apache.beam.sdk.Pipeline;
@@ -91,26 +95,22 @@ public class DLPTextToBigQueryStreamingV2 {
           case AVRO:
             records = inputFiles
                 .apply(ParDo.of(new DefineAvroSplitsDoFn(options.getAvroMaxBytesPerSplit(), options.getAvroMaxCellsPerSplit())))
-                .apply(ParDo.of(new ReadAvroSplitDoFn(options.getKeyRange(), options.getDelimeter())));
+                .apply(ParDo.of(new ReadAvroSplitDoFn(options.getKeyRange(), options.getColumnDelimeter())));
             break;
           case CSV:
             records = inputFiles
                 .apply(
                     "ReadFile",
-                    ParDo.of(
-                        new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())));
+                    ParDo.of(new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())));
             break;
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");
         }
 
-
         records
             .apply(
-                "ConvertDLPRow", ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())))
-            .apply(
                 "Fixed Window",
-                Window.<KV<String, Table.Row>>into(FixedWindows.of(WINDOW_INTERVAL)))
+                Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
             .apply(
                 "DLPTransform",
                 DLPTransform.newBuilder()
@@ -157,7 +157,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .apply("ViewAsList", View.asList());
 
         record
-            .apply("ConvertDLPRow", ParDo.of(new MergeBigQueryRowToDlpRow()))
+            .apply("ConvertTableRow", ParDo.of(new MergeBigQueryRowToDlpRow()))
             .apply(
                 "DLPTransform",
                 DLPTransform.newBuilder()
@@ -168,6 +168,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setProjectId(options.getProject())
                     .setHeader(selectedColumns)
                     .setColumnDelimeter(",")
+                    .setJobName(options.getJobName())
                     .build())
             .get(Util.reidSuccess)
             .apply(

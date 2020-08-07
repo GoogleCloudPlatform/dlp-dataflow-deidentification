@@ -31,6 +31,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.repackaged.core.org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.beam.sdk.extensions.ml.DLPDeidentifyText;
+import org.apache.beam.sdk.extensions.ml.DLPInspectText;
+import org.apache.beam.sdk.extensions.ml.DLPReidentifyText;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
@@ -38,7 +41,6 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.DoFn.Element;
 import org.apache.beam.sdk.transforms.DoFn.MultiOutputReceiver;
 import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
-import org.apache.beam.sdk.transforms.GroupIntoBatches;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
@@ -53,8 +55,7 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings("serial")
 @AutoValue
 public abstract class DLPTransform
-    extends PTransform<PCollection<KV<String, Table.Row>>, PCollectionTuple> {
-
+    extends PTransform<PCollection<KV<String, String>>, PCollectionTuple> {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 
   @Nullable
@@ -102,19 +103,20 @@ public abstract class DLPTransform
   }
 
   @Override
-  public PCollectionTuple expand(PCollection<KV<String, Table.Row>> input) {
+  public PCollectionTuple expand(PCollection<KV<String, String>> input) {
     switch (dlpmethod()) {
       case INSPECT:
         {
           return input
-              .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())))
               .apply(
-                  "DLPInspect",
-                  ParDo.of(new InspectData(projectId(), inspectTemplateName(), header()))
-                      .withSideInputs(header())
-                      .withOutputTags(
-                          Util.inspectApiCallSuccess, TupleTagList.of(Util.inspectApiCallError)))
-              .get(Util.inspectApiCallSuccess)
+                  "InspectTransform",
+                  DLPInspectText.newBuilder()
+                      .setBatchSizeBytes(batchSize())
+                      .setColumnDelimiter(columnDelimeter())
+                      .setHeaderColumns(header())
+                      .setInspectTemplateName(inspectTemplateName())
+                      .setProjectId(projectId())
+                      .build())
               .apply(
                   "ConvertInspectResponse",
                   ParDo.of(new ConvertInspectResponse(jobName()))
@@ -124,13 +126,16 @@ public abstract class DLPTransform
       case DEID:
         {
           return input
-              .apply("BatchContents", ParDo.of(new BatchRequestForDLP(batchSize())))
               .apply(
-                  "DLPDeidentify",
-                  ParDo.of(
-                          new DeidentifyData(
-                              projectId(), inspectTemplateName(), deidTemplateName(), header()))
-                      .withSideInputs(header()))
+                  "DeIdTransform",
+                  DLPDeidentifyText.newBuilder()
+                      .setBatchSizeBytes(batchSize())
+                      .setColumnDelimiter(columnDelimeter())
+                      .setHeaderColumns(header())
+                      .setInspectTemplateName(inspectTemplateName())
+                      .setDeidentifyTemplateName(deidTemplateName())
+                      .setProjectId(projectId())
+                      .build())
               .apply(
                   "ConvertDeidResponse",
                   ParDo.of(new ConvertDeidResponse())
@@ -140,13 +145,16 @@ public abstract class DLPTransform
       case REID:
         {
           return input
-              .apply("GroupIntoBatches", GroupIntoBatches.ofSize(100))
               .apply(
-                  "DLPReidentify",
-                  ParDo.of(
-                          new ReidentifyData(
-                              projectId(), inspectTemplateName(), deidTemplateName(), header()))
-                      .withSideInputs(header()))
+                  "ReIdTransform",
+                  DLPReidentifyText.newBuilder()
+                      .setBatchSizeBytes(batchSize())
+                      .setColumnDelimiter(columnDelimeter())
+                      .setHeaderColumns(header())
+                      .setInspectTemplateName(inspectTemplateName())
+                      .setReidentifyTemplateName(deidTemplateName())
+                      .setProjectId(projectId())
+                      .build())
               .apply(
                   "ConvertReidResponse",
                   ParDo.of(new ConvertReidResponse())

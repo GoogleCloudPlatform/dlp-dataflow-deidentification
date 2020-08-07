@@ -31,7 +31,6 @@ import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,10 +45,12 @@ public class ReadAvroSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String,
 
     private final Integer keyRange;
     public final CSVFormat csvFormat;
+    public final String columnDelimiter;
 
-    public ReadAvroSplitDoFn(Integer keyRange, String delimiter) {
+    public ReadAvroSplitDoFn(Integer keyRange, String columnDelimiter) {
         this.keyRange = keyRange;
-        this.csvFormat = CSVFormat.newFormat(delimiter.charAt(0));
+        this.csvFormat = CSVFormat.newFormat(columnDelimiter.charAt(0));
+        this.columnDelimiter = columnDelimiter;
     }
 
     @ProcessElement
@@ -77,23 +78,21 @@ public class ReadAvroSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String,
                 List<Schema.Field> fields = fileReader.getSchema().getFields();
 
                 // Convert Avro record to CSV record
-                StringBuffer sb = new StringBuffer();
                 List<String> valueList = new ArrayList<>();
                 for (Schema.Field field : fields) {
                     Object value = record.get(field.name());
-                    if (value == null) {
-                        valueList.add("");
+                    if (value == null || value.toString().isEmpty()) {
+                        valueList.add(" ");
                     }
                     else {
-                        valueList.add(value.toString());
+                        valueList.add(value.toString().replace(',', ' '));
                     }
                 }
-                CSVPrinter printer = new CSVPrinter(sb, csvFormat);
-                printer.printRecord(valueList);
+                String csvRecord = String.join(columnDelimiter, valueList);
 
                 // Output the DLP table row
                 String outputKey = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
-                c.outputWithTimestamp(KV.of(outputKey, sb.toString()), Instant.now());
+                c.outputWithTimestamp(KV.of(outputKey, csvRecord), Instant.now());
             }
         }
     }
