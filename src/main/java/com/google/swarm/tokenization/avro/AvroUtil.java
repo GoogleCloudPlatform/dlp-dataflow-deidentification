@@ -64,6 +64,10 @@ public class AvroUtil {
             return channel.read(buffer);
         }
 
+        public int read(ByteBuffer buffer) throws IOException {
+            return channel.read(buffer);
+        }
+
         @Override
         public void close() throws IOException {
             channel.close();

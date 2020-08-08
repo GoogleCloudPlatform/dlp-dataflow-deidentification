@@ -103,15 +103,10 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setTopic(String topic);
 
-  @Default.Long(500 * 1000)
-  Long getAvroMaxBytesPerSplit();
+  @Default.Integer(900 * 1000)
+  Integer getSplitSize();
 
-  void setAvroMaxBytesPerSplit(Long value);
-
-  @Default.Long(50 * 1000)
-  Long getAvroMaxCellsPerSplit();
-
-  void setAvroMaxCellsPerSplit(Long value);
+  void setSplitSize(Integer value);
 
   class FileTypeFactory implements DefaultValueFactory<FileType> {
     @Override

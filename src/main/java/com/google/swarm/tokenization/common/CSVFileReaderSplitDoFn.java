@@ -32,18 +32,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
-public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
-  public static final Logger LOG = LoggerFactory.getLogger(FileReaderSplitDoFn.class);
+public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
+  public static final Logger LOG = LoggerFactory.getLogger(CSVFileReaderSplitDoFn.class);
   private final Counter numberOfRowsRead =
-      Metrics.counter(FileReaderSplitDoFn.class, "numberOfRowsRead");
-  public static Integer SPLIT_SIZE = 900000;
+      Metrics.counter(CSVFileReaderSplitDoFn.class, "numberOfRowsRead");
 
   private Integer keyRange;
-  private String delimeter;
+  private String delimiter;
+  private Integer splitSize;
 
-  public FileReaderSplitDoFn(Integer keyRange, String delimeter) {
+  public CSVFileReaderSplitDoFn(Integer keyRange, String delimiter, Integer splitSize) {
     this.keyRange = keyRange;
-    this.delimeter = delimeter;
+    this.delimiter = delimiter;
+    this.splitSize = splitSize;
   }
 
   @ProcessElement
@@ -52,10 +53,10 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
     String fileName = c.element().getKey();
     try (SeekableByteChannel channel = getReader(c.element().getValue())) {
       FileReader reader =
-          new FileReader(channel, tracker.currentRestriction().getFrom(), delimeter.getBytes());
+          new FileReader(channel, tracker.currentRestriction().getFrom(), delimiter.getBytes());
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
-        String contents = reader.getCurrent();
+        String contents = reader.getCurrent().toStringUtf8();
         String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
         numberOfRowsRead.inc();
         c.outputWithTimestamp(KV.of(key, contents), Instant.now());
@@ -64,21 +65,21 @@ public class FileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
   }
 
   @GetInitialRestriction
-  public OffsetRange getInitialRestriction(@Element KV<String, ReadableFile> csvFile)
+  public OffsetRange getInitialRestriction(@Element KV<String, ReadableFile> file)
       throws IOException {
-    long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
+    long totalBytes = file.getValue().getMetadata().sizeBytes();
     LOG.info("Initial Restriction range from 1 to: {}", totalBytes);
     return new OffsetRange(0, totalBytes);
   }
 
   @SplitRestriction
   public void splitRestriction(
-      @Element KV<String, ReadableFile> csvFile,
+      @Element KV<String, ReadableFile> file,
       @Restriction OffsetRange range,
       OutputReceiver<OffsetRange> out) {
-    long totalBytes = csvFile.getValue().getMetadata().sizeBytes();
-    List<OffsetRange> splits = range.split(SPLIT_SIZE, SPLIT_SIZE);
-    LOG.info("Number of Split {} total bytes {}", splits.size(), totalBytes);
+    long totalBytes = file.getValue().getMetadata().sizeBytes();
+    List<OffsetRange> splits = range.split(splitSize, splitSize);
+    LOG.info("Number of Splits: {} - Total bytes: {}", splits.size(), totalBytes);
     for (final OffsetRange p : splits) {
       out.output(p);
     }

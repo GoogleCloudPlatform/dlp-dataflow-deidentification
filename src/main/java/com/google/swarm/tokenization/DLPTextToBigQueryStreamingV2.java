@@ -16,15 +16,14 @@
 package com.google.swarm.tokenization;
 
 import com.google.api.services.bigquery.model.TableRow;
+import com.google.swarm.tokenization.avro.*;
 import com.google.swarm.tokenization.common.FilePollingTransform;
-import com.google.swarm.tokenization.avro.ReadAvroSplitDoFn;
-import com.google.swarm.tokenization.avro.DefineAvroSplitsDoFn;
 import com.google.swarm.tokenization.common.*;
 import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
 import com.google.swarm.tokenization.common.BigQueryReadTransform;
 import com.google.swarm.tokenization.common.BigQueryTableHeaderDoFn;
 import com.google.swarm.tokenization.common.DLPTransform;
-import com.google.swarm.tokenization.common.FileReaderSplitDoFn;
+import com.google.swarm.tokenization.common.CSVFileReaderSplitDoFn;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
 import com.google.swarm.tokenization.common.Util;
 import java.util.List;
@@ -94,14 +93,18 @@ public class DLPTextToBigQueryStreamingV2 {
         switch (options.getFileType()) {
           case AVRO:
             records = inputFiles
-                .apply(ParDo.of(new DefineAvroSplitsDoFn(options.getAvroMaxBytesPerSplit(), options.getAvroMaxCellsPerSplit())))
-                .apply(ParDo.of(new ReadAvroSplitDoFn(options.getKeyRange(), options.getColumnDelimeter())));
+                .apply(
+                    "SplitAvroFile",
+                    ParDo.of(new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize())))
+                .apply(
+                    ParDo.of(new ReadAvroSplit(options.getKeyRange(), options.getColumnDelimeter()))
+                );
             break;
           case CSV:
             records = inputFiles
                 .apply(
-                    "ReadFile",
-                    ParDo.of(new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())));
+                    "SplitCSVFile",
+                    ParDo.of(new CSVFileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter(), options.getSplitSize())));
             break;
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");
@@ -110,7 +113,7 @@ public class DLPTextToBigQueryStreamingV2 {
         records
             .apply(
                 "Fixed Window",
-                Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
+                Window.into(FixedWindows.of(WINDOW_INTERVAL)))
             .apply(
                 "DLPTransform",
                 DLPTransform.newBuilder()
