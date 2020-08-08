@@ -16,7 +16,9 @@
 package com.google.swarm.tokenization;
 
 import com.google.api.services.bigquery.model.TableRow;
+import com.google.privacy.dlp.v2.Table;
 import com.google.swarm.tokenization.avro.*;
+import com.google.swarm.tokenization.beam.MapStringToDlpRow;
 import com.google.swarm.tokenization.common.FilePollingTransform;
 import com.google.swarm.tokenization.common.*;
 import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
@@ -88,7 +90,7 @@ public class DLPTextToBigQueryStreamingV2 {
                       .setFileType(options.getFileType())
                       .build()
               );
-        PCollection<KV<String, String>> records;
+        PCollection<KV<String, Table.Row>> records;
 
         switch (options.getFileType()) {
           case AVRO:
@@ -104,7 +106,8 @@ public class DLPTextToBigQueryStreamingV2 {
             records = inputFiles
                 .apply(
                     "SplitCSVFile",
-                    ParDo.of(new CSVFileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter(), options.getSplitSize())));
+                    ParDo.of(new CSVFileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter(), options.getSplitSize())))
+                .apply(ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())));
             break;
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");

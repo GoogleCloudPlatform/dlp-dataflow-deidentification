@@ -16,26 +16,24 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.api.services.bigquery.model.TableRow;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
+
+import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.Value;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 
-@SuppressWarnings("serial")
-public class MergeBigQueryRowToDlpRow extends DoFn<KV<String, TableRow>, KV<String, String>> {
+public class MergeBigQueryRowToDlpRow extends DoFn<KV<String, TableRow>, KV<String, Table.Row>> {
 
   @ProcessElement
   public void processElement(ProcessContext c) {
-    TableRow rows = c.element().getValue();
-    List<String> values = new ArrayList<>();
-    rows.entrySet()
+    TableRow bigqueryRow = c.element().getValue();
+    Table.Row.Builder rowBuilder = Table.Row.newBuilder();
+    bigqueryRow.entrySet()
         .forEach(
             element -> {
               String value = element.getValue().toString();
-              values.add(value);
+              rowBuilder.addValues(Value.newBuilder().setStringValue(value).build());
             });
-    String row = values.stream().collect(Collectors.joining(","));
-    c.output(KV.of(c.element().getKey(), row));
+    c.output(KV.of(c.element().getKey(), rowBuilder.build()));
   }
 }

@@ -15,6 +15,9 @@
  */
 package com.google.swarm.tokenization.common;
 
+import com.google.swarm.tokenization.beam.DLPReidentifyText;
+import com.google.swarm.tokenization.beam.DLPDeidentifyText;
+import com.google.swarm.tokenization.beam.DLPInspectText;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
@@ -31,16 +34,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.repackaged.core.org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.beam.sdk.extensions.ml.DLPDeidentifyText;
-import org.apache.beam.sdk.extensions.ml.DLPInspectText;
-import org.apache.beam.sdk.extensions.ml.DLPReidentifyText;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.DoFn.Element;
-import org.apache.beam.sdk.transforms.DoFn.MultiOutputReceiver;
-import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
@@ -52,10 +49,9 @@ import org.apache.beam.sdk.values.TupleTagList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@SuppressWarnings("serial")
 @AutoValue
 public abstract class DLPTransform
-    extends PTransform<PCollection<KV<String, String>>, PCollectionTuple> {
+    extends PTransform<PCollection<KV<String, Table.Row>>, PCollectionTuple> {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 
   @Nullable
@@ -103,7 +99,7 @@ public abstract class DLPTransform
   }
 
   @Override
-  public PCollectionTuple expand(PCollection<KV<String, String>> input) {
+  public PCollectionTuple expand(PCollection<KV<String, Table.Row>> input) {
     switch (dlpmethod()) {
       case INSPECT:
         {

@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.Value;
 import com.google.protobuf.ByteString;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileStream;
@@ -37,9 +39,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Reads all records in the given split (i.e. a group of Avro data blocks) and then converts
- * those records to CSV records.
+ * those records to DLP rows.
  */
-public class ReadAvroSplit extends DoFn<KV<String, ByteString>, KV<String, String>> {
+public class ReadAvroSplit extends DoFn<KV<String, ByteString>, KV<String, Table.Row>> {
 
     public static final Logger LOG = LoggerFactory.getLogger(ReadAvroSplit.class);
 
@@ -67,26 +69,22 @@ public class ReadAvroSplit extends DoFn<KV<String, ByteString>, KV<String, Strin
         while(streamReader.hasNext()) {
             streamReader.next(record);
 
-            // Convert Avro record to CSV record
-            List<String> valueList = new ArrayList<>();
+            // Convert Avro record to DLP Row
+            Table.Row.Builder rowBuilder = Table.Row.newBuilder();
             for (Schema.Field field : fields) {
                 Object value = record.get(field.name());
-                if (value == null || value.toString().isEmpty()) {
-                    // This is a temporary hack to avoid an issue with the String.split() method
-                    // where trailing commas are ignored.
-                    valueList.add(" ");
+                // Insert current record field's value into the DLP table row
+                if (value != null) {
+                    rowBuilder.addValues(Value.newBuilder().setStringValue(value.toString()).build());
                 }
                 else {
-                    // This is a temporary hack to avoid issue in subsequent steps where
-                    // commas inside values are interpreted as delimiters.
-                    valueList.add(value.toString().replace(',', ' '));
+                    rowBuilder.addValues(Value.newBuilder().setStringValue("").build());
                 }
             }
-            String csvRecord = String.join(columnDelimiter, valueList);
 
             // Output the CSV record
             String outputKey = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
-            c.outputWithTimestamp(KV.of(outputKey, csvRecord), Instant.now());
+            c.outputWithTimestamp(KV.of(outputKey, rowBuilder.build()), Instant.now());
         }
         streamReader.close();
         inputStream.close();
