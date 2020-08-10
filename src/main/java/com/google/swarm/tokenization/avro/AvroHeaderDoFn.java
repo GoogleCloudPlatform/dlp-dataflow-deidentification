@@ -16,6 +16,7 @@
 package com.google.swarm.tokenization.avro;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.avro.Schema;
@@ -30,11 +31,26 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Reads the given avro file's header, and outputs the schema's field names.
+ * Reads the given avro file's header schema then outputs all the field names.
  */
 public class AvroHeaderDoFn extends DoFn<KV<String, ReadableFile>, String> {
 
   public static final Logger LOG = LoggerFactory.getLogger(AvroHeaderDoFn.class);
+
+  /**
+   * Returns the list of field names from the given schema. Calls itself recursively
+   * to flatten nested fields.
+   */
+  public static void flattenFieldNames(Schema schema, List<String> fieldNames, String prefix) {
+    for (Schema.Field field : schema.getFields()) {
+      if (field.schema().getType() == Schema.Type.RECORD) {
+        flattenFieldNames(field.schema(), fieldNames, prefix + field.name() + ".");
+      }
+      else {
+        fieldNames.add(prefix + field.name());
+      }
+    }
+  }
 
   @ProcessElement
   public void processElement(ProcessContext c) {
@@ -42,13 +58,12 @@ public class AvroHeaderDoFn extends DoFn<KV<String, ReadableFile>, String> {
     try (AvroUtil.AvroSeekableByteChannel channel = AvroUtil.getChannel(avroFile)) {
       DatumReader<GenericRecord> reader = new GenericDatumReader<>();
       DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, reader);
-      List<Schema.Field> fields = fileReader.getSchema().getFields();
-      StringBuilder fieldsString = new StringBuilder();
-      for (Schema.Field field : fields) {
-        c.output(field.name());
-        fieldsString.append(field.name()).append(" ");
+      List<String> fieldNames = new ArrayList<>();
+      flattenFieldNames(fileReader.getSchema(), fieldNames, "");
+      for (String fieldName : fieldNames) {
+        c.output(fieldName);
       }
-      LOG.info("Avro header fields: {}", fieldsString);
+      LOG.info("Avro header fields: {}", String.join(",", fieldNames));
     } catch (IOException e) {
       LOG.error("Failed to get Avro header values: {}", e.getMessage());
       throw new RuntimeException(e);
