@@ -25,8 +25,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
-public class CSVFileHeaderDoFn extends DoFn<KV<String, ReadableFile>, String> {
-  public static final Logger LOG = LoggerFactory.getLogger(CSVFileHeaderDoFn.class);
+public class CSVColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, String> {
+  public static final Logger LOG = LoggerFactory.getLogger(CSVColumnNamesDoFn.class);
 
   @ProcessElement
   public void processElement(ProcessContext c) {

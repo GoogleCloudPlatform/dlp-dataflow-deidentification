@@ -32,6 +32,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.PCollectionView;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,11 +46,11 @@ public class ReadAvroBlocks extends DoFn<KV<String, ByteString>, KV<String, Tabl
     public static final Logger LOG = LoggerFactory.getLogger(ReadAvroBlocks.class);
 
     private final Integer keyRange;
-    public final String columnDelimiter;
+    private final PCollectionView<ByteString> headerSideInput;
 
-    public ReadAvroBlocks(Integer keyRange, String columnDelimiter) {
+    public ReadAvroBlocks(Integer keyRange, PCollectionView<ByteString> headerSideInput) {
         this.keyRange = keyRange;
-        this.columnDelimiter = columnDelimiter;
+        this.headerSideInput = headerSideInput;
     }
 
 
@@ -107,11 +108,14 @@ public class ReadAvroBlocks extends DoFn<KV<String, ByteString>, KV<String, Tabl
         String[] inputKey = c.element().getKey().split("~");
         String fileName = inputKey[0];
 
-        ByteString contents = c.element().getValue();
+        ByteString header = c.sideInput(headerSideInput);
+        ByteString contents = header.concat(c.element().getValue());
         InputStream inputStream = contents.newInput();
         DatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
         DataFileStream<GenericRecord> streamReader = new DataFileStream<>(inputStream, datumReader);
         GenericRecord record = new GenericData.Record(streamReader.getSchema());
+
+        System.out.println("XXX Num fields: " + streamReader.getSchema().getFields().size());
 
         // Loop through every record in the split
         while(streamReader.hasNext()) {

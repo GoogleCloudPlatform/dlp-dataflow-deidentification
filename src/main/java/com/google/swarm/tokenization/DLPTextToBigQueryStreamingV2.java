@@ -17,6 +17,7 @@ package com.google.swarm.tokenization;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.privacy.dlp.v2.Table;
+import com.google.protobuf.ByteString;
 import com.google.swarm.tokenization.avro.*;
 import com.google.swarm.tokenization.beam.MapStringToDlpRow;
 import com.google.swarm.tokenization.common.*;
@@ -73,7 +74,7 @@ public class DLPTextToBigQueryStreamingV2 {
         final PCollectionView<List<String>> header =
             inputFiles
               .apply(
-                  ExtractHeaderTransform
+                  ExtractColumnNamesTransform
                       .newBuilder()
                       .setFileType(options.getFileType())
                       .build()
@@ -82,12 +83,20 @@ public class DLPTextToBigQueryStreamingV2 {
 
         switch (options.getFileType()) {
           case AVRO:
+            PCollectionView<ByteString> binaryHeader =
+                inputFiles
+                .apply(
+                    AvroBinaryHeaderTransform
+                    .newBuilder()
+                    .build()
+                );
             records = inputFiles
                 .apply(
                     "SplitAvroFile",
                     ParDo.of(new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize())))
                 .apply(
-                    ParDo.of(new ReadAvroSplit(options.getKeyRange(), options.getColumnDelimeter()))
+                    ParDo.of(new ReadAvroBlocks(options.getKeyRange(), binaryHeader))
+                        .withSideInputs(binaryHeader)
                 );
             break;
           case CSV:

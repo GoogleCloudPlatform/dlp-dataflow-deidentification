@@ -31,11 +31,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Reads the given avro file's header schema then outputs all the field names.
+ * Reads the given avro file's schema then outputs flattened column names.
  */
-public class AvroHeaderDoFn extends DoFn<KV<String, ReadableFile>, String> {
+public class AvroColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, String> {
 
-  public static final Logger LOG = LoggerFactory.getLogger(AvroHeaderDoFn.class);
+  public static final Logger LOG = LoggerFactory.getLogger(AvroColumnNamesDoFn.class);
 
   /**
    * Returns the list of field names from the given schema. Calls itself recursively

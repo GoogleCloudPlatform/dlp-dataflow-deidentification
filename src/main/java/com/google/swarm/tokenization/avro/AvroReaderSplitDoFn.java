@@ -62,33 +62,10 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
   }
 
   /**
-   * Returns the header (in byte form) for the given Avro file.
-   */
-  public static byte[] extractHeader(ReadableFile file) throws IOException {
-    try (AvroSeekableByteChannel channel = AvroUtil.getChannel(file)) {
-      DatumReader<GenericRecord> reader = new GenericDatumReader<>();
-      DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, reader);
-
-      // Move to the first data block to get the size of the header
-      fileReader.sync(0);
-      int headerSize = (int) channel.tell();
-
-      // Create a buffer for the header
-      ByteBuffer buffer = ByteBuffer.allocate(headerSize);
-
-      // Move back to the beginning of the file and read the header into the buffer
-      channel.seek(0);
-      channel.read(buffer);
-      fileReader.close();
-      return buffer.array();
-    }
-  }
-
-  /**
    * Returns the sync marker used by the given Avro file.
    * Each Avro file has its own randomly-generated sync marker that separates every data block.
    */
-  public static byte[] extractSyncMarker(ReadableFile file) throws IOException {
+  public static ByteString extractSyncMarker(ReadableFile file) throws IOException {
     try (AvroSeekableByteChannel channel = AvroUtil.getChannel(file)) {
       DatumReader<GenericRecord> reader = new GenericDatumReader<>();
       DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, reader);
@@ -105,7 +82,7 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
       // Read the sync marker into the buffer
       channel.read(buffer);
       fileReader.close();
-      return buffer.array();
+      return ByteString.copyFrom(buffer.array());
     }
   }
 
@@ -128,25 +105,17 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
   public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker)
       throws IOException {
     String fileName = c.element().getKey();
-    byte[] header = extractHeader(c.element().getValue());
-    byte[] syncMarker = extractSyncMarker(c.element().getValue());
+    ByteString syncMarker = extractSyncMarker(c.element().getValue());
 
     try (SeekableByteChannel channel = getReader(c.element().getValue())) {
-      FileReader reader = new FileReader(channel, tracker.currentRestriction().getFrom(), syncMarker);
+      FileReader reader = new FileReader(channel, tracker.currentRestriction().getFrom(), syncMarker.toByteArray());
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
-        // Get the Avro data bytes for the current split
+        // Get the Avro data bytes for the current block
         reader.readNextRecord();
-        ByteString avroData = reader.getCurrent();
-        // Recompose a full Avro file structure by surrounding the data bytes with the header and sync marker.
-        // This is necessary for the Avro Java library to properly read the data in downstream steps.
-        ByteString avroSplit =
-            ByteString.copyFrom(header)
-                .concat(avroData)
-                .concat(ByteString.copyFrom(syncMarker));
-        
+        ByteString avroBlock = reader.getCurrent().concat(syncMarker);
         String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
         numberOfAvroBlocksScanned.inc();
-        c.outputWithTimestamp(KV.of(key, avroSplit), Instant.now());
+        c.outputWithTimestamp(KV.of(key, avroBlock), Instant.now());
       }
     }
   }
