@@ -24,6 +24,7 @@ import java.util.function.Consumer;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
 import com.google.protobuf.ByteString;
+import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.generic.GenericData;
@@ -52,7 +53,6 @@ public class ReadAvroBlocks extends DoFn<KV<String, ByteString>, KV<String, Tabl
         this.keyRange = keyRange;
         this.headerSideInput = headerSideInput;
     }
-
 
     /**
      * Substitute for a `null` value used in the Avro value flattening function below.
@@ -86,7 +86,9 @@ public class ReadAvroBlocks extends DoFn<KV<String, ByteString>, KV<String, Tabl
                         stack.push(new NullValue());
                     }
                     else {
-                        stack.push(value);
+                        LogicalType logicalType = record.getSchema().getField(fieldName).schema().getLogicalType();
+                        Object convertedValue = AvroUtil.convertForDLP(value, logicalType);
+                        stack.push(convertedValue);
                     }
                 }
             }
@@ -114,8 +116,6 @@ public class ReadAvroBlocks extends DoFn<KV<String, ByteString>, KV<String, Tabl
         DatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
         DataFileStream<GenericRecord> streamReader = new DataFileStream<>(inputStream, datumReader);
         GenericRecord record = new GenericData.Record(streamReader.getSchema());
-
-        System.out.println("XXX Num fields: " + streamReader.getSchema().getFields().size());
 
         // Loop through every record in the split
         while(streamReader.hasNext()) {

@@ -19,13 +19,7 @@ package com.google.swarm.tokenization.beam;
 
 import com.google.auto.value.AutoValue;
 import com.google.cloud.dlp.v2.DlpServiceClient;
-import com.google.privacy.dlp.v2.ContentItem;
-import com.google.privacy.dlp.v2.FieldId;
-import com.google.privacy.dlp.v2.InspectConfig;
-import com.google.privacy.dlp.v2.InspectContentRequest;
-import com.google.privacy.dlp.v2.InspectContentResponse;
-import com.google.privacy.dlp.v2.ProjectName;
-import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.*;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;

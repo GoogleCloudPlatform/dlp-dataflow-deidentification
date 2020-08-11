@@ -44,7 +44,7 @@ public class CSVColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, String> {
               });
 
     } catch (IOException e) {
-      LOG.error("Failed to get csv header values}", e.getMessage());
+      LOG.error("Failed to get csv header values. Error message: {}", e.getMessage());
       throw new RuntimeException(e);
     }
   }

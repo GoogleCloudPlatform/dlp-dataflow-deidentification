@@ -19,9 +19,16 @@ package com.google.swarm.tokenization.avro;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
+import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.file.SeekableInput;
 import org.apache.beam.sdk.io.FileIO;
+import org.joda.time.Duration;
+import org.joda.time.Instant;
+import org.joda.time.format.DateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +38,28 @@ import org.slf4j.LoggerFactory;
 public class AvroUtil {
 
     public static final Logger LOG = LoggerFactory.getLogger(AvroUtil.class);
+
+    /**
+     * Converts the given Avro value to a type that can be processed by DLP
+     */
+    public static Object convertForDLP(Object value, LogicalType logicalType) {
+        if (logicalType != null) {
+            if (logicalType instanceof LogicalTypes.Date) {
+                Instant instant = Instant.EPOCH.plus(Duration.standardDays((int) value));
+                return DateTimeFormat.forPattern("yyyy-MM-dd").print(instant);
+            }
+            else if (logicalType instanceof LogicalTypes.TimestampMillis) {
+                Instant instant = new Instant((int) value);
+                return DateTimeFormat.forPattern("yyyy-MM-dd hh:mm:ss").print(instant);
+            }
+            else if (logicalType instanceof LogicalTypes.TimestampMicros) {
+                Instant instant = new Instant((int) value / 1000);
+                return DateTimeFormat.forPattern("yyyy-MM-dd hh:mm:ss").print(instant);
+            }
+        }
+        return value;
+    }
+
 
     /**
      * Byte channel that enables random access for Avro files.
