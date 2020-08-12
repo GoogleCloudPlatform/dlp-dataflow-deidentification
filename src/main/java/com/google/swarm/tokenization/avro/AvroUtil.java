@@ -71,7 +71,7 @@ public class AvroUtil {
     }
 
     /**
-     * Returns in the header (in binary form)
+     * Returns in the header (in binary form).
      */
     public static ByteString extractHeader(FileIO.ReadableFile file) throws IOException {
         try (AvroUtil.AvroSeekableByteChannel channel = AvroUtil.getChannel(file)) {

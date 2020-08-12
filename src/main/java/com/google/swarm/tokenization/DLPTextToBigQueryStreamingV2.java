@@ -93,9 +93,8 @@ public class DLPTextToBigQueryStreamingV2 {
             records = inputFiles
                 .apply(
                     "SplitAvroFile",
-                    ParDo.of(new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize())))
-                .apply(
-                    ParDo.of(new ReadAvroBlocks(options.getKeyRange(), binaryHeader))
+                    ParDo.of(
+                        new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize(), binaryHeader))
                         .withSideInputs(binaryHeader)
                 );
             break;

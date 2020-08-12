@@ -16,15 +16,20 @@
 package com.google.swarm.tokenization.avro;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.util.List;
 import java.util.Random;
 
+import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.Value;
 import com.google.protobuf.ByteString;
 import com.google.swarm.tokenization.common.FileReader;
 import com.google.swarm.tokenization.avro.AvroUtil.AvroSeekableByteChannel;
 import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.DataFileStream;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
@@ -36,6 +41,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.PCollectionView;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,17 +54,21 @@ import static org.apache.avro.file.DataFileConstants.SYNC_SIZE;
  * needed is downstream steps to consume the data using the Avro Java library. Without the header the library can't
  * read the data.
  */
-public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, ByteString>> {
+public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, Table.Row>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(AvroReaderSplitDoFn.class);
   private final Counter numberOfAvroBlocksScanned =
       Metrics.counter(AvroReaderSplitDoFn.class, "numberOfAvroBlocksScanned");
+  private final Counter numberOfAvroRecordsRead =
+      Metrics.counter(AvroReaderSplitDoFn.class, "numberOfAvroRecordsRead");
   private final Integer splitSize;
   private final Integer keyRange;
+  private final PCollectionView<ByteString> headerSideInput;
 
-  public AvroReaderSplitDoFn(Integer keyRange, Integer splitSize) {
+  public AvroReaderSplitDoFn(Integer keyRange, Integer splitSize, PCollectionView<ByteString> headerSideInput) {
     this.keyRange = keyRange;
     this.splitSize = splitSize;
+    this.headerSideInput = headerSideInput;
   }
 
   /**
@@ -81,9 +91,8 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
       throws IOException {
     String fileName = c.element().getKey();
 
-    ByteString syncMarker = AvroUtil.extractSyncMarker(
-        AvroUtil.getChannel(c.element().getValue())
-    );
+    ByteString header = c.sideInput(headerSideInput);
+    ByteString syncMarker = header.substring(header.size() - SYNC_SIZE, header.size());
 
     try (SeekableByteChannel channel = getReader(c.element().getValue())) {
       FileReader reader = new FileReader(channel, tracker.currentRestriction().getFrom(), syncMarker.toByteArray());
@@ -91,9 +100,33 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
         // Get the Avro data bytes for the current block
         reader.readNextRecord();
         ByteString avroBlock = reader.getCurrent().concat(syncMarker);
-        String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
         numberOfAvroBlocksScanned.inc();
-        c.outputWithTimestamp(KV.of(key, avroBlock), Instant.now());
+
+        ByteString contents = header.concat(avroBlock);
+        InputStream inputStream = contents.newInput();
+        DatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
+        DataFileStream<GenericRecord> streamReader = new DataFileStream<>(inputStream, datumReader);
+        GenericRecord record = new GenericData.Record(streamReader.getSchema());
+
+        // Loop through every record in the split
+        while (streamReader.hasNext()) {
+          streamReader.next(record);
+
+          // Convert Avro record to DLP table row
+          Table.Row.Builder rowBuilder = Table.Row.newBuilder();
+          AvroUtil.getFlattenedValues(record, (Object value) -> {
+            if (value == null) {
+              rowBuilder.addValues(Value.newBuilder().setStringValue("").build());
+            } else {
+              rowBuilder.addValues(Value.newBuilder().setStringValue(value.toString()).build());
+            }
+          });
+
+          // Output the DLP table row
+          String outputKey = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
+          c.outputWithTimestamp(KV.of(outputKey, rowBuilder.build()), Instant.now());
+
+        }
       }
     }
   }
