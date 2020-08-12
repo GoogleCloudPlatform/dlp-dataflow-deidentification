@@ -37,21 +37,6 @@ public class AvroColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, String> 
 
   public static final Logger LOG = LoggerFactory.getLogger(AvroColumnNamesDoFn.class);
 
-  /**
-   * Returns the list of field names from the given schema. Calls itself recursively
-   * to flatten nested fields.
-   */
-  public static void flattenFieldNames(Schema schema, List<String> fieldNames, String prefix) {
-    for (Schema.Field field : schema.getFields()) {
-      if (field.schema().getType() == Schema.Type.RECORD) {
-        flattenFieldNames(field.schema(), fieldNames, prefix + field.name() + ".");
-      }
-      else {
-        fieldNames.add(prefix + field.name());
-      }
-    }
-  }
-
   @ProcessElement
   public void processElement(ProcessContext c) {
     ReadableFile avroFile = c.element().getValue();
@@ -59,7 +44,7 @@ public class AvroColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, String> 
       DatumReader<GenericRecord> reader = new GenericDatumReader<>();
       DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, reader);
       List<String> fieldNames = new ArrayList<>();
-      flattenFieldNames(fileReader.getSchema(), fieldNames, "");
+      AvroUtil.flattenFieldNames(fileReader.getSchema(), fieldNames, "");
       for (String fieldName : fieldNames) {
         c.output(fieldName);
       }

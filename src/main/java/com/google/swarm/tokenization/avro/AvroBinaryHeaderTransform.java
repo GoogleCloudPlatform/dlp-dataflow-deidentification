@@ -53,32 +53,12 @@ public abstract class AvroBinaryHeaderTransform extends PTransform<PCollection<K
         return new AutoValue_AvroBinaryHeaderTransform.Builder();
     }
 
-    public static ByteString extractHeader(FileIO.ReadableFile file) throws IOException {
-        try (AvroUtil.AvroSeekableByteChannel channel = AvroUtil.getChannel(file)) {
-            DatumReader<GenericRecord> reader = new GenericDatumReader<>();
-            DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, reader);
-
-            // Move to the first data block to get the size of the header
-            fileReader.sync(0);
-            int headerSize = (int) channel.tell();
-
-            // Create a buffer for the header
-            ByteBuffer buffer = ByteBuffer.allocate(headerSize);
-
-            // Move back to the beginning of the file and read the header into the buffer
-            channel.seek(0);
-            channel.read(buffer);
-            fileReader.close();
-            return ByteString.copyFrom(buffer.array());
-        }
-    }
-
     public class AvroBinaryHeaderDoFn extends DoFn<KV<String, FileIO.ReadableFile>, ByteString> {
 
         @ProcessElement
         public void processElement(ProcessContext c) throws IOException {
             FileIO.ReadableFile file = c.element().getValue();
-            ByteString header = extractHeader(file);
+            ByteString header = AvroUtil.extractHeader(file);
             c.output(header);
         }
     }

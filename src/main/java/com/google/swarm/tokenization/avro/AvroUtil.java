@@ -20,11 +20,19 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.*;
+import java.util.function.Consumer;
 
+import static org.apache.avro.file.DataFileConstants.SYNC_SIZE;
+import com.google.protobuf.ByteString;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
+import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.SeekableInput;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DatumReader;
 import org.apache.beam.sdk.io.FileIO;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
@@ -38,6 +46,67 @@ import org.slf4j.LoggerFactory;
 public class AvroUtil {
 
     public static final Logger LOG = LoggerFactory.getLogger(AvroUtil.class);
+
+    /**
+     * Returns the sync marker used by the given Avro file.
+     * Each Avro file has its own randomly-generated sync marker that separates every data block.
+     */
+    public static ByteString extractSyncMarker(SeekableInput file) throws IOException {
+        DatumReader<GenericRecord> reader = new GenericDatumReader<>();
+        DataFileReader<GenericRecord> fileReader = new DataFileReader<>(file, reader);
+
+        // Move to the first data block
+        fileReader.sync(0);
+
+        // Create a buffer for the syn marker
+        byte[] buffer = new byte[SYNC_SIZE];
+
+        // Move back by SYNC_SIZE (16) bytes
+        file.seek(file.tell() - SYNC_SIZE);
+
+        // Read the sync marker into the buffer
+        file.read(buffer, 0, SYNC_SIZE);
+        fileReader.close();
+        return ByteString.copyFrom(buffer);
+    }
+
+    /**
+     * Returns in the header (in binary form)
+     */
+    public static ByteString extractHeader(FileIO.ReadableFile file) throws IOException {
+        try (AvroUtil.AvroSeekableByteChannel channel = AvroUtil.getChannel(file)) {
+            DatumReader<GenericRecord> reader = new GenericDatumReader<>();
+            DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, reader);
+
+            // Move to the first data block to get the size of the header
+            fileReader.sync(0);
+            int headerSize = (int) channel.tell();
+
+            // Create a buffer for the header
+            byte[] buffer = new byte[headerSize];
+
+            // Move back to the beginning of the file and read the header into the buffer
+            channel.seek(0);
+            channel.read(buffer, 0, headerSize);
+            fileReader.close();
+            return ByteString.copyFrom(buffer);
+        }
+    }
+
+    /**
+     * Returns the list of field names from the given schema. Calls itself recursively
+     * to flatten nested fields.
+     */
+    public static void flattenFieldNames(Schema schema, List<String> fieldNames, String prefix) {
+        for (Schema.Field field : schema.getFields()) {
+            if (field.schema().getType() == Schema.Type.RECORD) {
+                flattenFieldNames(field.schema(), fieldNames, prefix + field.name() + ".");
+            }
+            else {
+                fieldNames.add(prefix + field.name());
+            }
+        }
+    }
 
     /**
      * Converts the given Avro value to a type that can be processed by DLP
@@ -60,6 +129,56 @@ public class AvroUtil {
         return value;
     }
 
+    /**
+     * Substitute for a `null` value used in the Avro value flattening function below.
+     */
+    private static class NullValue {}
+
+    /**
+     * Traverses the given Avro record's (potentially nested) schema and
+     * sends all flattened values to the given consumer.
+     * Uses a stack to perform an iterative, preorder traversal of the schema tree.
+     */
+    public static void getFlattenedValues(GenericRecord rootNode, Consumer<Object> consumer) {
+        Deque<Object> stack = new ArrayDeque<>();
+        // Start with the given record
+        stack.push(rootNode);
+        while(!stack.isEmpty()) {
+            Object node = stack.pop();
+            if (node instanceof GenericRecord) {
+                // The current node is a record, so we go one level deeper...
+                GenericRecord record = (GenericRecord) node;
+                List<Schema.Field> fields = record.getSchema().getFields();
+                ListIterator<Schema.Field> iterator = fields.listIterator(fields.size());
+                // Push all of the record's sub-fields to the stack in reverse order
+                // to prioritize sub-fields from left to right in subsequent loop iterations.
+                while (iterator.hasPrevious()) {
+                    String fieldName = iterator.previous().name();
+                    Object value = record.get(fieldName);
+                    if (value == null) {
+                        // Special case: A stack can't accept a null value,
+                        // so we substitute for a mock object instead.
+                        stack.push(new NullValue());
+                    }
+                    else {
+                        LogicalType logicalType = record.getSchema().getField(fieldName).schema().getLogicalType();
+                        Object convertedValue = AvroUtil.convertForDLP(value, logicalType);
+                        stack.push(convertedValue);
+                    }
+                }
+            }
+            else {
+                // The current node is a simple value.
+                if (node instanceof NullValue) {
+                    // Substitute the mock NullValue object for an actual `null` value.
+                    consumer.accept(null);
+                }
+                else {
+                    consumer.accept(node);
+                }
+            }
+        }
+    }
 
     /**
      * Byte channel that enables random access for Avro files.
@@ -90,10 +209,6 @@ public class AvroUtil {
         @Override
         public int read(byte[] b, int off, int len) throws IOException {
             ByteBuffer buffer = ByteBuffer.wrap(b, off, len);
-            return channel.read(buffer);
-        }
-
-        public int read(ByteBuffer buffer) throws IOException {
             return channel.read(buffer);
         }
 

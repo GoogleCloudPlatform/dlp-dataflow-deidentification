@@ -19,13 +19,10 @@ package com.google.swarm.tokenization.avro;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
-import java.util.function.Consumer;
 
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
 import com.google.protobuf.ByteString;
-import org.apache.avro.LogicalType;
-import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
@@ -54,56 +51,6 @@ public class ReadAvroBlocks extends DoFn<KV<String, ByteString>, KV<String, Tabl
         this.headerSideInput = headerSideInput;
     }
 
-    /**
-     * Substitute for a `null` value used in the Avro value flattening function below.
-     */
-    private static class NullValue {}
-
-    /**
-     * Traverses the given Avro record's (potentially nested) schema and
-     * sends all flattened values to the given consumer.
-     * Uses a stack to perform an iterative, preorder traversal of the schema tree.
-     */
-    public static void getFlattenedValues(GenericRecord rootNode, Consumer<Object> consumer) {
-        Deque<Object> stack = new ArrayDeque<>();
-        // Start with the given record
-        stack.push(rootNode);
-        while(!stack.isEmpty()) {
-            Object node = stack.pop();
-            if (node instanceof GenericRecord) {
-                // The current node is a record, so we go one level deeper...
-                GenericRecord record = (GenericRecord) node;
-                List<Schema.Field> fields = record.getSchema().getFields();
-                ListIterator<Schema.Field> iterator = fields.listIterator(fields.size());
-                // Push all of the record's sub-fields to the stack in reverse order
-                // to prioritize sub-fields from left to right in subsequent loop iterations.
-                while (iterator.hasPrevious()) {
-                    String fieldName = iterator.previous().name();
-                    Object value = record.get(fieldName);
-                    if (value == null) {
-                        // Special case: A stack can't accept a null value,
-                        // so we substitute for a mock object instead.
-                        stack.push(new NullValue());
-                    }
-                    else {
-                        LogicalType logicalType = record.getSchema().getField(fieldName).schema().getLogicalType();
-                        Object convertedValue = AvroUtil.convertForDLP(value, logicalType);
-                        stack.push(convertedValue);
-                    }
-                }
-            }
-            else {
-                // The current node is a simple value.
-                if (node instanceof NullValue) {
-                    // Substitute the mock NullValue object for an actual `null` value.
-                    consumer.accept(null);
-                }
-                else {
-                    consumer.accept(node);
-                }
-            }
-        }
-    }
 
     @ProcessElement
     public void processElement(ProcessContext c) throws IOException {
@@ -123,7 +70,7 @@ public class ReadAvroBlocks extends DoFn<KV<String, ByteString>, KV<String, Tabl
 
             // Convert Avro record to DLP table row
             Table.Row.Builder rowBuilder = Table.Row.newBuilder();
-            getFlattenedValues(record, (Object value) -> {
+            AvroUtil.getFlattenedValues(record, (Object value) -> {
                 if (value == null) {
                     rowBuilder.addValues(Value.newBuilder().setStringValue("").build());
                 }

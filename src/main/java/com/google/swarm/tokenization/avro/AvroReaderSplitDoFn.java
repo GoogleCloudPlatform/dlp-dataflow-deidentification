@@ -62,31 +62,6 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
   }
 
   /**
-   * Returns the sync marker used by the given Avro file.
-   * Each Avro file has its own randomly-generated sync marker that separates every data block.
-   */
-  public static ByteString extractSyncMarker(ReadableFile file) throws IOException {
-    try (AvroSeekableByteChannel channel = AvroUtil.getChannel(file)) {
-      DatumReader<GenericRecord> reader = new GenericDatumReader<>();
-      DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, reader);
-
-      // Move to the first data block
-      fileReader.sync(0);
-
-      // Create a buffer for the syn marker
-      ByteBuffer buffer = ByteBuffer.allocate(SYNC_SIZE);
-
-      // Move back by SYNC_SIZE (16) bytes
-      channel.seek(channel.tell() - SYNC_SIZE);
-
-      // Read the sync marker into the buffer
-      channel.read(buffer);
-      fileReader.close();
-      return ByteString.copyFrom(buffer.array());
-    }
-  }
-
-  /**
    * Returns the position (in bytes) where the first data block starts,
    * i.e after the Avro header and initial sync marker.
    */
@@ -105,7 +80,10 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
   public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker)
       throws IOException {
     String fileName = c.element().getKey();
-    ByteString syncMarker = extractSyncMarker(c.element().getValue());
+
+    ByteString syncMarker = AvroUtil.extractSyncMarker(
+        AvroUtil.getChannel(c.element().getValue())
+    );
 
     try (SeekableByteChannel channel = getReader(c.element().getValue())) {
       FileReader reader = new FileReader(channel, tracker.currentRestriction().getFrom(), syncMarker.toByteArray());
