@@ -17,7 +17,6 @@ package com.google.swarm.tokenization.avro;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.util.List;
 import java.util.Random;
@@ -57,8 +56,6 @@ import static org.apache.avro.file.DataFileConstants.SYNC_SIZE;
 public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, Table.Row>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(AvroReaderSplitDoFn.class);
-  private final Counter numberOfAvroBlocksScanned =
-      Metrics.counter(AvroReaderSplitDoFn.class, "numberOfAvroBlocksScanned");
   private final Counter numberOfAvroRecordsRead =
       Metrics.counter(AvroReaderSplitDoFn.class, "numberOfAvroRecordsRead");
   private final Integer splitSize;
@@ -98,17 +95,19 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
       FileReader reader = new FileReader(channel, tracker.currentRestriction().getFrom(), syncMarker.toByteArray());
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         // Get the Avro data bytes for the current block
+        // (Note: in this context, the "next record" in fact means the next Avro block)
         reader.readNextRecord();
-        ByteString avroBlock = reader.getCurrent().concat(syncMarker);
-        numberOfAvroBlocksScanned.inc();
+        ByteString avroBlock = reader.getCurrent();
 
-        ByteString contents = header.concat(avroBlock);
-        InputStream inputStream = contents.newInput();
+        // Re-compose a complete Avro file structure, including the header and sync marker
+        InputStream inputStream = header.concat(avroBlock).concat(syncMarker).newInput();
+
+        // Open the re-composed Avro structure
         DatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
         DataFileStream<GenericRecord> streamReader = new DataFileStream<>(inputStream, datumReader);
         GenericRecord record = new GenericData.Record(streamReader.getSchema());
 
-        // Loop through every record in the split
+        // Loop through every record
         while (streamReader.hasNext()) {
           streamReader.next(record);
 
@@ -125,7 +124,7 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
           // Output the DLP table row
           String outputKey = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
           c.outputWithTimestamp(KV.of(outputKey, rowBuilder.build()), Instant.now());
-
+          numberOfAvroRecordsRead.inc();
         }
       }
     }

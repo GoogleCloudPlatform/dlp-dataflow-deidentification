@@ -15,22 +15,22 @@
  */
 package com.google.swarm.tokenization;
 
-import com.google.api.services.bigquery.model.TableRow;
-import com.google.privacy.dlp.v2.Table;
-import com.google.protobuf.ByteString;
+import java.util.List;
+
 import com.google.swarm.tokenization.avro.*;
 import com.google.swarm.tokenization.beam.MapStringToDlpRow;
 import com.google.swarm.tokenization.common.*;
-import java.util.List;
 
+import com.google.api.services.bigquery.model.TableRow;
+import com.google.privacy.dlp.v2.Table;
+import com.google.protobuf.ByteString;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
+import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.transforms.GroupByKey;
-import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.View;
+import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.transforms.windowing.*;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
@@ -74,6 +74,12 @@ public class DLPTextToBigQueryStreamingV2 {
         final PCollectionView<List<String>> header =
             inputFiles
               .apply(
+                    "GlobalWindow",
+                    Window.<KV<String, FileIO.ReadableFile>>into(new GlobalWindows())
+                        .triggering(
+                            Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
+                        .discardingFiredPanes())
+              .apply(
                   ExtractColumnNamesTransform
                       .newBuilder()
                       .setFileType(options.getFileType())
@@ -85,14 +91,19 @@ public class DLPTextToBigQueryStreamingV2 {
           case AVRO:
             PCollectionView<ByteString> binaryHeader =
                 inputFiles
-                .apply(
-                    AvroBinaryHeaderTransform
-                    .newBuilder()
-                    .build()
-                );
+                  .apply(
+                      "GlobalWindow",
+                      Window.<KV<String, FileIO.ReadableFile>>into(new GlobalWindows())
+                          .triggering(
+                              Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
+                          .discardingFiredPanes())
+                  .apply(
+                      AvroBinaryHeaderTransform
+                      .newBuilder()
+                      .build()
+                  );
             records = inputFiles
                 .apply(
-                    "SplitAvroFile",
                     ParDo.of(
                         new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize(), binaryHeader))
                         .withSideInputs(binaryHeader)

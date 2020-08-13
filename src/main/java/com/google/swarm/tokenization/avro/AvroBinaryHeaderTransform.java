@@ -16,23 +16,14 @@
 package com.google.swarm.tokenization.avro;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import com.google.auto.value.AutoValue;
 import com.google.protobuf.ByteString;
-import org.apache.avro.file.DataFileReader;
-import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumReader;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
-import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
-import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
-import org.apache.beam.sdk.transforms.windowing.Repeatedly;
-import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
@@ -66,12 +57,6 @@ public abstract class AvroBinaryHeaderTransform extends PTransform<PCollection<K
     @Override
     public PCollectionView<ByteString> expand(PCollection<KV<String, FileIO.ReadableFile>> input) {
         return input
-            .apply(
-                "GlobalWindow",
-                Window.<KV<String, FileIO.ReadableFile>>into(new GlobalWindows())
-                    .triggering(
-                        Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
-                    .discardingFiredPanes())
             .apply(ParDo.of(new AvroBinaryHeaderDoFn()))
             .apply(View.asSingleton());
     }

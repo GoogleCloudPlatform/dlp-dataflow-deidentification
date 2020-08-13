@@ -37,8 +37,10 @@ import org.slf4j.LoggerFactory;
 public class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable<Table.Row>>> {
   public static final Logger LOG = LoggerFactory.getLogger(BatchRequestForDLP.class);
 
-  private final Counter numberOfRowsBagged =
-      Metrics.counter(BatchRequestForDLP.class, "numberOfRowsBagged");
+  private final Counter numberOfDLPRowsBagged =
+      Metrics.counter(BatchRequestForDLP.class, "numberOfDLPRowsBagged");
+  private final Counter numberOfDLPRowBags =
+      Metrics.counter(BatchRequestForDLP.class, "numberOfDLPRowBags");
 
   private final Integer batchSizeBytes;
 
@@ -90,7 +92,8 @@ public class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, I
                 if (clearBuffer) {
                   LOG.debug(
                       "Clear buffer of {} bytes, Key {}", bufferSize.intValue(), element.getKey());
-                  numberOfRowsBagged.inc(rows.size());
+                  numberOfDLPRowsBagged.inc(rows.size());
+                  numberOfDLPRowBags.inc();
                   output.output(KV.of(element.getKey(), rows));
                   rows.clear();
                   bufferSize.set(0);
@@ -100,7 +103,8 @@ public class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, I
               });
       if (!rows.isEmpty()) {
         LOG.debug("Outputting remaining {} rows.", rows.size());
-        numberOfRowsBagged.inc(rows.size());
+        numberOfDLPRowsBagged.inc(rows.size());
+        numberOfDLPRowBags.inc();
         output.output(KV.of(key, rows));
       }
     }

@@ -24,10 +24,6 @@ import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
-import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
-import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
-import org.apache.beam.sdk.transforms.windowing.Repeatedly;
-import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
@@ -51,21 +47,14 @@ public abstract class ExtractColumnNamesTransform extends PTransform<PCollection
 
     @Override
     public PCollectionView<List<String>> expand(PCollection<KV<String, FileIO.ReadableFile>> input) {
-        PCollection<KV<String, FileIO.ReadableFile>> globalWindow = input
-            .apply(
-                "GlobalWindow",
-                Window.<KV<String, FileIO.ReadableFile>>into(new GlobalWindows())
-                    .triggering(
-                        Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
-                    .discardingFiredPanes());
         PCollection<String> readHeader;
         switch (fileType()) {
             case AVRO:
-                readHeader = globalWindow
+                readHeader = input
                     .apply("ReadHeader", ParDo.of(new AvroColumnNamesDoFn()));
                 break;
             case CSV:
-                readHeader = globalWindow
+                readHeader = input
                     .apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn()));
                 break;
             default:
