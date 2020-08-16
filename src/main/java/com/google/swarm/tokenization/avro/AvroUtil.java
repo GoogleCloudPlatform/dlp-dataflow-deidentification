@@ -48,52 +48,6 @@ public class AvroUtil {
     public static final Logger LOG = LoggerFactory.getLogger(AvroUtil.class);
 
     /**
-     * Returns the sync marker used by the given Avro file.
-     * Each Avro file has its own randomly-generated sync marker that separates every data block.
-     */
-    public static ByteString extractSyncMarker(SeekableInput file) throws IOException {
-        DatumReader<GenericRecord> reader = new GenericDatumReader<>();
-        DataFileReader<GenericRecord> fileReader = new DataFileReader<>(file, reader);
-
-        // Move to the first data block
-        fileReader.sync(0);
-
-        // Create a buffer for the syn marker
-        byte[] buffer = new byte[SYNC_SIZE];
-
-        // Move back by SYNC_SIZE (16) bytes
-        file.seek(file.tell() - SYNC_SIZE);
-
-        // Read the sync marker into the buffer
-        file.read(buffer, 0, SYNC_SIZE);
-        fileReader.close();
-        return ByteString.copyFrom(buffer);
-    }
-
-    /**
-     * Returns in the header (in binary form).
-     */
-    public static ByteString extractHeader(FileIO.ReadableFile file) throws IOException {
-        try (AvroUtil.AvroSeekableByteChannel channel = AvroUtil.getChannel(file)) {
-            DatumReader<GenericRecord> reader = new GenericDatumReader<>();
-            DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, reader);
-
-            // Move to the first data block to get the size of the header
-            fileReader.sync(0);
-            int headerSize = (int) channel.tell();
-
-            // Create a buffer for the header
-            byte[] buffer = new byte[headerSize];
-
-            // Move back to the beginning of the file and read the header into the buffer
-            channel.seek(0);
-            channel.read(buffer, 0, headerSize);
-            fileReader.close();
-            return ByteString.copyFrom(buffer);
-        }
-    }
-
-    /**
      * Returns the list of field names from the given schema. Calls itself recursively
      * to flatten nested fields.
      */

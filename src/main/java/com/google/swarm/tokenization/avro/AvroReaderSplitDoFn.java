@@ -16,22 +16,16 @@
 package com.google.swarm.tokenization.avro;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.channels.SeekableByteChannel;
 import java.util.List;
 import java.util.Random;
 
+import static org.apache.avro.file.DataFileConstants.SYNC_SIZE;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
-import com.google.protobuf.ByteString;
-import com.google.swarm.tokenization.common.FileReader;
-import com.google.swarm.tokenization.avro.AvroUtil.AvroSeekableByteChannel;
 import org.apache.avro.file.DataFileReader;
-import org.apache.avro.file.DataFileStream;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumReader;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.metrics.Counter;
@@ -40,130 +34,92 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.PCollectionView;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import static org.apache.avro.file.DataFileConstants.SYNC_SIZE;
 
 /**
- * A SplitDoFn that splits the given Avro file into chunks. Each chunks contains an Avro data block, which
- * themselves contain some Avro records.
- * Each output contains a copy of the Avro file header, followed by the block's data bytes. The header is
- * needed is downstream steps to consume the data using the Avro Java library. Without the header the library can't
- * read the data.
+ * A SplitDoFn that splits the given Avro file into chunks. Then reads chunks in parallel and outputs a DLP row
+ * for each Avro record ingested.
  */
 public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, Table.Row>> {
 
-  public static final Logger LOG = LoggerFactory.getLogger(AvroReaderSplitDoFn.class);
-  private final Counter numberOfAvroRecordsRead =
-      Metrics.counter(AvroReaderSplitDoFn.class, "numberOfAvroRecordsRead");
-  private final Integer splitSize;
-  private final Integer keyRange;
-  private final PCollectionView<ByteString> headerSideInput;
+    public static final Logger LOG = LoggerFactory.getLogger(AvroReaderSplitDoFn.class);
+    private final Counter numberOfAvroRecordsIngested =
+        Metrics.counter(AvroReaderSplitDoFn.class, "numberOfAvroRecordsIngested");
+    private final Integer splitSize;
+    private final Integer keyRange;
 
-  public AvroReaderSplitDoFn(Integer keyRange, Integer splitSize, PCollectionView<ByteString> headerSideInput) {
-    this.keyRange = keyRange;
-    this.splitSize = splitSize;
-    this.headerSideInput = headerSideInput;
-  }
-
-  /**
-   * Returns the position (in bytes) where the first data block starts,
-   * i.e after the Avro header and initial sync marker.
-   */
-  public static long getFirstDataBlockPosition(ReadableFile file) throws IOException {
-    try (AvroSeekableByteChannel channel = AvroUtil.getChannel(file)) {
-      DatumReader<GenericRecord> reader = new GenericDatumReader<>();
-      DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, reader);
-      // Move to first data block
-      fileReader.sync(0);
-      // Return position
-      return fileReader.tell();
+    public AvroReaderSplitDoFn(Integer keyRange, Integer splitSize) {
+        this.keyRange = keyRange;
+        this.splitSize = splitSize;
     }
-  }
 
-  @ProcessElement
-  public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker)
-      throws IOException {
-    String fileName = c.element().getKey();
+    @ProcessElement
+    public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker) throws IOException {
+        LOG.info("Processing split from {} to {}", tracker.currentRestriction().getFrom(), tracker.currentRestriction().getTo());
+        String fileName = c.element().getKey();
 
-    ByteString header = c.sideInput(headerSideInput);
-    ByteString syncMarker = header.substring(header.size() - SYNC_SIZE, header.size());
+        AvroUtil.AvroSeekableByteChannel channel = AvroUtil.getChannel(c.element().getValue());
+        DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, new GenericDatumReader<>());
+        GenericRecord record = new GenericData.Record(fileReader.getSchema());
 
-    try (SeekableByteChannel channel = getReader(c.element().getValue())) {
-      FileReader reader = new FileReader(channel, tracker.currentRestriction().getFrom(), syncMarker.toByteArray());
-      while (tracker.tryClaim(reader.getStartOfNextRecord())) {
-        // Get the Avro data bytes for the current block
-        // (Note: in this context, the "next record" in fact means the next Avro block)
-        reader.readNextRecord();
-        ByteString avroBlock = reader.getCurrent();
+        long start = tracker.currentRestriction().getFrom();
+        long end = tracker.currentRestriction().getTo();
 
-        // Re-compose a complete Avro file structure, including the header and sync marker
-        InputStream inputStream = header.concat(avroBlock).concat(syncMarker).newInput();
+        // Move the first sync point after the
+        fileReader.sync(Math.max(start - SYNC_SIZE, 0));
 
-        // Open the re-composed Avro structure
-        DatumReader<GenericRecord> datumReader = new GenericDatumReader<>();
-        DataFileStream<GenericRecord> streamReader = new DataFileStream<>(inputStream, datumReader);
-        GenericRecord record = new GenericData.Record(streamReader.getSchema());
+        // Claim the whole split's range
+        if (tracker.tryClaim(end - 1)) {
+            // Loop through all records in the split. More precisely from the first
+            // sync point after the range's start position until the first sync point
+            // after the range's end position.
+            while(fileReader.hasNext() && !fileReader.pastSync(end - SYNC_SIZE)) {
+                // Read the next Avro record in line
+                fileReader.next(record);
 
-        // Loop through every record
-        while (streamReader.hasNext()) {
-          streamReader.next(record);
+                // Convert the Avro record to a DLP table row
+                Table.Row.Builder rowBuilder = Table.Row.newBuilder();
+                AvroUtil.getFlattenedValues(record, (Object value) -> {
+                    if (value == null) {
+                        rowBuilder.addValues(Value.newBuilder().setStringValue("").build());
+                    } else {
+                        rowBuilder.addValues(Value.newBuilder().setStringValue(value.toString()).build());
+                    }
+                });
 
-          // Convert Avro record to DLP table row
-          Table.Row.Builder rowBuilder = Table.Row.newBuilder();
-          AvroUtil.getFlattenedValues(record, (Object value) -> {
-            if (value == null) {
-              rowBuilder.addValues(Value.newBuilder().setStringValue("").build());
-            } else {
-              rowBuilder.addValues(Value.newBuilder().setStringValue(value.toString()).build());
+                // Output the DLP table row
+                String outputKey = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
+                c.outputWithTimestamp(KV.of(outputKey, rowBuilder.build()), Instant.now());
+                numberOfAvroRecordsIngested.inc();
             }
-          });
-
-          // Output the DLP table row
-          String outputKey = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
-          c.outputWithTimestamp(KV.of(outputKey, rowBuilder.build()), Instant.now());
-          numberOfAvroRecordsRead.inc();
         }
-      }
     }
-  }
 
-  @GetInitialRestriction
-  public OffsetRange getInitialRestriction(@Element KV<String, ReadableFile> file)
-      throws IOException {
-    long totalBytes = file.getValue().getMetadata().sizeBytes();
-    long firstDataBlockPosition = getFirstDataBlockPosition(file.getValue());
-    LOG.info("Initial Restriction range from {} to: {}", firstDataBlockPosition, totalBytes);
-    return new OffsetRange(firstDataBlockPosition, totalBytes);
-  }
-
-  @SplitRestriction
-  public void splitRestriction(
-      @Element KV<String, ReadableFile> file,
-      @Restriction OffsetRange range,
-      OutputReceiver<OffsetRange> out) {
-    List<OffsetRange> splits = range.split(splitSize, splitSize);
-    LOG.info("Number of Splits: {}", splits.size());
-    for (final OffsetRange p : splits) {
-      out.output(p);
+    @GetInitialRestriction
+    public OffsetRange getInitialRestriction(@Element KV<String, ReadableFile> element)
+        throws IOException {
+        long totalBytes = element.getValue().getMetadata().sizeBytes();
+        LOG.info("Initial Restriction range from {} to {}", 0, totalBytes);
+        return new OffsetRange(0, totalBytes);
     }
-  }
 
-  @NewTracker
-  public OffsetRangeTracker newTracker(@Restriction OffsetRange range) {
-    return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
-  }
-
-  private static SeekableByteChannel getReader(ReadableFile eventFile) {
-    SeekableByteChannel channel;
-    try {
-      channel = eventFile.openSeekable();
-    } catch (IOException e) {
-      LOG.error("Failed to open file {}", e.getMessage());
-      throw new RuntimeException(e);
+    @SplitRestriction
+    public void splitRestriction(
+        @Element KV<String, ReadableFile> file,
+        @Restriction OffsetRange range,
+        OutputReceiver<OffsetRange> out) {
+        List<OffsetRange> splits = range.split(splitSize, splitSize);
+        LOG.info("Number of splits: {}", splits.size());
+        for (final OffsetRange p : splits) {
+            out.output(p);
+        }
     }
-    return channel;
-  }
+
+    @NewTracker
+    public OffsetRangeTracker newTracker(@Restriction OffsetRange range) {
+        return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
+    }
+
 }

@@ -15,6 +15,7 @@
  */
 package com.google.swarm.tokenization;
 
+import java.io.IOException;
 import java.util.List;
 
 import com.google.swarm.tokenization.avro.*;
@@ -89,24 +90,10 @@ public class DLPTextToBigQueryStreamingV2 {
 
         switch (options.getFileType()) {
           case AVRO:
-            PCollectionView<ByteString> binaryHeader =
-                inputFiles
-                  .apply(
-                      "GlobalWindow",
-                      Window.<KV<String, FileIO.ReadableFile>>into(new GlobalWindows())
-                          .triggering(
-                              Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
-                          .discardingFiredPanes())
-                  .apply(
-                      AvroBinaryHeaderTransform
-                      .newBuilder()
-                      .build()
-                  );
             records = inputFiles
                 .apply(
                     ParDo.of(
-                        new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize(), binaryHeader))
-                        .withSideInputs(binaryHeader)
+                        new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize()))
                 );
             break;
           case CSV:
