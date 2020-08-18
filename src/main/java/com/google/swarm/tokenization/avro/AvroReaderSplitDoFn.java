@@ -95,6 +95,9 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
                 numberOfAvroRecordsIngested.inc();
             }
         }
+
+        fileReader.close();
+        channel.close();
     }
 
     @GetInitialRestriction
