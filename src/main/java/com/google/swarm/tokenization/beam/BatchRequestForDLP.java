@@ -83,24 +83,23 @@ public class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, I
       String key = elementsBag.read().iterator().next().getKey();
       AtomicInteger bufferSize = new AtomicInteger();
       List<Table.Row> rows = new ArrayList<>();
-      elementsBag
-          .read()
-          .forEach(
-              element -> {
-                int elementSize = element.getValue().getSerializedSize();
-                boolean clearBuffer = bufferSize.intValue() + elementSize > batchSizeBytes;
-                if (clearBuffer) {
-                  LOG.debug(
-                      "Clear buffer of {} bytes, Key {}", bufferSize.intValue(), element.getKey());
-                  numberOfDLPRowsBagged.inc(rows.size());
-                  numberOfDLPRowBags.inc();
-                  output.output(KV.of(element.getKey(), rows));
-                  rows.clear();
-                  bufferSize.set(0);
-                }
-                rows.add(element.getValue());
-                bufferSize.getAndAdd(element.getValue().getSerializedSize());
-              });
+
+      for (KV<String, Table.Row> element : elementsBag.read()) {
+
+        int elementSize = element.getValue().getSerializedSize();
+        boolean clearBuffer = bufferSize.intValue() + elementSize > batchSizeBytes;
+        if (clearBuffer) {
+          LOG.debug("Clear buffer of {} bytes, Key {}", bufferSize.intValue(), element.getKey());
+          numberOfDLPRowsBagged.inc(rows.size());
+          numberOfDLPRowBags.inc();
+          output.output(KV.of(key, rows));
+          rows = new ArrayList<>();
+          bufferSize.set(0);
+        }
+        rows.add(element.getValue());
+        bufferSize.getAndAdd(element.getValue().getSerializedSize());
+      }
+
       if (!rows.isEmpty()) {
         LOG.debug("Outputting remaining {} rows.", rows.size());
         numberOfDLPRowsBagged.inc(rows.size());

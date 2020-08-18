@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.annotations.Experimental;
+import org.apache.beam.sdk.metrics.Counter;
+import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
@@ -175,6 +177,14 @@ public abstract class DLPInspectText
         private transient DlpServiceClient dlpServiceClient;
         private transient InspectContentRequest.Builder requestBuilder;
 
+        // Counter to track total number of Rows inspected from DLP inspection
+        private final Counter numberOfRowsInspected =
+            Metrics.counter(InspectData.class, "numberOfRowsInspected");
+
+        // Counter to track total number of DLP API calls made for DLP Inspection
+        private final Counter numberOfDlpApiCalls =
+            Metrics.counter(InspectData.class, "numberOfDlpApiCalls");
+
         /**
          * @param projectId ID of GCP project that should be used for data inspection.
          * @param inspectTemplateName Template name for inspection.
@@ -192,18 +202,21 @@ public abstract class DLPInspectText
             this.headerColumns = headerColumns;
         }
 
-        @Setup
-        public void setup() throws IOException {
-            this.requestBuilder =
-                InspectContentRequest.newBuilder().setParent(ProjectName.of(this.projectId).toString());
-            if (inspectTemplateName != null) {
-                requestBuilder.setInspectTemplateName(this.inspectTemplateName);
-            }
-            if (inspectConfig != null) {
-                requestBuilder.setInspectConfig(inspectConfig);
-            }
-            dlpServiceClient = DlpServiceClient.create();
-        }
+    @Setup
+    public void setup() throws IOException {
+      this.requestBuilder =
+          InspectContentRequest.newBuilder().setParent(ProjectName.of(this.projectId).toString());
+      if (inspectTemplateName != null) {
+        requestBuilder.setInspectTemplateName(this.inspectTemplateName);
+      }
+      if (inspectConfig != null) {
+        requestBuilder.setInspectConfig(inspectConfig);
+      } else {
+        InspectConfig config = InspectConfig.newBuilder().setIncludeQuote(true).build();
+        requestBuilder.setInspectConfig(config);
+      }
+      dlpServiceClient = DlpServiceClient.create();
+    }
 
         @Teardown
         public void teardown() {
@@ -228,6 +241,8 @@ public abstract class DLPInspectText
             this.requestBuilder.setItem(contentItem);
             InspectContentResponse response =
                 dlpServiceClient.inspectContent(this.requestBuilder.build());
+            numberOfRowsInspected.inc(table.getRowsCount());
+            numberOfDlpApiCalls.inc();
             c.output(KV.of(c.element().getKey(), response));
         }
     }
