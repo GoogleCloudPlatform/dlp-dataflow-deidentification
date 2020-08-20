@@ -85,7 +85,6 @@ public class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, I
       List<Table.Row> rows = new ArrayList<>();
 
       for (KV<String, Table.Row> element : elementsBag.read()) {
-
         int elementSize = element.getValue().getSerializedSize();
         boolean clearBuffer = bufferSize.intValue() + elementSize > batchSizeBytes;
         if (clearBuffer) {
@@ -97,7 +96,7 @@ public class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, I
           bufferSize.set(0);
         }
         rows.add(element.getValue());
-        bufferSize.getAndAdd(element.getValue().getSerializedSize());
+        bufferSize.getAndAdd(elementSize);
       }
 
       if (!rows.isEmpty()) {
