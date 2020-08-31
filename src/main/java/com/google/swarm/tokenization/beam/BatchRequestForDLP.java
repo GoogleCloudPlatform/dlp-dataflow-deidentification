@@ -67,6 +67,17 @@ public class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, I
   }
 
   /**
+   * Utility function that outputs batched rows and clears state.
+   */
+  public void outputBatch(
+      WindowedContext context, String key, BagState<Table.Row> batchedRows, ValueState<Integer> batchSize) {
+    context.output(KV.of(key, batchedRows.read()));
+    numberOfDLPRowBatches.inc();
+    batchedRows.clear();
+    batchSize.clear();
+  }
+
+  /**
    * Outputs batches of DLP table rows, where each batch's size fits within the specified limit.
    */
   @ProcessElement
@@ -84,29 +95,25 @@ public class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, I
       expiry.set(window.maxTimestamp());
     }
 
+    Table.Row row = context.element().getValue();
+    int rowSize = row.getSerializedSize();
     int currentBatchSize = firstNonNull(batchSize.read(), 0);
-    int rowSize = context.element().getValue().getSerializedSize();
 
     // Check if the row would put us over the batch size limit
     if (currentBatchSize + rowSize > batchSizeLimit) {
       // Output all rows that had been batched so far
-      context.output(KV.of(context.element().getKey(), batchedRows.read()));
-      numberOfDLPRowBatches.inc();
-      // Reset the batch
-      batchedRows.clear();
-      batchSize.clear();
+      outputBatch(context, context.element().getKey(), batchedRows, batchSize);
       currentBatchSize = 0;
     }
 
-    // Add current row to the batch
-    batchedRows.add(context.element().getValue());
-    batchSize.write(currentBatchSize + rowSize);
+    batchedRows.add(row);
     numberOfBatchedDLPRows.inc();
+    batchSize.write(currentBatchSize + rowSize);
   }
 
 
   /**
-   * Outputs any remaining rows when the window expires.
+   * Outputs any incomplete batches when the window expires.
    */
   @OnTimer("expiry")
   public void onExpiry(
@@ -116,10 +123,7 @@ public class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, I
       @StateId("batchSize") ValueState<Integer> batchSize) {
     boolean isEmpty = firstNonNull(batchedRows.isEmpty().read(), true);
     if (!isEmpty) {
-      context.output(KV.of(key.read(), batchedRows.read()));
-      numberOfDLPRowBatches.inc();
-      batchedRows.clear();
-      batchSize.clear();
+      outputBatch(context, key.read(), batchedRows, batchSize);
     }
   }
 }
