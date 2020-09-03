@@ -15,7 +15,6 @@
  */
 package com.google.swarm.tokenization;
 
-import java.io.IOException;
 import java.util.List;
 
 import com.google.swarm.tokenization.avro.*;
@@ -24,7 +23,6 @@ import com.google.swarm.tokenization.common.*;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.privacy.dlp.v2.Table;
-import com.google.protobuf.ByteString;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.FileIO;
