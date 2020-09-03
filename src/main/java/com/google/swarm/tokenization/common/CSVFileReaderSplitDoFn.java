@@ -37,13 +37,13 @@ public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<St
   private final Counter numberOfRowsRead =
       Metrics.counter(CSVFileReaderSplitDoFn.class, "numberOfRowsRead");
 
-  private Integer keyRange;
-  private String delimiter;
-  private Integer splitSize;
+  private final Integer keyRange;
+  private final String recordDelimiter;
+  private final Integer splitSize;
 
-  public CSVFileReaderSplitDoFn(Integer keyRange, String delimiter, Integer splitSize) {
+  public CSVFileReaderSplitDoFn(Integer keyRange, String recordDelimiter, Integer splitSize) {
     this.keyRange = keyRange;
-    this.delimiter = delimiter;
+    this.recordDelimiter = recordDelimiter;
     this.splitSize = splitSize;
   }
 
@@ -53,7 +53,7 @@ public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<St
     String fileName = c.element().getKey();
     try (SeekableByteChannel channel = getReader(c.element().getValue())) {
       FileReader reader =
-          new FileReader(channel, tracker.currentRestriction().getFrom(), delimiter.getBytes());
+          new FileReader(channel, tracker.currentRestriction().getFrom(), recordDelimiter.getBytes());
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent().toStringUtf8();

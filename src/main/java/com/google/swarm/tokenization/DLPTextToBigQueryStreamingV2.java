@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.util.List;
 
 import com.google.swarm.tokenization.avro.*;
-import com.google.swarm.tokenization.beam.MapStringToDlpRow;
+import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
 import com.google.swarm.tokenization.common.*;
 
 import com.google.api.services.bigquery.model.TableRow;
@@ -100,8 +100,8 @@ public class DLPTextToBigQueryStreamingV2 {
             records = inputFiles
                 .apply(
                     "SplitCSVFile",
-                    ParDo.of(new CSVFileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter(), options.getSplitSize())))
-                .apply(ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())));
+                    ParDo.of(new CSVFileReaderSplitDoFn(options.getKeyRange(), options.getRecordDelimiter(), options.getSplitSize())))
+                .apply(ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter())));
             break;
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");
@@ -120,7 +120,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setDlpmethod(options.getDLPMethod())
                     .setProjectId(options.getProject())
                     .setHeader(header)
-                    .setColumnDelimeter(options.getColumnDelimeter())
+                    .setColumnDelimiter(options.getColumnDelimiter())
                     .setJobName(options.getJobName())
                     .build())
             .get(Util.inspectOrDeidSuccess)
@@ -167,7 +167,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setDlpmethod(options.getDLPMethod())
                     .setProjectId(options.getProject())
                     .setHeader(selectedColumns)
-                    .setColumnDelimeter(",")
+                    .setColumnDelimiter(options.getColumnDelimiter())
                     .setJobName(options.getJobName())
                     .build())
             .get(Util.reidSuccess)

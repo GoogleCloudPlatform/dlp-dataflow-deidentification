@@ -92,7 +92,7 @@ public abstract class DLPReidentifyText
 
     /** @return Delimiter to be used when splitting values from input strings into columns. */
     @Nullable
-    public abstract String getColumnDelimiter();
+    public abstract Character getColumnDelimiter();
 
     /** @return List of column names if the input KV value is a delimited row. */
     @Nullable
@@ -134,7 +134,7 @@ public abstract class DLPReidentifyText
         /**
          * @param delimiter Delimiter to be used when splitting values from input strings into columns.
          */
-        public abstract DLPReidentifyText.Builder setColumnDelimiter(String delimiter);
+        public abstract DLPReidentifyText.Builder setColumnDelimiter(Character delimiter);
 
         /** @param projectId ID of Google Cloud project to be used when deidentifying data. */
         public abstract DLPReidentifyText.Builder setProjectId(String projectId);

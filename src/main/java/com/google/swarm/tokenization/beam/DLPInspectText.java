@@ -81,7 +81,7 @@ public abstract class DLPInspectText
 
     /** @return Delimiter to be used when splitting values from input strings into columns. */
     @Nullable
-    public abstract String getColumnDelimiter();
+    public abstract Character getColumnDelimiter();
 
     /** @return List of column names if the input KV value is a delimited row. */
     @Nullable
@@ -109,7 +109,7 @@ public abstract class DLPInspectText
         /**
          * @param delimiter Delimiter to be used when splitting values from input strings into columns.
          */
-        public abstract Builder setColumnDelimiter(String delimiter);
+        public abstract Builder setColumnDelimiter(Character delimiter);
 
         /** @param headerColumns List of column names if the input KV value is a delimited row. */
         public abstract Builder setHeaderColumns(PCollectionView<List<String>> headerColumns);

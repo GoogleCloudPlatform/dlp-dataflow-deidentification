@@ -90,7 +90,7 @@ public abstract class DLPDeidentifyText
 
     /** @return Delimiter to be used when splitting values from input strings into columns. */
     @Nullable
-    public abstract String getColumnDelimiter();
+    public abstract Character getColumnDelimiter();
 
     /** @return Size of input elements batch to be sent to Cloud DLP service in one request. */
     public abstract Integer getBatchSizeBytes();
@@ -109,7 +109,7 @@ public abstract class DLPDeidentifyText
         /**
          * @param delimiter Delimiter to be used when splitting values from input strings into columns.
          */
-        public abstract DLPDeidentifyText.Builder setColumnDelimiter(String delimiter);
+        public abstract DLPDeidentifyText.Builder setColumnDelimiter(Character delimiter);
 
         /**
          * @param batchSize Size of input elements batch to be sent to Cloud DLP service in one request.
