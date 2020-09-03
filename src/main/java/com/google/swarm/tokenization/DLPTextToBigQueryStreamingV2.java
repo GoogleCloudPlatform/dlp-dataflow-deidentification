@@ -25,6 +25,8 @@ import com.google.api.services.bigquery.model.TableRow;
 import com.google.privacy.dlp.v2.Table;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
+import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
@@ -90,6 +92,7 @@ public class DLPTextToBigQueryStreamingV2 {
           case AVRO:
             records = inputFiles
                 .apply(ParDo.of(new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize())))
+                .setCoder(KvCoder.of(StringUtf8Coder.of(), GenericRecordCoder.of()))
                 .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
             break;
           case CSV:

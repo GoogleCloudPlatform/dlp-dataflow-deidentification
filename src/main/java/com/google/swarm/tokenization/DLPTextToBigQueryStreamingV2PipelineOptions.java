@@ -74,7 +74,7 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   @Default.String("\n")
   String getRecordDelimiter();
 
-  void setDelimiter(String value);
+  void setRecordDelimiter(String value);
 
   @Description("Column delimiter")
   @Default.Character(',')
