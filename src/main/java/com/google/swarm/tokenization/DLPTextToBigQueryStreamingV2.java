@@ -89,10 +89,8 @@ public class DLPTextToBigQueryStreamingV2 {
         switch (options.getFileType()) {
           case AVRO:
             records = inputFiles
-                .apply(
-                    ParDo.of(
-                        new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize()))
-                );
+                .apply(ParDo.of(new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize())))
+                .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
             break;
           case CSV:
             records = inputFiles
