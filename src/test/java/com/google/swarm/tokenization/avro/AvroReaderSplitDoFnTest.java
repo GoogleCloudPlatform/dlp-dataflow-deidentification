@@ -55,6 +55,7 @@ public class AvroReaderSplitDoFnTest {
     public final static Schema schema = SchemaBuilder
         .record("root")
         .fields()
+        .name("user").type().stringType().noDefault()
         .name("message").type().stringType().noDefault()
         .endRecord();
 
@@ -75,7 +76,10 @@ public class AvroReaderSplitDoFnTest {
         ArrayList<GenericRecord> result = new ArrayList<>();
         GenericRecordBuilder builder = new GenericRecordBuilder(schema);
         for (int i = 0; i < count; i++) {
-            GenericRecord record = builder.set("message", "Message #" + i).build();
+            GenericRecord record = builder
+                .set("user", "abcd")
+                .set("message", "Message #" + i)
+                .build();
             result.add(record);
         }
         return result;
@@ -85,8 +89,12 @@ public class AvroReaderSplitDoFnTest {
         ArrayList<Table.Row> result = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             Table.Row.Builder rowBuilder = Table.Row.newBuilder();
+            Value user = Value.newBuilder().setStringValue("abcd").build();
             Value message = Value.newBuilder().setStringValue("Message #" + i).build();
-            Table.Row row = rowBuilder.addValues(message).build();
+            Table.Row row = rowBuilder
+                .addValues(user)
+                .addValues(message)
+                .build();
             result.add(row);
         }
         return result;

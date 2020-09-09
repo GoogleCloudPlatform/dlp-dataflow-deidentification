@@ -35,8 +35,8 @@ public class ConvertAvroRecordToDlpRowDoFn extends DoFn<KV<String, GenericRecord
             } else {
                 rowBuilder.addValues(Value.newBuilder().setStringValue(value.toString()).build());
             }
-            c.output(KV.of(key, rowBuilder.build()));
         });
+        c.output(KV.of(key, rowBuilder.build()));
     }
 
 }
