@@ -20,10 +20,7 @@ import java.util.List;
 import java.util.Random;
 
 import static org.apache.avro.file.DataFileConstants.SYNC_SIZE;
-import com.google.privacy.dlp.v2.Table;
-import com.google.privacy.dlp.v2.Value;
 import org.apache.avro.file.DataFileReader;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
@@ -39,10 +36,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A SplitDoFn that splits the given Avro file into chunks. Then reads chunks in parallel and outputs a DLP row
- * for each Avro record ingested.
+ * A SplitDoFn that splits the given Avro file into chunks, then reads the chunks in parallel
+ * and outputs all the ingested Avro records.
  */
-public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, Table.Row>> {
+public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, GenericRecord>> {
 
     public static final Logger LOG = LoggerFactory.getLogger(AvroReaderSplitDoFn.class);
     private final Counter numberOfAvroRecordsIngested =
@@ -62,7 +59,6 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
 
         AvroUtil.AvroSeekableByteChannel channel = AvroUtil.getChannel(c.element().getValue());
         DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, new GenericDatumReader<>());
-        GenericRecord record = new GenericData.Record(fileReader.getSchema());
 
         long start = tracker.currentRestriction().getFrom();
         long end = tracker.currentRestriction().getTo();
@@ -77,21 +73,11 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
             // after the range's end position.
             while(fileReader.hasNext() && !fileReader.pastSync(end - SYNC_SIZE)) {
                 // Read the next Avro record in line
-                fileReader.next(record);
-
-                // Convert the Avro record to a DLP table row
-                Table.Row.Builder rowBuilder = Table.Row.newBuilder();
-                AvroUtil.getFlattenedValues(record, (Object value) -> {
-                    if (value == null) {
-                        rowBuilder.addValues(Value.newBuilder().setStringValue("").build());
-                    } else {
-                        rowBuilder.addValues(Value.newBuilder().setStringValue(value.toString()).build());
-                    }
-                });
+                GenericRecord record = fileReader.next();
 
                 // Output the DLP table row
                 String outputKey = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
-                c.outputWithTimestamp(KV.of(outputKey, rowBuilder.build()), Instant.now());
+                c.outputWithTimestamp(KV.of(outputKey, record), Instant.now());
                 numberOfAvroRecordsIngested.inc();
             }
         }

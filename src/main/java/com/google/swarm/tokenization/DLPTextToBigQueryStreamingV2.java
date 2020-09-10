@@ -15,18 +15,18 @@
  */
 package com.google.swarm.tokenization;
 
-import java.io.IOException;
 import java.util.List;
 
 import com.google.swarm.tokenization.avro.*;
-import com.google.swarm.tokenization.beam.MapStringToDlpRow;
+import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
 import com.google.swarm.tokenization.common.*;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.privacy.dlp.v2.Table;
-import com.google.protobuf.ByteString;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
+import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
@@ -91,17 +91,16 @@ public class DLPTextToBigQueryStreamingV2 {
         switch (options.getFileType()) {
           case AVRO:
             records = inputFiles
-                .apply(
-                    ParDo.of(
-                        new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize()))
-                );
+                .apply(ParDo.of(new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize())))
+                .setCoder(KvCoder.of(StringUtf8Coder.of(), GenericRecordCoder.of()))
+                .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
             break;
           case CSV:
             records = inputFiles
                 .apply(
                     "SplitCSVFile",
-                    ParDo.of(new CSVFileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter(), options.getSplitSize())))
-                .apply(ParDo.of(new MapStringToDlpRow(options.getColumnDelimeter())));
+                    ParDo.of(new CSVFileReaderSplitDoFn(options.getKeyRange(), options.getRecordDelimiter(), options.getSplitSize())))
+                .apply(ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter())));
             break;
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");
@@ -120,7 +119,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setDlpmethod(options.getDLPMethod())
                     .setProjectId(options.getProject())
                     .setHeader(header)
-                    .setColumnDelimeter(options.getColumnDelimeter())
+                    .setColumnDelimiter(options.getColumnDelimiter())
                     .setJobName(options.getJobName())
                     .build())
             .get(Util.inspectOrDeidSuccess)
@@ -167,7 +166,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setDlpmethod(options.getDLPMethod())
                     .setProjectId(options.getProject())
                     .setHeader(selectedColumns)
-                    .setColumnDelimeter(",")
+                    .setColumnDelimiter(options.getColumnDelimiter())
                     .setJobName(options.getJobName())
                     .build())
             .get(Util.reidSuccess)

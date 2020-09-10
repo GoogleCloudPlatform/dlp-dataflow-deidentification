@@ -19,40 +19,51 @@ package com.google.swarm.tokenization.beam;
 
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
-import java.util.Arrays;
-import java.util.List;
+
+import java.io.IOException;
 import java.util.Objects;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 
 /**
  * Maps {@link KV}s of {@link String}s into KV<{@link String}, {@link Table.Row}> for further
  * processing in the DLP transforms.
  *
- * <p>If a delimiter of values isn't provided, input is assumed to be unstructured and the input KV
+ * <p>If a column delimiter of values isn't provided, input is assumed to be unstructured and the input KV
  * value is saved in a single column of output {@link Table.Row}.
  */
-public class MapStringToDlpRow extends DoFn<KV<String, String>, KV<String, Table.Row>> {
-    private final String delimiter;
+public class ConvertCSVRecordToDLPRow extends DoFn<KV<String, String>, KV<String, Table.Row>> {
 
-    /**
-     * @param delimiter Delimiter of values in the delimited value row that may be in the value of
-     *     input KV.
-     */
-    public MapStringToDlpRow(String delimiter) {
-        this.delimiter = delimiter;
+    private final Character columnDelimiter;
+
+    public ConvertCSVRecordToDLPRow() {
+        this(null);
+    }
+
+    public ConvertCSVRecordToDLPRow(Character columnDelimiter) {
+        this.columnDelimiter = columnDelimiter;
     }
 
     @ProcessElement
-    public void processElement(ProcessContext context) {
+    public void processElement(ProcessContext context) throws IOException {
         Table.Row.Builder rowBuilder = Table.Row.newBuilder();
-        String line = Objects.requireNonNull(context.element().getValue());
-        if (delimiter != null) {
-            List<String> values = Arrays.asList(line.split(delimiter));
-            values.forEach(
-                value -> rowBuilder.addValues(Value.newBuilder().setStringValue(value).build()));
+        String input = Objects.requireNonNull(context.element().getValue());
+        if (columnDelimiter != null) {
+            CSVFormat csvFormat = CSVFormat.DEFAULT.withDelimiter(columnDelimiter);
+            CSVParser records = CSVParser.parse(input, csvFormat);
+            CSVRecord record = records.getRecords().get(0);
+            record.iterator().forEachRemaining(
+                value -> rowBuilder.addValues(
+                    Value.newBuilder().setStringValue(value).build()
+                )
+            );
         } else {
-            rowBuilder.addValues(Value.newBuilder().setStringValue(line).build());
+            rowBuilder.addValues(
+                Value.newBuilder().setStringValue(input).build()
+            );
         }
         context.output(KV.of(context.element().getKey(), rowBuilder.build()));
     }

@@ -70,17 +70,17 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setWriteMethod(BigQueryIO.Write.Method value);
 
-  @Description("Line delimeter")
+  @Description("Record delimiter")
   @Default.String("\n")
-  String getDelimeter();
+  String getRecordDelimiter();
 
-  void setDelimeter(String value);
+  void setRecordDelimiter(String value);
 
-  @Description("Column delimeter")
-  @Default.String(",")
-  String getColumnDelimeter();
+  @Description("Column delimiter")
+  @Default.Character(',')
+  Character getColumnDelimiter();
 
-  void setColumnDelimeter(String value);
+  void setColumnDelimiter(Character value);
 
   @Description("BigQuery table to export from in the form <project>:<dataset>.<table>")
   String getTableRef();

@@ -64,7 +64,7 @@ public abstract class DLPTransform
 
   public abstract String projectId();
 
-  public abstract String columnDelimeter();
+  public abstract Character columnDelimiter();
 
   public abstract DLPMethod dlpmethod();
 
@@ -85,7 +85,7 @@ public abstract class DLPTransform
 
     public abstract Builder setHeader(PCollectionView<List<String>> header);
 
-    public abstract Builder setColumnDelimeter(String columnDelimeter);
+    public abstract Builder setColumnDelimiter(Character columnDelimiter);
 
     public abstract Builder setDlpmethod(DLPMethod method);
 
@@ -108,7 +108,7 @@ public abstract class DLPTransform
                   "InspectTransform",
                   DLPInspectText.newBuilder()
                       .setBatchSizeBytes(batchSize())
-                      .setColumnDelimiter(columnDelimeter())
+                      .setColumnDelimiter(columnDelimiter())
                       .setHeaderColumns(header())
                       .setInspectTemplateName(inspectTemplateName())
                       .setProjectId(projectId())
@@ -126,7 +126,7 @@ public abstract class DLPTransform
                   "DeIdTransform",
                   DLPDeidentifyText.newBuilder()
                       .setBatchSizeBytes(batchSize())
-                      .setColumnDelimiter(columnDelimeter())
+                      .setColumnDelimiter(columnDelimiter())
                       .setHeaderColumns(header())
                       .setInspectTemplateName(inspectTemplateName())
                       .setDeidentifyTemplateName(deidTemplateName())
@@ -145,7 +145,7 @@ public abstract class DLPTransform
                   "ReIdTransform",
                   DLPReidentifyText.newBuilder()
                       .setBatchSizeBytes(batchSize())
-                      .setColumnDelimiter(columnDelimeter())
+                      .setColumnDelimiter(columnDelimiter())
                       .setHeaderColumns(header())
                       .setInspectTemplateName(inspectTemplateName())
                       .setReidentifyTemplateName(deidTemplateName())
