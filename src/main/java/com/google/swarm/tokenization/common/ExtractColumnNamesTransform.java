@@ -15,11 +15,10 @@
  */
 package com.google.swarm.tokenization.common;
 
-import java.util.List;
-
 import com.google.auto.value.AutoValue;
 import com.google.swarm.tokenization.avro.AvroColumnNamesDoFn;
 import com.google.swarm.tokenization.common.Util.FileType;
+import java.util.List;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
@@ -28,38 +27,37 @@ import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
 
-
 @AutoValue
-public abstract class ExtractColumnNamesTransform extends PTransform<PCollection<KV<String, FileIO.ReadableFile>>, PCollectionView<List<String>>> {
+public abstract class ExtractColumnNamesTransform
+    extends PTransform<
+        PCollection<KV<String, FileIO.ReadableFile>>, PCollectionView<List<String>>> {
 
-    public abstract FileType fileType();
+  public abstract FileType fileType();
 
-    @AutoValue.Builder
-    public abstract static class Builder {
-        public abstract ExtractColumnNamesTransform.Builder setFileType(FileType fileType);
+  @AutoValue.Builder
+  public abstract static class Builder {
+    public abstract ExtractColumnNamesTransform.Builder setFileType(FileType fileType);
 
-        public abstract ExtractColumnNamesTransform build();
+    public abstract ExtractColumnNamesTransform build();
+  }
+
+  public static ExtractColumnNamesTransform.Builder newBuilder() {
+    return new AutoValue_ExtractColumnNamesTransform.Builder();
+  }
+
+  @Override
+  public PCollectionView<List<String>> expand(PCollection<KV<String, FileIO.ReadableFile>> input) {
+    PCollection<String> readHeader;
+    switch (fileType()) {
+      case AVRO:
+        readHeader = input.apply("ReadHeader", ParDo.of(new AvroColumnNamesDoFn()));
+        break;
+      case CSV:
+        readHeader = input.apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn()));
+        break;
+      default:
+        throw new IllegalStateException("Unexpected value: " + fileType());
     }
-
-    public static ExtractColumnNamesTransform.Builder newBuilder() {
-        return new AutoValue_ExtractColumnNamesTransform.Builder();
-    }
-
-    @Override
-    public PCollectionView<List<String>> expand(PCollection<KV<String, FileIO.ReadableFile>> input) {
-        PCollection<String> readHeader;
-        switch (fileType()) {
-            case AVRO:
-                readHeader = input
-                    .apply("ReadHeader", ParDo.of(new AvroColumnNamesDoFn()));
-                break;
-            case CSV:
-                readHeader = input
-                    .apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn()));
-                break;
-            default:
-                throw new IllegalStateException("Unexpected value: " + fileType());
-        }
-        return readHeader.apply("ViewAsList", View.asList());
-    }
+    return readHeader.apply("ViewAsList", View.asList());
+  }
 }

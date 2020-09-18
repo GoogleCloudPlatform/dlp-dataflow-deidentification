@@ -15,14 +15,22 @@
  */
 package com.google.swarm.tokenization;
 
-import java.util.List;
-
-import com.google.swarm.tokenization.avro.*;
-import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
-import com.google.swarm.tokenization.common.*;
-
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.privacy.dlp.v2.Table;
+import com.google.swarm.tokenization.avro.AvroReaderSplitDoFn;
+import com.google.swarm.tokenization.avro.ConvertAvroRecordToDlpRowDoFn;
+import com.google.swarm.tokenization.avro.GenericRecordCoder;
+import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
+import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
+import com.google.swarm.tokenization.common.BigQueryReadTransform;
+import com.google.swarm.tokenization.common.BigQueryTableHeaderDoFn;
+import com.google.swarm.tokenization.common.CSVFileReaderSplitDoFn;
+import com.google.swarm.tokenization.common.DLPTransform;
+import com.google.swarm.tokenization.common.ExtractColumnNamesTransform;
+import com.google.swarm.tokenization.common.FilePollingTransform;
+import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
+import com.google.swarm.tokenization.common.Util;
+import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -31,8 +39,14 @@ import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.transforms.*;
-import org.apache.beam.sdk.transforms.windowing.*;
+import org.apache.beam.sdk.transforms.GroupByKey;
+import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.View;
+import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
+import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
+import org.apache.beam.sdk.transforms.windowing.Repeatedly;
+import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
@@ -43,8 +57,8 @@ import org.slf4j.LoggerFactory;
 public class DLPTextToBigQueryStreamingV2 {
 
   public static final Logger LOG = LoggerFactory.getLogger(DLPTextToBigQueryStreamingV2.class);
-  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(10);
-  private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(10);
+  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(3);
+  private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(3);
   /** PubSub configuration for default batch size in number of messages */
   public static final Integer PUB_SUB_BATCH_SIZE = 1000;
   /** PubSub configuration for default batch size in bytes */
@@ -54,6 +68,7 @@ public class DLPTextToBigQueryStreamingV2 {
 
     DLPTextToBigQueryStreamingV2PipelineOptions options =
         PipelineOptionsFactory.fromArgs(args).as(DLPTextToBigQueryStreamingV2PipelineOptions.class);
+
     run(options);
   }
 
@@ -64,52 +79,56 @@ public class DLPTextToBigQueryStreamingV2 {
       case INSPECT:
       case DEID:
         PCollection<KV<String, ReadableFile>> inputFiles =
-            p
-                .apply(
-                    FilePollingTransform
-                        .newBuilder()
-                        .setFilePattern(options.getFilePattern())
-                        .setInterval(DEFAULT_POLL_INTERVAL)
-                        .build()
-                );
+            p.apply(
+                FilePollingTransform.newBuilder()
+                    .setFilePattern(options.getFilePattern())
+                    .setInterval(DEFAULT_POLL_INTERVAL)
+                    .build());
         final PCollectionView<List<String>> header =
             inputFiles
-              .apply(
+                .apply(
                     "GlobalWindow",
                     Window.<KV<String, FileIO.ReadableFile>>into(new GlobalWindows())
                         .triggering(
                             Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
                         .discardingFiredPanes())
-              .apply(
-                  ExtractColumnNamesTransform
-                      .newBuilder()
-                      .setFileType(options.getFileType())
-                      .build()
-              );
+                .apply(
+                    ExtractColumnNamesTransform.newBuilder()
+                        .setFileType(options.getFileType())
+                        .build());
         PCollection<KV<String, Table.Row>> records;
 
         switch (options.getFileType()) {
           case AVRO:
-            records = inputFiles
-                .apply(ParDo.of(new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize())))
-                .setCoder(KvCoder.of(StringUtf8Coder.of(), GenericRecordCoder.of()))
-                .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
+            records =
+                inputFiles
+                    .apply(
+                        ParDo.of(
+                            new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize())))
+                    .setCoder(KvCoder.of(StringUtf8Coder.of(), GenericRecordCoder.of()))
+                    .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
             break;
           case CSV:
-            records = inputFiles
-                .apply(
-                    "SplitCSVFile",
-                    ParDo.of(new CSVFileReaderSplitDoFn(options.getKeyRange(), options.getRecordDelimiter(), options.getSplitSize())))
-                .apply(ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter())));
+            records =
+                inputFiles
+                    .apply(
+                        "SplitCSVFile",
+                        ParDo.of(
+                            new CSVFileReaderSplitDoFn(
+                                options.getKeyRange(),
+                                options.getRecordDelimiter(),
+                                options.getSplitSize())))
+                    .apply(
+                        "ConvertToDLPRow",
+                        ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), header))
+                            .withSideInputs(header));
             break;
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");
         }
 
         records
-            .apply(
-                "Fixed Window",
-                Window.into(FixedWindows.of(WINDOW_INTERVAL)))
+            .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)))
             .apply(
                 "DLPTransform",
                 DLPTransform.newBuilder()

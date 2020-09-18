@@ -53,7 +53,8 @@ public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<St
     String fileName = c.element().getKey();
     try (SeekableByteChannel channel = getReader(c.element().getValue())) {
       FileReader reader =
-          new FileReader(channel, tracker.currentRestriction().getFrom(), recordDelimiter.getBytes());
+          new FileReader(
+              channel, tracker.currentRestriction().getFrom(), recordDelimiter.getBytes());
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent().toStringUtf8();

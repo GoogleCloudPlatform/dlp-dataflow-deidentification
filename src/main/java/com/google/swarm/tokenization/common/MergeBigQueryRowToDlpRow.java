@@ -16,7 +16,6 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.api.services.bigquery.model.TableRow;
-
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -28,7 +27,8 @@ public class MergeBigQueryRowToDlpRow extends DoFn<KV<String, TableRow>, KV<Stri
   public void processElement(ProcessContext c) {
     TableRow bigqueryRow = c.element().getValue();
     Table.Row.Builder rowBuilder = Table.Row.newBuilder();
-    bigqueryRow.entrySet()
+    bigqueryRow
+        .entrySet()
         .forEach(
             element -> {
               String value = element.getValue().toString();

@@ -15,10 +15,9 @@
  */
 package com.google.swarm.tokenization.common;
 
+import com.google.common.io.Files;
 import java.util.Arrays;
 import java.util.List;
-
-import com.google.common.io.Files;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
@@ -29,7 +28,8 @@ import org.slf4j.LoggerFactory;
  * Sanitizes input filenames by ensuring that the file extensions are valid and outputting keys that
  * are compatible with BigQuery table names.
  *
- * TODO: Maybe the BigQuery table name sanitazation part should be moved to the BigQuery write transforms instead.
+ * <p>TODO: Maybe the BigQuery table name sanitazation part should be moved to the BigQuery write
+ * transforms instead.
  */
 public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, ReadableFile>> {
 

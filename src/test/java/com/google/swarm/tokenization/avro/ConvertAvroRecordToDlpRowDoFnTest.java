@@ -13,12 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.google.swarm.tokenization.avro;
 
-import java.util.List;
+import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.generateDLPRows;
+import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.generateGenericRecords;
+import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.schema;
 
 import com.google.privacy.dlp.v2.Table;
+import java.util.List;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.beam.sdk.coders.AvroCoder;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -33,33 +35,26 @@ import org.apache.beam.sdk.values.PCollection;
 import org.junit.Rule;
 import org.junit.Test;
 
-import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.generateGenericRecords;
-import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.generateDLPRows;
-import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.schema;
-
 public class ConvertAvroRecordToDlpRowDoFnTest {
 
-    @Rule
-    public transient TestPipeline pipeline = TestPipeline.create();
+  @Rule public transient TestPipeline pipeline = TestPipeline.create();
 
-    @Test
-    public void testConvertAvroRecordToDlpRowDoFn() {
-        int numRecords = 10;
-        List<GenericRecord> records = generateGenericRecords(numRecords);
-        List<Table.Row> rows = generateDLPRows(numRecords);
+  @Test
+  public void testConvertAvroRecordToDlpRowDoFn() {
+    int numRecords = 10;
+    List<GenericRecord> records = generateGenericRecords(numRecords);
+    List<Table.Row> rows = generateDLPRows(numRecords);
 
-        PCollection<Table.Row> results = pipeline
+    PCollection<Table.Row> results =
+        pipeline
             .apply(Create.of(records).withCoder(AvroCoder.of(schema)))
             .apply(WithKeys.of("some_key"))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), AvroCoder.of(schema)))
             .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()))
             .apply(Values.create());
 
-        PAssert
-            .that(results)
-            .containsInAnyOrder(rows);
+    PAssert.that(results).containsInAnyOrder(rows);
 
-        pipeline.run();
-    }
-
+    pipeline.run();
+  }
 }

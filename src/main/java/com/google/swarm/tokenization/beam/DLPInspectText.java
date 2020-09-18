@@ -1,11 +1,9 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Copyright 2020 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -59,148 +57,148 @@ import org.apache.beam.sdk.values.PCollectionView;
 @AutoValue
 public abstract class DLPInspectText
     extends PTransform<
-    PCollection<KV<String, Table.Row>>, PCollection<KV<String, InspectContentResponse>>> {
+        PCollection<KV<String, Table.Row>>, PCollection<KV<String, InspectContentResponse>>> {
 
-    public static final Integer DLP_PAYLOAD_LIMIT_BYTES = 524000;
+  public static final Integer DLP_PAYLOAD_LIMIT_BYTES = 524000;
 
-    /** @return Template name for data inspection. */
-    @Nullable
-    public abstract String getInspectTemplateName();
+  /** @return Template name for data inspection. */
+  @Nullable
+  public abstract String getInspectTemplateName();
 
-    /**
-     * @return Configuration object for data inspection. If present, supersedes the template settings.
-     */
-    @Nullable
-    public abstract InspectConfig getInspectConfig();
+  /**
+   * @return Configuration object for data inspection. If present, supersedes the template settings.
+   */
+  @Nullable
+  public abstract InspectConfig getInspectConfig();
 
-    /** @return Size of input elements batch to be sent to Cloud DLP service in one request. */
-    public abstract Integer getBatchSizeBytes();
+  /** @return Size of input elements batch to be sent to Cloud DLP service in one request. */
+  public abstract Integer getBatchSizeBytes();
 
-    /** @return ID of Google Cloud project to be used when deidentifying data. */
-    public abstract String getProjectId();
+  /** @return ID of Google Cloud project to be used when deidentifying data. */
+  public abstract String getProjectId();
 
-    /** @return Delimiter to be used when splitting values from input strings into columns. */
-    @Nullable
-    public abstract Character getColumnDelimiter();
+  /** @return Delimiter to be used when splitting values from input strings into columns. */
+  @Nullable
+  public abstract Character getColumnDelimiter();
 
-    /** @return List of column names if the input KV value is a delimited row. */
-    @Nullable
-    public abstract PCollectionView<List<String>> getHeaderColumns();
+  /** @return List of column names if the input KV value is a delimited row. */
+  @Nullable
+  public abstract PCollectionView<List<String>> getHeaderColumns();
 
-    @AutoValue.Builder
-    public abstract static class Builder {
-        /** @param inspectTemplateName Template name for data inspection. */
-        public abstract Builder setInspectTemplateName(String inspectTemplateName);
-
-        /**
-         * @param inspectConfig Configuration object for data inspection. If present, supersedes the
-         *     template settings.
-         */
-        public abstract Builder setInspectConfig(InspectConfig inspectConfig);
-
-        /**
-         * @param batchSize Size of input elements batch to be sent to Cloud DLP service in one request.
-         */
-        public abstract Builder setBatchSizeBytes(Integer batchSize);
-
-        /** @param projectId ID of Google Cloud project to be used when deidentifying data. */
-        public abstract Builder setProjectId(String projectId);
-
-        /**
-         * @param delimiter Delimiter to be used when splitting values from input strings into columns.
-         */
-        public abstract Builder setColumnDelimiter(Character delimiter);
-
-        /** @param headerColumns List of column names if the input KV value is a delimited row. */
-        public abstract Builder setHeaderColumns(PCollectionView<List<String>> headerColumns);
-
-        abstract DLPInspectText autoBuild();
-
-        public DLPInspectText build() {
-            DLPInspectText inspectText = autoBuild();
-            if (inspectText.getInspectTemplateName() == null && inspectText.getInspectConfig() == null) {
-                throw new IllegalArgumentException(
-                    "Either inspectTemplateName or inspectConfig must be supplied!");
-            }
-            if (inspectText.getBatchSizeBytes() > DLP_PAYLOAD_LIMIT_BYTES) {
-                throw new IllegalArgumentException(
-                    String.format(
-                        "Batch size is too large! It should be smaller or equal than %d.",
-                        DLP_PAYLOAD_LIMIT_BYTES));
-            }
-            if (inspectText.getColumnDelimiter() == null && inspectText.getHeaderColumns() != null) {
-                throw new IllegalArgumentException(
-                    "Column delimiter should be set if headers are present.");
-            }
-            if (inspectText.getHeaderColumns() == null && inspectText.getColumnDelimiter() != null) {
-                throw new IllegalArgumentException(
-                    "Column headers should be supplied when delimiter is present.");
-            }
-            return inspectText;
-        }
-    }
-
-    public static Builder newBuilder() {
-        return new AutoValue_DLPInspectText.Builder();
-    }
+  @AutoValue.Builder
+  public abstract static class Builder {
+    /** @param inspectTemplateName Template name for data inspection. */
+    public abstract Builder setInspectTemplateName(String inspectTemplateName);
 
     /**
-     * The transform converts the contents of input PCollection into {@link Table.Row}s and then calls
-     * Cloud DLP service to perform the data inspection according to provided settings.
-     *
-     * @param input input PCollection
-     * @return PCollection after transformations
+     * @param inspectConfig Configuration object for data inspection. If present, supersedes the
+     *     template settings.
      */
-    @Override
-    public PCollection<KV<String, InspectContentResponse>> expand(
-        PCollection<KV<String, Table.Row>> input) {
-        return input
-            .apply("Batch Contents", ParDo.of(new BatchRequestForDLP(getBatchSizeBytes())))
-            .apply(
-                "DLPInspect",
-                ParDo.of(
+    public abstract Builder setInspectConfig(InspectConfig inspectConfig);
+
+    /**
+     * @param batchSize Size of input elements batch to be sent to Cloud DLP service in one request.
+     */
+    public abstract Builder setBatchSizeBytes(Integer batchSize);
+
+    /** @param projectId ID of Google Cloud project to be used when deidentifying data. */
+    public abstract Builder setProjectId(String projectId);
+
+    /**
+     * @param delimiter Delimiter to be used when splitting values from input strings into columns.
+     */
+    public abstract Builder setColumnDelimiter(Character delimiter);
+
+    /** @param headerColumns List of column names if the input KV value is a delimited row. */
+    public abstract Builder setHeaderColumns(PCollectionView<List<String>> headerColumns);
+
+    abstract DLPInspectText autoBuild();
+
+    public DLPInspectText build() {
+      DLPInspectText inspectText = autoBuild();
+      if (inspectText.getInspectTemplateName() == null && inspectText.getInspectConfig() == null) {
+        throw new IllegalArgumentException(
+            "Either inspectTemplateName or inspectConfig must be supplied!");
+      }
+      if (inspectText.getBatchSizeBytes() > DLP_PAYLOAD_LIMIT_BYTES) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Batch size is too large! It should be smaller or equal than %d.",
+                DLP_PAYLOAD_LIMIT_BYTES));
+      }
+      if (inspectText.getColumnDelimiter() == null && inspectText.getHeaderColumns() != null) {
+        throw new IllegalArgumentException(
+            "Column delimiter should be set if headers are present.");
+      }
+      if (inspectText.getHeaderColumns() == null && inspectText.getColumnDelimiter() != null) {
+        throw new IllegalArgumentException(
+            "Column headers should be supplied when delimiter is present.");
+      }
+      return inspectText;
+    }
+  }
+
+  public static Builder newBuilder() {
+    return new AutoValue_DLPInspectText.Builder();
+  }
+
+  /**
+   * The transform converts the contents of input PCollection into {@link Table.Row}s and then calls
+   * Cloud DLP service to perform the data inspection according to provided settings.
+   *
+   * @param input input PCollection
+   * @return PCollection after transformations
+   */
+  @Override
+  public PCollection<KV<String, InspectContentResponse>> expand(
+      PCollection<KV<String, Table.Row>> input) {
+    return input
+        .apply("Batch Contents", ParDo.of(new BatchRequestForDLP(getBatchSizeBytes())))
+        .apply(
+            "DLPInspect",
+            ParDo.of(
                     new InspectData(
                         getProjectId(),
                         getInspectTemplateName(),
                         getInspectConfig(),
                         getHeaderColumns()))
-                    .withSideInputs(getHeaderColumns()));
+                .withSideInputs(getHeaderColumns()));
+  }
+
+  /** Performs calls to Cloud DLP service on GCP to inspect input data. */
+  static class InspectData
+      extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, InspectContentResponse>> {
+    private final String projectId;
+    private final String inspectTemplateName;
+    private final InspectConfig inspectConfig;
+    private final PCollectionView<List<String>> headerColumns;
+    private transient DlpServiceClient dlpServiceClient;
+    private transient InspectContentRequest.Builder requestBuilder;
+
+    // Counter to track total number of Rows inspected from DLP inspection
+    private final Counter numberOfRowsInspected =
+        Metrics.counter(InspectData.class, "numberOfRowsInspected");
+
+    // Counter to track total number of DLP API calls made for DLP Inspection
+    private final Counter numberOfDlpApiCalls =
+        Metrics.counter(InspectData.class, "numberOfDlpApiCalls");
+
+    /**
+     * @param projectId ID of GCP project that should be used for data inspection.
+     * @param inspectTemplateName Template name for inspection.
+     * @param inspectConfig Configuration object for inspection.
+     * @param headerColumns Header row of the table if applicable.
+     */
+    public InspectData(
+        String projectId,
+        String inspectTemplateName,
+        InspectConfig inspectConfig,
+        PCollectionView<List<String>> headerColumns) {
+      this.projectId = projectId;
+      this.inspectTemplateName = inspectTemplateName;
+      this.inspectConfig = inspectConfig;
+      this.headerColumns = headerColumns;
     }
-
-    /** Performs calls to Cloud DLP service on GCP to inspect input data. */
-    static class InspectData
-        extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, InspectContentResponse>> {
-        private final String projectId;
-        private final String inspectTemplateName;
-        private final InspectConfig inspectConfig;
-        private final PCollectionView<List<String>> headerColumns;
-        private transient DlpServiceClient dlpServiceClient;
-        private transient InspectContentRequest.Builder requestBuilder;
-
-        // Counter to track total number of Rows inspected from DLP inspection
-        private final Counter numberOfRowsInspected =
-            Metrics.counter(InspectData.class, "numberOfRowsInspected");
-
-        // Counter to track total number of DLP API calls made for DLP Inspection
-        private final Counter numberOfDlpApiCalls =
-            Metrics.counter(InspectData.class, "numberOfDlpApiCalls");
-
-        /**
-         * @param projectId ID of GCP project that should be used for data inspection.
-         * @param inspectTemplateName Template name for inspection.
-         * @param inspectConfig Configuration object for inspection.
-         * @param headerColumns Header row of the table if applicable.
-         */
-        public InspectData(
-            String projectId,
-            String inspectTemplateName,
-            InspectConfig inspectConfig,
-            PCollectionView<List<String>> headerColumns) {
-            this.projectId = projectId;
-            this.inspectTemplateName = inspectTemplateName;
-            this.inspectConfig = inspectConfig;
-            this.headerColumns = headerColumns;
-        }
 
     @Setup
     public void setup() throws IOException {
@@ -218,32 +216,32 @@ public abstract class DLPInspectText
       dlpServiceClient = DlpServiceClient.create();
     }
 
-        @Teardown
-        public void teardown() {
-            dlpServiceClient.close();
-        }
-
-        @ProcessElement
-        public void processElement(ProcessContext c) throws IOException {
-            List<FieldId> tableHeaders;
-            if (headerColumns != null) {
-                tableHeaders =
-                    c.sideInput(headerColumns).stream()
-                        .map(header -> FieldId.newBuilder().setName(header).build())
-                        .collect(Collectors.toList());
-            } else {
-                tableHeaders = new ArrayList<>();
-                tableHeaders.add(FieldId.newBuilder().setName("value").build());
-            }
-            Table table =
-                Table.newBuilder().addAllHeaders(tableHeaders).addAllRows(c.element().getValue()).build();
-            ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
-            this.requestBuilder.setItem(contentItem);
-            InspectContentResponse response =
-                dlpServiceClient.inspectContent(this.requestBuilder.build());
-            numberOfRowsInspected.inc(table.getRowsCount());
-            numberOfDlpApiCalls.inc();
-            c.output(KV.of(c.element().getKey(), response));
-        }
+    @Teardown
+    public void teardown() {
+      dlpServiceClient.close();
     }
+
+    @ProcessElement
+    public void processElement(ProcessContext c) throws IOException {
+      List<FieldId> tableHeaders;
+      if (headerColumns != null) {
+        tableHeaders =
+            c.sideInput(headerColumns).stream()
+                .map(header -> FieldId.newBuilder().setName(header).build())
+                .collect(Collectors.toList());
+      } else {
+        tableHeaders = new ArrayList<>();
+        tableHeaders.add(FieldId.newBuilder().setName("value").build());
+      }
+      Table table =
+          Table.newBuilder().addAllHeaders(tableHeaders).addAllRows(c.element().getValue()).build();
+      ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
+      this.requestBuilder.setItem(contentItem);
+      InspectContentResponse response =
+          dlpServiceClient.inspectContent(this.requestBuilder.build());
+      numberOfRowsInspected.inc(table.getRowsCount());
+      numberOfDlpApiCalls.inc();
+      c.output(KV.of(c.element().getKey(), response));
+    }
+  }
 }

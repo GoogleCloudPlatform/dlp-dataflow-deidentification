@@ -13,32 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.google.swarm.tokenization.avro;
+
+import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.generateGenericRecords;
+import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-
-import static org.junit.Assert.assertEquals;
 import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 
-import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.generateGenericRecords;
-
 public class GenericRecordCoderTest {
 
-    @Test
-    public void testGenericRecordCoder() throws IOException {
-        GenericRecord record = generateGenericRecords(1).get(0);
-        GenericRecordCoder coder = GenericRecordCoder.of();
+  @Test
+  public void testGenericRecordCoder() throws IOException {
+    GenericRecord record = generateGenericRecords(1).get(0);
+    GenericRecordCoder coder = GenericRecordCoder.of();
 
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        coder.encode(record, outputStream);
-        byte[] bytes = outputStream.toByteArray();
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    coder.encode(record, outputStream);
+    byte[] bytes = outputStream.toByteArray();
 
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
-        assertEquals(record, coder.decode(inputStream));
-    }
-
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
+    assertEquals(record, coder.decode(inputStream));
+  }
 }

@@ -18,8 +18,6 @@ package com.google.swarm.tokenization.avro;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
@@ -30,9 +28,7 @@ import org.apache.beam.sdk.values.KV;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Reads the given avro file's schema then outputs flattened column names.
- */
+/** Reads the given avro file's schema then outputs flattened column names. */
 public class AvroColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, String> {
 
   public static final Logger LOG = LoggerFactory.getLogger(AvroColumnNamesDoFn.class);

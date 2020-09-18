@@ -1,11 +1,9 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Copyright 2020 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,12 +15,10 @@
  */
 package com.google.swarm.tokenization.beam;
 
+import com.google.privacy.dlp.v2.Table;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import com.google.privacy.dlp.v2.Table;
-import org.apache.beam.sdk.annotations.Experimental;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.state.*;
@@ -33,7 +29,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Batches input rows to reduce number of requests sent to Cloud DLP service. */
-public class BatchRequestForDLP extends DoFn<KV<String, Table.Row>, KV<String, Iterable<Table.Row>>> {
+public class BatchRequestForDLP
+    extends DoFn<KV<String, Table.Row>, KV<String, Iterable<Table.Row>>> {
   public static final Logger LOG = LoggerFactory.getLogger(BatchRequestForDLP.class);
 
   private final Counter numberOfDLPRowsBagged =
