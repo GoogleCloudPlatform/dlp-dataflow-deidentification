@@ -133,6 +133,21 @@ run {
     }
 }
 
+test {
+    useJUnit()
+    testLogging {
+        events "passed", "skipped", "failed"
+        showStandardStreams = true
+        exceptionFormat "full"
+    }
+}
+
+sourceSets {
+    test {
+        java.srcDir file('src/test')
+    }
+}
+
 def enableSpotlessCheck = project.hasProperty('enableSpotlessCheck') && project.enableSpotlessCheck == 'true'
 spotless {
   enforceCheck enableSpotlessCheck

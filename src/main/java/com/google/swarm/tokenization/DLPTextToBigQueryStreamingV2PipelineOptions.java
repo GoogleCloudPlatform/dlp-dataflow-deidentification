@@ -16,20 +16,20 @@
 package com.google.swarm.tokenization;
 
 import com.google.swarm.tokenization.common.Util.DLPMethod;
+import com.google.swarm.tokenization.common.Util.FileType;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.TypedRead.Method;
-import org.apache.beam.sdk.options.Default;
-import org.apache.beam.sdk.options.Description;
-import org.apache.beam.sdk.options.Validation;
+import org.apache.beam.sdk.options.*;
 
 public interface DLPTextToBigQueryStreamingV2PipelineOptions
     extends DataflowPipelineOptions, S3Options {
-  @Validation.Required
-  String getCSVFilePattern();
 
-  void setCSVFilePattern(String csvFilePattern);
+  @Validation.Required
+  String getFilePattern();
+
+  void setFilePattern(String csvFilePattern);
 
   @Description("DLP Inspect Template Name")
   String getInspectTemplateName();
@@ -70,17 +70,17 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setWriteMethod(BigQueryIO.Write.Method value);
 
-  @Description("Line delimeter")
+  @Description("Record delimiter")
   @Default.String("\n")
-  String getDelimeter();
+  String getRecordDelimiter();
 
-  void setDelimeter(String value);
+  void setRecordDelimiter(String value);
 
-  @Description("Column delimeter")
-  @Default.String(",")
-  String getColumnDelimeter();
+  @Description("Column delimiter")
+  @Default.Character(',')
+  Character getColumnDelimiter();
 
-  void setColumnDelimeter(String value);
+  void setColumnDelimiter(Character value);
 
   @Description("BigQuery table to export from in the form <project>:<dataset>.<table>")
   String getTableRef();
@@ -102,4 +102,29 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   String getTopic();
 
   void setTopic(String topic);
+
+  @Default.Integer(900 * 1000)
+  Integer getSplitSize();
+
+  void setSplitSize(Integer value);
+
+  class FileTypeFactory implements DefaultValueFactory<FileType> {
+    @Override
+    public FileType create(PipelineOptions options) {
+      if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".avro")) {
+        return FileType.AVRO;
+      } else {
+        return FileType.CSV;
+      }
+    }
+  }
+
+  @Validation.Required
+  @Default.InstanceFactory(FileTypeFactory.class)
+  FileType getFileType();
+
+  void setFileType(FileType fileType);
 }

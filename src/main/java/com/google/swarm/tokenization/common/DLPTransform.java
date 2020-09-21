@@ -24,6 +24,9 @@ import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.privacy.dlp.v2.ReidentifyContentResponse;
 import com.google.privacy.dlp.v2.Table;
+import com.google.swarm.tokenization.beam.DLPDeidentifyText;
+import com.google.swarm.tokenization.beam.DLPInspectText;
+import com.google.swarm.tokenization.beam.DLPReidentifyText;
 import com.google.swarm.tokenization.common.Util.DLPMethod;
 import java.util.HashMap;
 import java.util.List;
@@ -31,16 +34,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.repackaged.core.org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.beam.sdk.extensions.ml.DLPDeidentifyText;
-import org.apache.beam.sdk.extensions.ml.DLPInspectText;
-import org.apache.beam.sdk.extensions.ml.DLPReidentifyText;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.DoFn.Element;
-import org.apache.beam.sdk.transforms.DoFn.MultiOutputReceiver;
-import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
@@ -52,10 +49,9 @@ import org.apache.beam.sdk.values.TupleTagList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@SuppressWarnings("serial")
 @AutoValue
 public abstract class DLPTransform
-    extends PTransform<PCollection<KV<String, String>>, PCollectionTuple> {
+    extends PTransform<PCollection<KV<String, Table.Row>>, PCollectionTuple> {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 
   @Nullable
@@ -68,14 +64,17 @@ public abstract class DLPTransform
 
   public abstract String projectId();
 
-  public abstract String columnDelimeter();
+  public abstract Character columnDelimiter();
 
   public abstract DLPMethod dlpmethod();
+
+  public abstract String jobName();
 
   public abstract PCollectionView<List<String>> header();
 
   @AutoValue.Builder
   public abstract static class Builder {
+
     public abstract Builder setInspectTemplateName(String inspectTemplateName);
 
     public abstract Builder setDeidTemplateName(String inspectTemplateName);
@@ -86,9 +85,11 @@ public abstract class DLPTransform
 
     public abstract Builder setHeader(PCollectionView<List<String>> header);
 
-    public abstract Builder setColumnDelimeter(String columnDelimeter);
+    public abstract Builder setColumnDelimiter(Character columnDelimiter);
 
     public abstract Builder setDlpmethod(DLPMethod method);
+
+    public abstract Builder setJobName(String jobName);
 
     public abstract DLPTransform build();
   }
@@ -98,7 +99,7 @@ public abstract class DLPTransform
   }
 
   @Override
-  public PCollectionTuple expand(PCollection<KV<String, String>> input) {
+  public PCollectionTuple expand(PCollection<KV<String, Table.Row>> input) {
     switch (dlpmethod()) {
       case INSPECT:
         {
@@ -107,14 +108,14 @@ public abstract class DLPTransform
                   "InspectTransform",
                   DLPInspectText.newBuilder()
                       .setBatchSizeBytes(batchSize())
-                      .setColumnDelimiter(columnDelimeter())
+                      .setColumnDelimiter(columnDelimiter())
                       .setHeaderColumns(header())
                       .setInspectTemplateName(inspectTemplateName())
                       .setProjectId(projectId())
                       .build())
               .apply(
-                  "CnvertInspectResponse",
-                  ParDo.of(new ConvertInspectResponse())
+                  "ConvertInspectResponse",
+                  ParDo.of(new ConvertInspectResponse(jobName()))
                       .withOutputTags(
                           Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
         }
@@ -125,7 +126,7 @@ public abstract class DLPTransform
                   "DeIdTransform",
                   DLPDeidentifyText.newBuilder()
                       .setBatchSizeBytes(batchSize())
-                      .setColumnDelimiter(columnDelimeter())
+                      .setColumnDelimiter(columnDelimiter())
                       .setHeaderColumns(header())
                       .setInspectTemplateName(inspectTemplateName())
                       .setDeidentifyTemplateName(deidTemplateName())
@@ -144,7 +145,7 @@ public abstract class DLPTransform
                   "ReIdTransform",
                   DLPReidentifyText.newBuilder()
                       .setBatchSizeBytes(batchSize())
-                      .setColumnDelimiter(columnDelimeter())
+                      .setColumnDelimiter(columnDelimiter())
                       .setHeaderColumns(header())
                       .setInspectTemplateName(inspectTemplateName())
                       .setReidentifyTemplateName(deidTemplateName())
@@ -164,6 +165,7 @@ public abstract class DLPTransform
 
   static class ConvertReidResponse
       extends DoFn<KV<String, ReidentifyContentResponse>, PubsubMessage> {
+
     private final Counter numberOfBytesReidentified =
         Metrics.counter(ConvertDeidResponse.class, "NumberOfBytesReidentified");
 
@@ -217,6 +219,7 @@ public abstract class DLPTransform
 
   static class ConvertDeidResponse
       extends DoFn<KV<String, DeidentifyContentResponse>, KV<String, TableRow>> {
+
     private final Counter numberOfRowDeidentified =
         Metrics.counter(ConvertDeidResponse.class, "numberOfRowDeidentified");
 
@@ -250,14 +253,39 @@ public abstract class DLPTransform
 
   static class ConvertInspectResponse
       extends DoFn<KV<String, InspectContentResponse>, KV<String, TableRow>> {
+
+    private String jobName;
+
+    public ConvertInspectResponse(String jobName) {
+      this.jobName = jobName;
+    }
+
+    // Counter to track total number of Inspection Findings fetched from DLP Inspection response
     private final Counter numberOfInspectionFindings =
-        Metrics.counter(ConvertInspectResponse.class, "NumberOfInspectionFindings");
+        Metrics.counter(ConvertInspectResponse.class, "numberOfInspectionFindings");
+
+    // Counter to track total number of times Inspection Findings got truncated in the
+    // in the DLP Inspection response
+    private final Counter numberOfTimesFindingsTruncated =
+        Metrics.counter(ConvertInspectResponse.class, "numberOfTimesFindingsTruncated");
+
+    // Counter to track total number of times Inspection Findings generated in the
+    // this should be same number as number of total DLP API calls
+    private final Counter numberOfTimesFindingsGenerated =
+        Metrics.counter(ConvertInspectResponse.class, "numberOfTimesFindingsGenerated");
 
     @ProcessElement
     public void processElement(
         @Element KV<String, InspectContentResponse> element, MultiOutputReceiver out) {
       String fileName = element.getKey().split("\\~")[0];
       String timeStamp = Util.getTimeStamp();
+
+      if (element.getValue().getResult().getFindingsTruncated()) {
+        numberOfTimesFindingsTruncated.inc();
+      }
+
+      numberOfTimesFindingsGenerated.inc();
+
       element
           .getValue()
           .getResult()
@@ -267,13 +295,21 @@ public abstract class DLPTransform
                 Row row =
                     Row.withSchema(Util.dlpInspectionSchema)
                         .addValues(
+                            jobName,
                             fileName,
                             timeStamp,
+                            finding.getQuote(),
                             finding.getInfoType().getName(),
                             finding.getLikelihood().name(),
-                            finding.getQuote(),
                             finding.getLocation().getCodepointRange().getStart(),
-                            finding.getLocation().getCodepointRange().getEnd())
+                            finding.getLocation().getCodepointRange().getEnd(),
+                            finding
+                                .getLocation()
+                                .getContentLocationsList()
+                                .get(0)
+                                .getRecordLocation()
+                                .getFieldId()
+                                .getName())
                         .build();
                 numberOfInspectionFindings.inc();
                 out.get(Util.inspectOrDeidSuccess)

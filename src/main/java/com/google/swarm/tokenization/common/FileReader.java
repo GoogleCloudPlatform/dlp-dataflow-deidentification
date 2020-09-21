@@ -35,7 +35,7 @@ public class FileReader {
   private volatile long startOfNextRecord;
   private volatile boolean eof;
   private volatile boolean elementIsPresent;
-  private @Nullable String currentValue;
+  private @Nullable ByteString currentValue;
   private @Nullable final SeekableByteChannel inChannel;
   private @Nullable final byte[] delimiter;
 
@@ -59,7 +59,7 @@ public class FileReader {
     return this.startOfNextRecord;
   }
 
-  public String getCurrent() throws NoSuchElementException {
+  public ByteString getCurrent() throws NoSuchElementException {
     if (!elementIsPresent) {
       throw new NoSuchElementException();
     }
@@ -150,7 +150,7 @@ public class FileReader {
 
   private void decodeCurrentElement() throws IOException {
     ByteString dataToDecode = buffer.substring(0, startOfDelimiterInBuffer);
-    currentValue = dataToDecode.toStringUtf8();
+    currentValue = dataToDecode;
     elementIsPresent = true;
     buffer = buffer.substring(endOfDelimiterInBuffer);
   }

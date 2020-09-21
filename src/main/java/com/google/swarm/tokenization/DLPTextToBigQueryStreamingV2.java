@@ -16,18 +16,26 @@
 package com.google.swarm.tokenization;
 
 import com.google.api.services.bigquery.model.TableRow;
+import com.google.privacy.dlp.v2.Table;
+import com.google.swarm.tokenization.avro.AvroReaderSplitDoFn;
+import com.google.swarm.tokenization.avro.ConvertAvroRecordToDlpRowDoFn;
+import com.google.swarm.tokenization.avro.GenericRecordCoder;
+import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
 import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
 import com.google.swarm.tokenization.common.BigQueryReadTransform;
 import com.google.swarm.tokenization.common.BigQueryTableHeaderDoFn;
-import com.google.swarm.tokenization.common.CSVFileHeaderDoFn;
-import com.google.swarm.tokenization.common.CSVReaderTransform;
+import com.google.swarm.tokenization.common.CSVFileReaderSplitDoFn;
 import com.google.swarm.tokenization.common.DLPTransform;
-import com.google.swarm.tokenization.common.FileReaderSplitDoFn;
+import com.google.swarm.tokenization.common.ExtractColumnNamesTransform;
+import com.google.swarm.tokenization.common.FilePollingTransform;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
 import com.google.swarm.tokenization.common.Util;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
+import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.StringUtf8Coder;
+import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -41,16 +49,16 @@ import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLPTextToBigQueryStreamingV2 {
+
   public static final Logger LOG = LoggerFactory.getLogger(DLPTextToBigQueryStreamingV2.class);
-  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(10);
-  private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(10);
+  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(3);
+  private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(3);
   /** PubSub configuration for default batch size in number of messages */
   public static final Integer PUB_SUB_BATCH_SIZE = 1000;
   /** PubSub configuration for default batch size in bytes */
@@ -60,58 +68,79 @@ public class DLPTextToBigQueryStreamingV2 {
 
     DLPTextToBigQueryStreamingV2PipelineOptions options =
         PipelineOptionsFactory.fromArgs(args).as(DLPTextToBigQueryStreamingV2PipelineOptions.class);
+
     run(options);
   }
 
   public static PipelineResult run(DLPTextToBigQueryStreamingV2PipelineOptions options) {
-
     Pipeline p = Pipeline.create(options);
+
     switch (options.getDLPMethod()) {
       case INSPECT:
       case DEID:
-        PCollection<KV<String, ReadableFile>> inputFile =
+        PCollection<KV<String, ReadableFile>> inputFiles =
             p.apply(
-                "CSVReaderTransform",
-                CSVReaderTransform.newBuilder()
-                    .setDelimeter(options.getDelimeter())
-                    .setFilePattern(options.getCSVFilePattern())
-                    .setKeyRange(options.getKeyRange())
+                FilePollingTransform.newBuilder()
+                    .setFilePattern(options.getFilePattern())
                     .setInterval(DEFAULT_POLL_INTERVAL)
                     .build());
-
         final PCollectionView<List<String>> header =
-            inputFile
+            inputFiles
                 .apply(
                     "GlobalWindow",
-                    Window.<KV<String, ReadableFile>>into(new GlobalWindows())
+                    Window.<KV<String, FileIO.ReadableFile>>into(new GlobalWindows())
                         .triggering(
                             Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
                         .discardingFiredPanes())
-                .apply("ReadHeader", ParDo.of(new CSVFileHeaderDoFn()))
-                .apply("ViewAsList", View.asList());
-
-        PCollectionTuple transformedContents =
-            inputFile
                 .apply(
-                    "ReadFile",
-                    ParDo.of(
-                        new FileReaderSplitDoFn(options.getKeyRange(), options.getDelimeter())))
-                .apply(
-                    "Fixed Window",
-                    Window.<KV<String, String>>into(FixedWindows.of(WINDOW_INTERVAL)))
-                .apply(
-                    "DLPTransform",
-                    DLPTransform.newBuilder()
-                        .setBatchSize(options.getBatchSize())
-                        .setInspectTemplateName(options.getInspectTemplateName())
-                        .setDeidTemplateName(options.getDeidentifyTemplateName())
-                        .setDlpmethod(options.getDLPMethod())
-                        .setProjectId(options.getProject())
-                        .setHeader(header)
-                        .setColumnDelimeter(options.getColumnDelimeter())
+                    ExtractColumnNamesTransform.newBuilder()
+                        .setFileType(options.getFileType())
                         .build());
+        PCollection<KV<String, Table.Row>> records;
 
-        transformedContents
+        switch (options.getFileType()) {
+          case AVRO:
+            records =
+                inputFiles
+                    .apply(
+                        ParDo.of(
+                            new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize())))
+                    .setCoder(KvCoder.of(StringUtf8Coder.of(), GenericRecordCoder.of()))
+                    .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
+            break;
+          case CSV:
+            records =
+                inputFiles
+                    .apply(
+                        "SplitCSVFile",
+                        ParDo.of(
+                            new CSVFileReaderSplitDoFn(
+                                options.getKeyRange(),
+                                options.getRecordDelimiter(),
+                                options.getSplitSize())))
+                    .apply(
+                        "ConvertToDLPRow",
+                        ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), header))
+                            .withSideInputs(header));
+            break;
+          default:
+            throw new IllegalArgumentException("Please validate FileType parameter");
+        }
+
+        records
+            .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)))
+            .apply(
+                "DLPTransform",
+                DLPTransform.newBuilder()
+                    .setBatchSize(options.getBatchSize())
+                    .setInspectTemplateName(options.getInspectTemplateName())
+                    .setDeidTemplateName(options.getDeidentifyTemplateName())
+                    .setDlpmethod(options.getDLPMethod())
+                    .setProjectId(options.getProject())
+                    .setHeader(header)
+                    .setColumnDelimiter(options.getColumnDelimiter())
+                    .setJobName(options.getJobName())
+                    .build())
             .get(Util.inspectOrDeidSuccess)
             .apply(
                 "StreamInsertToBQ",
@@ -119,6 +148,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setDatasetId(options.getDataset())
                     .setProjectId(options.getProject())
                     .build());
+
         return p.run();
 
       case REID:
@@ -155,7 +185,8 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setDlpmethod(options.getDLPMethod())
                     .setProjectId(options.getProject())
                     .setHeader(selectedColumns)
-                    .setColumnDelimeter(",")
+                    .setColumnDelimiter(options.getColumnDelimiter())
+                    .setJobName(options.getJobName())
                     .build())
             .get(Util.reidSuccess)
             .apply(

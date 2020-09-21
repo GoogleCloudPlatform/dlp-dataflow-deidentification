@@ -407,7 +407,7 @@ public class DLPTextToBigQueryStreaming {
             new FileReader(channel, tracker.currentRestriction().getFrom(), delimeter.getBytes());
         while (tracker.tryClaim(reader.getStartOfNextRecord())) {
           reader.readNextRecord();
-          String contents = reader.getCurrent();
+          String contents = reader.getCurrent().toStringUtf8();
           String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
           numberOfRows.inc();
           numberOfBytesRead.inc(contents.length());

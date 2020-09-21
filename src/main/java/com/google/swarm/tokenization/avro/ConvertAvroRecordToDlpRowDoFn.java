@@ -13,27 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.swarm.tokenization.common;
+package com.google.swarm.tokenization.avro;
 
-import com.google.api.services.bigquery.model.TableRow;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 
-public class MergeBigQueryRowToDlpRow extends DoFn<KV<String, TableRow>, KV<String, Table.Row>> {
+public class ConvertAvroRecordToDlpRowDoFn
+    extends DoFn<KV<String, GenericRecord>, KV<String, Table.Row>> {
 
   @ProcessElement
   public void processElement(ProcessContext c) {
-    TableRow bigqueryRow = c.element().getValue();
+    String key = c.element().getKey();
+    GenericRecord record = c.element().getValue();
     Table.Row.Builder rowBuilder = Table.Row.newBuilder();
-    bigqueryRow
-        .entrySet()
-        .forEach(
-            element -> {
-              String value = element.getValue().toString();
-              rowBuilder.addValues(Value.newBuilder().setStringValue(value).build());
-            });
-    c.output(KV.of(c.element().getKey(), rowBuilder.build()));
+    AvroUtil.getFlattenedValues(
+        record,
+        (Object value) -> {
+          if (value == null) {
+            rowBuilder.addValues(Value.newBuilder().setStringValue("").build());
+          } else {
+            rowBuilder.addValues(Value.newBuilder().setStringValue(value.toString()).build());
+          }
+        });
+    c.output(KV.of(key, rowBuilder.build()));
   }
 }
