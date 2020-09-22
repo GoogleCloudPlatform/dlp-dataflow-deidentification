@@ -17,7 +17,6 @@ package com.google.swarm.tokenization.common;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonSyntaxException;
 import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.FieldId;
@@ -34,7 +33,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.repackaged.core.org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -164,7 +162,7 @@ public abstract class DLPTransform
   }
 
   static class ConvertReidResponse
-      extends DoFn<KV<String, ReidentifyContentResponse>, PubsubMessage> {
+      extends DoFn<KV<String, ReidentifyContentResponse>, KV<String, String>> {
 
     private final Counter numberOfBytesReidentified =
         Metrics.counter(ConvertDeidResponse.class, "NumberOfBytesReidentified");
@@ -192,11 +190,8 @@ public abstract class DLPTransform
                       });
               String jsonMessage = Util.gson.toJson(convertMap);
               LOG.info("Json message {}", jsonMessage);
-              PubsubMessage message =
-                  new PubsubMessage(
-                      jsonMessage.toString().getBytes(),
-                      ImmutableMap.<String, String>builder().put("table_name", tableRef).build());
-              out.get(Util.reidSuccess).output(message);
+
+              out.get(Util.reidSuccess).output(KV.of(tableRef, jsonMessage));
             });
 
       } catch (JsonSyntaxException e) {

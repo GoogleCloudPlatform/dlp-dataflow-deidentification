@@ -24,11 +24,13 @@ import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
 import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
 import com.google.swarm.tokenization.common.BigQueryReadTransform;
 import com.google.swarm.tokenization.common.BigQueryTableHeaderDoFn;
+import com.google.swarm.tokenization.common.BigQueryTableRowConverts;
 import com.google.swarm.tokenization.common.CSVFileReaderSplitDoFn;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.ExtractColumnNamesTransform;
 import com.google.swarm.tokenization.common.FilePollingTransform;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
+import com.google.swarm.tokenization.common.PubSubMessageConverts;
 import com.google.swarm.tokenization.common.Util;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
@@ -37,11 +39,16 @@ import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.io.gcp.bigquery.TableRowJsonCoder;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.transforms.Create.Values;
 import org.apache.beam.sdk.transforms.GroupByKey;
+import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.transforms.View;
+import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
@@ -174,21 +181,38 @@ public class DLPTextToBigQueryStreamingV2 {
                 .apply("GetHeader", ParDo.of(new BigQueryTableHeaderDoFn()))
                 .apply("ViewAsList", View.asList());
 
-        record
-            .apply("ConvertTableRow", ParDo.of(new MergeBigQueryRowToDlpRow()))
-            .apply(
-                "DLPTransform",
-                DLPTransform.newBuilder()
-                    .setBatchSize(options.getBatchSize())
-                    .setInspectTemplateName(options.getInspectTemplateName())
-                    .setDeidTemplateName(options.getDeidentifyTemplateName())
-                    .setDlpmethod(options.getDLPMethod())
+        PCollection<KV<String, String>> reidData =
+            record
+                .apply("ConvertTableRow", ParDo.of(new MergeBigQueryRowToDlpRow()))
+                .apply(
+                    "DLPTransform",
+                    DLPTransform.newBuilder()
+                        .setBatchSize(options.getBatchSize())
+                        .setInspectTemplateName(options.getInspectTemplateName())
+                        .setDeidTemplateName(options.getDeidentifyTemplateName())
+                        .setDlpmethod(options.getDLPMethod())
+                        .setProjectId(options.getProject())
+                        .setHeader(selectedColumns)
+                        .setColumnDelimiter(options.getColumnDelimiter())
+                        .setJobName(options.getJobName())
+                        .build())
+                .get(Util.reidSuccess);
+
+        // bq insert
+        reidData
+            .apply("ConvertToTableRow", MapElements.via(new BigQueryTableRowConverts()))
+            .apply(WithKeys.of(new SerializableFunction<KV<String,TableRow>, Integer>() {
+                public Integer apply(KV<String,TableRow> row) 
+                {return row.getValue().hashCode();}}))
+        .apply(
+                "BigQueryInsert",
+                BigQueryDynamicWriteTransform.newBuilder()
+                    .setDatasetId(options.getDataset())
                     .setProjectId(options.getProject())
-                    .setHeader(selectedColumns)
-                    .setColumnDelimiter(options.getColumnDelimiter())
-                    .setJobName(options.getJobName())
-                    .build())
-            .get(Util.reidSuccess)
+                    .build());
+        // pubsub insert
+        reidData
+            .apply("ConvertToPubSubMessage", MapElements.via(new PubSubMessageConverts()))
             .apply(
                 "PublishToPubSub",
                 PubsubIO.writeMessages()
