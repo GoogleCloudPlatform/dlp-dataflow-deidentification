@@ -15,9 +15,9 @@
  */
 package com.google.swarm.tokenization.avro;
 
-import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.generateDLPRows;
-import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.generateGenericRecords;
-import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.schema;
+import static com.google.swarm.tokenization.avro.AvroReaderSplittableDoFnTest.generateDLPRows;
+import static com.google.swarm.tokenization.avro.AvroReaderSplittableDoFnTest.generateGenericRecords;
+import static com.google.swarm.tokenization.avro.AvroReaderSplittableDoFnTest.schema;
 
 import com.google.privacy.dlp.v2.Table;
 import java.util.List;

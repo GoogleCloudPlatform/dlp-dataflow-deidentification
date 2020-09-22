@@ -15,7 +15,7 @@
  */
 package com.google.swarm.tokenization.avro;
 
-import static com.google.swarm.tokenization.avro.AvroReaderSplitDoFnTest.generateGenericRecords;
+import static com.google.swarm.tokenization.avro.AvroReaderSplittableDoFnTest.generateGenericRecords;
 import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayInputStream;

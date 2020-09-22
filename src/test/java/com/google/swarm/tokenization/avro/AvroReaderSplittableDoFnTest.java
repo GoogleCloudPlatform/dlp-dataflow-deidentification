@@ -42,7 +42,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-public class AvroReaderSplitDoFnTest {
+public class AvroReaderSplittableDoFnTest {
 
   @Rule public transient TestPipeline pipeline = TestPipeline.create();
 
@@ -113,7 +113,7 @@ public class AvroReaderSplitDoFnTest {
             .apply(FileIO.match().filepattern(file.getAbsolutePath()))
             .apply(FileIO.readMatches().withCompression(Compression.AUTO))
             .apply(WithKeys.of("some_key"))
-            .apply(ParDo.of(new AvroReaderSplitDoFn(keyRange, splitSize)))
+            .apply(ParDo.of(new AvroReaderSplittableDoFn(keyRange, splitSize)))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), AvroCoder.of(schema)))
             .apply(Values.create());
 

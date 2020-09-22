@@ -36,18 +36,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A SplitDoFn that splits the given Avro file into chunks, then reads the chunks in parallel and
+ * A splittable DoFn that splits the given Avro file into chunks, then reads the chunks in parallel and
  * outputs all the ingested Avro records.
  */
-public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String, GenericRecord>> {
+public class AvroReaderSplittableDoFn extends DoFn<KV<String, ReadableFile>, KV<String, GenericRecord>> {
 
-  public static final Logger LOG = LoggerFactory.getLogger(AvroReaderSplitDoFn.class);
+  public static final Logger LOG = LoggerFactory.getLogger(AvroReaderSplittableDoFn.class);
   private final Counter numberOfAvroRecordsIngested =
-      Metrics.counter(AvroReaderSplitDoFn.class, "numberOfAvroRecordsIngested");
+      Metrics.counter(AvroReaderSplittableDoFn.class, "numberOfAvroRecordsIngested");
   private final Integer splitSize;
   private final Integer keyRange;
 
-  public AvroReaderSplitDoFn(Integer keyRange, Integer splitSize) {
+  public AvroReaderSplittableDoFn(Integer keyRange, Integer splitSize) {
     this.keyRange = keyRange;
     this.splitSize = splitSize;
   }
@@ -80,7 +80,7 @@ public class AvroReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
         // Read the next Avro record in line
         GenericRecord record = fileReader.next();
 
-        // Output the DLP table row
+        // Output the Avro record
         String outputKey = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
         c.outputWithTimestamp(KV.of(outputKey, record), Instant.now());
         numberOfAvroRecordsIngested.inc();

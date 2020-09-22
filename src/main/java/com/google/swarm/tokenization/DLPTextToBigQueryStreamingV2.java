@@ -17,7 +17,7 @@ package com.google.swarm.tokenization;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.privacy.dlp.v2.Table;
-import com.google.swarm.tokenization.avro.AvroReaderSplitDoFn;
+import com.google.swarm.tokenization.avro.AvroReaderSplittableDoFn;
 import com.google.swarm.tokenization.avro.ConvertAvroRecordToDlpRowDoFn;
 import com.google.swarm.tokenization.avro.GenericRecordCoder;
 import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
@@ -104,7 +104,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 inputFiles
                     .apply(
                         ParDo.of(
-                            new AvroReaderSplitDoFn(options.getKeyRange(), options.getSplitSize())))
+                            new AvroReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())))
                     .setCoder(KvCoder.of(StringUtf8Coder.of(), GenericRecordCoder.of()))
                     .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
             break;
