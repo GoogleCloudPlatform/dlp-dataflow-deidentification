@@ -17,9 +17,7 @@ package com.google.swarm.tokenization.common;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.auto.value.AutoValue;
-import com.google.gson.JsonSyntaxException;
 import com.google.privacy.dlp.v2.DeidentifyContentResponse;
-import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.privacy.dlp.v2.ReidentifyContentResponse;
 import com.google.privacy.dlp.v2.Table;
@@ -27,12 +25,10 @@ import com.google.swarm.tokenization.beam.DLPDeidentifyText;
 import com.google.swarm.tokenization.beam.DLPInspectText;
 import com.google.swarm.tokenization.beam.DLPReidentifyText;
 import com.google.swarm.tokenization.common.Util.DLPMethod;
-import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import org.apache.beam.repackaged.core.org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryHelpers;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -162,7 +158,7 @@ public abstract class DLPTransform
   }
 
   static class ConvertReidResponse
-      extends DoFn<KV<String, ReidentifyContentResponse>, KV<String, String>> {
+      extends DoFn<KV<String, ReidentifyContentResponse>, KV<String, TableRow>> {
 
     private final Counter numberOfBytesReidentified =
         Metrics.counter(ConvertDeidResponse.class, "NumberOfBytesReidentified");
@@ -171,43 +167,28 @@ public abstract class DLPTransform
     public void processElement(
         @Element KV<String, ReidentifyContentResponse> element, MultiOutputReceiver out) {
 
-      String tableRef = element.getKey().split("\\~")[0];
+      String deidTableName = BigQueryHelpers.parseTableSpec(element.getKey()).getTableId();
+      String tableName = String.format("%s_%s", deidTableName, Util.BQ_REID_TABLE_EXT);
+      LOG.info("Table Ref {}", tableName);
       Table originalData = element.getValue().getItem().getTable();
       numberOfBytesReidentified.inc(originalData.toByteArray().length);
-      List<FieldId> dlpTableHeaders = originalData.getHeadersList();
-      try {
-
-        List<Table.Row> outputRows = element.getValue().getItem().getTable().getRowsList();
-        outputRows.forEach(
-            row -> {
-              HashMap<String, String> convertMap = new HashMap<String, String>();
-              AtomicInteger index = new AtomicInteger(0);
-              row.getValuesList()
-                  .forEach(
-                      value -> {
-                        String header = dlpTableHeaders.get(index.getAndIncrement()).getName();
-                        convertMap.put(header, value.getStringValue());
-                      });
-              String jsonMessage = Util.gson.toJson(convertMap);
-              LOG.info("Json message {}", jsonMessage);
-
-              out.get(Util.reidSuccess).output(KV.of(tableRef, jsonMessage));
-            });
-
-      } catch (JsonSyntaxException e) {
-        LOG.error("error {}", e.getMessage());
-        out.get(Util.reidFailure)
-            .output(
-                KV.of(
-                    Util.BQ_ERROR_TABLE_NAME,
-                    Util.toTableRow(
-                        Row.withSchema(Util.errorSchema)
-                            .addValues(
-                                tableRef,
-                                Util.getTimeStamp(),
-                                e.toString(),
-                                ExceptionUtils.getStackTrace(e))
-                            .build())));
+      List<String> headers =
+          originalData.getHeadersList().stream()
+              .map(fid -> fid.getName())
+              .collect(Collectors.toList());
+      List<Table.Row> outputRows = originalData.getRowsList();
+      if (outputRows.size() > 0) {
+        for (Table.Row outputRow : outputRows) {
+          if (outputRow.getValuesCount() != headers.size()) {
+            throw new IllegalArgumentException(
+                "BigQuery column count must exactly match with data element count");
+          }
+          out.get(Util.reidSuccess)
+              .output(
+                  KV.of(
+                      tableName,
+                      Util.createBqRow(outputRow, headers.toArray(new String[headers.size()]))));
+        }
       }
     }
   }

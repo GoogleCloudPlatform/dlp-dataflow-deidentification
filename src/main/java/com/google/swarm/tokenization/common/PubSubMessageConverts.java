@@ -15,20 +15,23 @@
  */
 package com.google.swarm.tokenization.common;
 
+import com.google.api.services.bigquery.model.TableRow;
 import com.google.common.collect.ImmutableMap;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.transforms.SimpleFunction;
 import org.apache.beam.sdk.values.KV;
 
 @SuppressWarnings("serial")
-public class PubSubMessageConverts extends SimpleFunction<KV<String, String>, PubsubMessage> {
+public class PubSubMessageConverts extends SimpleFunction<KV<String, TableRow>, PubsubMessage> {
   @Override
-  public PubsubMessage apply(KV<String, String> input) {
+  public PubsubMessage apply(KV<String, TableRow> input) {
 
     String tableRef = input.getKey();
+    TableRow row = input.getValue();
+    String json = Util.gson.toJson(row);
     PubsubMessage message =
         new PubsubMessage(
-            input.getValue().toString().getBytes(),
+            json.getBytes(),
             ImmutableMap.<String, String>builder().put("table_name", tableRef).build());
     return message;
   }
