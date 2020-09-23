@@ -39,7 +39,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.Schema.Field;
 import org.apache.beam.sdk.schemas.Schema.FieldType;
@@ -90,7 +89,8 @@ public class Util {
   public static final TupleTag<KV<String, TableRow>> inspectOrDeidFailure =
       new TupleTag<KV<String, TableRow>>() {};
 
-  public static final TupleTag<PubsubMessage> reidSuccess = new TupleTag<PubsubMessage>() {};
+  public static final TupleTag<KV<String, TableRow>> reidSuccess =
+      new TupleTag<KV<String, TableRow>>() {};
   public static final TupleTag<KV<String, TableRow>> reidFailure =
       new TupleTag<KV<String, TableRow>>() {};
 
@@ -101,6 +101,7 @@ public class Util {
 
   public static final String BQ_DLP_INSPECT_TABLE_NAME = String.valueOf("dlp_inspection_result");
   public static final String BQ_ERROR_TABLE_NAME = String.valueOf("error_log");
+  public static final String BQ_REID_TABLE_EXT = String.valueOf("re_id");
 
   public static final DateTimeFormatter TIMESTAMP_FORMATTER =
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");

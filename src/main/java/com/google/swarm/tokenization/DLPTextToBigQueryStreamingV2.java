@@ -29,6 +29,7 @@ import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.ExtractColumnNamesTransform;
 import com.google.swarm.tokenization.common.FilePollingTransform;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
+import com.google.swarm.tokenization.common.PubSubMessageConverts;
 import com.google.swarm.tokenization.common.Util;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
@@ -40,6 +41,7 @@ import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.GroupByKey;
+import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
@@ -174,21 +176,33 @@ public class DLPTextToBigQueryStreamingV2 {
                 .apply("GetHeader", ParDo.of(new BigQueryTableHeaderDoFn()))
                 .apply("ViewAsList", View.asList());
 
-        record
-            .apply("ConvertTableRow", ParDo.of(new MergeBigQueryRowToDlpRow()))
-            .apply(
-                "DLPTransform",
-                DLPTransform.newBuilder()
-                    .setBatchSize(options.getBatchSize())
-                    .setInspectTemplateName(options.getInspectTemplateName())
-                    .setDeidTemplateName(options.getDeidentifyTemplateName())
-                    .setDlpmethod(options.getDLPMethod())
-                    .setProjectId(options.getProject())
-                    .setHeader(selectedColumns)
-                    .setColumnDelimiter(options.getColumnDelimiter())
-                    .setJobName(options.getJobName())
-                    .build())
-            .get(Util.reidSuccess)
+        PCollection<KV<String, TableRow>> reidData =
+            record
+                .apply("ConvertTableRow", ParDo.of(new MergeBigQueryRowToDlpRow()))
+                .apply(
+                    "DLPTransform",
+                    DLPTransform.newBuilder()
+                        .setBatchSize(options.getBatchSize())
+                        .setInspectTemplateName(options.getInspectTemplateName())
+                        .setDeidTemplateName(options.getDeidentifyTemplateName())
+                        .setDlpmethod(options.getDLPMethod())
+                        .setProjectId(options.getProject())
+                        .setHeader(selectedColumns)
+                        .setColumnDelimiter(options.getColumnDelimiter())
+                        .setJobName(options.getJobName())
+                        .build())
+                .get(Util.reidSuccess);
+
+        // BQ insert
+        reidData.apply(
+            "BigQueryInsert",
+            BigQueryDynamicWriteTransform.newBuilder()
+                .setDatasetId(options.getDataset())
+                .setProjectId(options.getProject())
+                .build());
+        // pubsub publish
+        reidData
+            .apply("ConvertToPubSubMessage", MapElements.via(new PubSubMessageConverts()))
             .apply(
                 "PublishToPubSub",
                 PubsubIO.writeMessages()

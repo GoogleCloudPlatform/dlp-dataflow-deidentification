@@ -72,6 +72,7 @@ public abstract class BigQueryDynamicWriteTransform
             .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
             .withoutValidation()
             .ignoreInsertIds()
+            .withMethod(BigQueryIO.Write.Method.STREAMING_INSERTS)
             .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED));
   }
 
