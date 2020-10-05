@@ -201,14 +201,17 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setProjectId(options.getProject())
                 .build());
         // pubsub publish
-        reidData
-            .apply("ConvertToPubSubMessage", MapElements.via(new PubSubMessageConverts()))
-            .apply(
-                "PublishToPubSub",
-                PubsubIO.writeMessages()
-                    .withMaxBatchBytesSize(PUB_SUB_BATCH_SIZE_BYTES)
-                    .withMaxBatchSize(PUB_SUB_BATCH_SIZE)
-                    .to(options.getTopic()));
+        if(options.getTopic()!=null){
+        	 reidData
+             .apply("ConvertToPubSubMessage", MapElements.via(new PubSubMessageConverts()))
+             .apply(
+                 "PublishToPubSub",
+                 PubsubIO.writeMessages()
+                     .withMaxBatchBytesSize(PUB_SUB_BATCH_SIZE_BYTES)
+                     .withMaxBatchSize(PUB_SUB_BATCH_SIZE)
+                     .to(options.getTopic()));
+        }
+       
         return p.run();
       default:
         throw new IllegalArgumentException("Please validate DLPMethod param!");
