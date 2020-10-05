@@ -41,7 +41,6 @@ import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.GroupByKey;
-import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
@@ -106,7 +105,8 @@ public class DLPTextToBigQueryStreamingV2 {
                 inputFiles
                     .apply(
                         ParDo.of(
-                            new AvroReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())))
+                            new AvroReaderSplittableDoFn(
+                                options.getKeyRange(), options.getSplitSize())))
                     .setCoder(KvCoder.of(StringUtf8Coder.of(), GenericRecordCoder.of()))
                     .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
             break;
@@ -201,17 +201,17 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setProjectId(options.getProject())
                 .build());
         // pubsub publish
-        if(options.getTopic()!=null){
-        	 reidData
-             .apply("ConvertToPubSubMessage", MapElements.via(new PubSubMessageConverts()))
-             .apply(
-                 "PublishToPubSub",
-                 PubsubIO.writeMessages()
-                     .withMaxBatchBytesSize(PUB_SUB_BATCH_SIZE_BYTES)
-                     .withMaxBatchSize(PUB_SUB_BATCH_SIZE)
-                     .to(options.getTopic()));
+        if (options.getTopic() != null) {
+          reidData
+              .apply("ConvertToPubSubMessage", ParDo.of(new PubSubMessageConverts()))
+              .apply(
+                  "PublishToPubSub",
+                  PubsubIO.writeMessages()
+                      .withMaxBatchBytesSize(PUB_SUB_BATCH_SIZE_BYTES)
+                      .withMaxBatchSize(PUB_SUB_BATCH_SIZE)
+                      .to(options.getTopic()));
         }
-       
+
         return p.run();
       default:
         throw new IllegalArgumentException("Please validate DLPMethod param!");

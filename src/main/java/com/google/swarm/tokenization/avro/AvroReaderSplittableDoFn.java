@@ -36,10 +36,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A splittable DoFn that splits the given Avro file into chunks, then reads the chunks in parallel and
- * outputs all the ingested Avro records.
+ * A splittable DoFn that splits the given Avro file into chunks, then reads the chunks in parallel
+ * and outputs all the ingested Avro records.
  */
-public class AvroReaderSplittableDoFn extends DoFn<KV<String, ReadableFile>, KV<String, GenericRecord>> {
+public class AvroReaderSplittableDoFn
+    extends DoFn<KV<String, ReadableFile>, KV<String, GenericRecord>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(AvroReaderSplittableDoFn.class);
   private final Counter numberOfAvroRecordsIngested =

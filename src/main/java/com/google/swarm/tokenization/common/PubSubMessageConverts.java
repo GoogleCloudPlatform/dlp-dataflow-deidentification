@@ -18,20 +18,31 @@ package com.google.swarm.tokenization.common;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.common.collect.ImmutableMap;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
-import org.apache.beam.sdk.transforms.SimpleFunction;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
-public class PubSubMessageConverts extends SimpleFunction<KV<String, TableRow>, PubsubMessage> {
-  @Override
-  public PubsubMessage apply(KV<String, TableRow> input) {
+public class PubSubMessageConverts extends DoFn<KV<String, TableRow>, PubsubMessage> {
+  private static final Logger LOG = LoggerFactory.getLogger(PubSubMessageConverts.class);
 
-    String tableRef = input.getKey();
-    String json = input.getValue().toString();
-    PubsubMessage message =
-        new PubsubMessage(
-            json.getBytes(),
-            ImmutableMap.<String, String>builder().put("table_name", tableRef).build());
-    return message;
+  @ProcessElement
+  public void processContext(ProcessContext c) {
+    String tableRef = c.element().getKey();
+    c.element()
+        .getValue()
+        .getF()
+        .iterator()
+        .forEachRemaining(
+            value -> {
+              String json = Util.gson.toJson(value);
+              LOG.info("Json {}", json);
+              PubsubMessage message =
+                  new PubsubMessage(
+                      json.getBytes(),
+                      ImmutableMap.<String, String>builder().put("table_name", tableRef).build());
+              c.output(message);
+            });
   }
 }
