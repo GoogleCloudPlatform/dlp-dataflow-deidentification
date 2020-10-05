@@ -27,8 +27,7 @@ public class PubSubMessageConverts extends SimpleFunction<KV<String, TableRow>, 
   public PubsubMessage apply(KV<String, TableRow> input) {
 
     String tableRef = input.getKey();
-    TableRow row = input.getValue();
-    String json = Util.gson.toJson(row);
+    String json = input.getValue().toString();
     PubsubMessage message =
         new PubsubMessage(
             json.getBytes(),
