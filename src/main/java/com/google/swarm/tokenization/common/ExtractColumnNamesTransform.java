@@ -18,7 +18,9 @@ package com.google.swarm.tokenization.common;
 import com.google.auto.value.AutoValue;
 import com.google.swarm.tokenization.avro.AvroColumnNamesDoFn;
 import com.google.swarm.tokenization.common.Util.FileType;
+import com.google.swarm.tokenization.json.JsonColumnNameDoFn;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
@@ -27,6 +29,7 @@ import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
 
+@SuppressWarnings("serial")
 @AutoValue
 public abstract class ExtractColumnNamesTransform
     extends PTransform<
@@ -34,9 +37,14 @@ public abstract class ExtractColumnNamesTransform
 
   public abstract FileType fileType();
 
+  @Nullable
+  public abstract List<String> headers();
+
   @AutoValue.Builder
   public abstract static class Builder {
     public abstract ExtractColumnNamesTransform.Builder setFileType(FileType fileType);
+
+    public abstract ExtractColumnNamesTransform.Builder setHeaders(List<String> headers);
 
     public abstract ExtractColumnNamesTransform build();
   }
@@ -54,6 +62,9 @@ public abstract class ExtractColumnNamesTransform
         break;
       case CSV:
         readHeader = input.apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn()));
+        break;
+      case JSON:
+        readHeader = input.apply("ReadHeader", ParDo.of(new JsonColumnNameDoFn(headers())));
         break;
       default:
         throw new IllegalStateException("Unexpected value: " + fileType());

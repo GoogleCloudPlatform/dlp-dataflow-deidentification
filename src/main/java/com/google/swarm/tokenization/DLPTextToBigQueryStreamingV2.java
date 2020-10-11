@@ -31,6 +31,8 @@ import com.google.swarm.tokenization.common.FilePollingTransform;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
 import com.google.swarm.tokenization.common.PubSubMessageConverts;
 import com.google.swarm.tokenization.common.Util;
+import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
+import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
@@ -96,6 +98,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .apply(
                     ExtractColumnNamesTransform.newBuilder()
                         .setFileType(options.getFileType())
+                        .setHeaders(options.getHeaders())
                         .build());
         PCollection<KV<String, Table.Row>> records;
 
@@ -124,6 +127,18 @@ public class DLPTextToBigQueryStreamingV2 {
                         "ConvertToDLPRow",
                         ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), header))
                             .withSideInputs(header));
+            break;
+          case JSON:
+            records =
+                inputFiles
+                    .apply(
+                        "SplitJSONFile",
+                        ParDo.of(
+                            new JsonReaderSplitDoFn(
+                                options.getKeyRange(),
+                                options.getRecordDelimiter(),
+                                options.getSplitSize())))
+                    .apply("ConvertToDLPRow", ParDo.of(new ConvertJsonRecordToDLPRow()));
             break;
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");

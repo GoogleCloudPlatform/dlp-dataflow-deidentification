@@ -205,6 +205,7 @@ public abstract class DLPTransform
 
       String fileName = element.getKey().split("\\~")[0];
       Table tokenizedData = element.getValue().getItem().getTable();
+      LOG.info("Table Tokenized {}",tokenizedData.toString());
       numberOfRowDeidentified.inc(tokenizedData.getRowsCount());
       List<String> headers =
           tokenizedData.getHeadersList().stream()
