@@ -408,7 +408,7 @@ public class Util {
             agentScript = false;
             if (agentTranscript.length() > 0) {
               String[] tempValues = {
-                String.format("%s%s%s", fileName, "_", index),
+            	String.format("%s%s%s%s%s", fileName, "_", index,"_",new Random(9999999).toString()),
                 "agent",
                 agentTranscript.toString(),
                 String.valueOf(position)
@@ -423,7 +423,7 @@ public class Util {
             agentScript = true;
             if (customerTranscript.length() > 0) {
               String[] tempValues = {
-                String.format("%s%s%s%s%d", fileName, "_", index,"_",new Random(99999999)),
+                String.format("%s%s%s%s%s", fileName, "_", index,"_",new Random(9999999).toString()),
                 "customer",
                 customerTranscript.toString(),
                 String.valueOf(position)
