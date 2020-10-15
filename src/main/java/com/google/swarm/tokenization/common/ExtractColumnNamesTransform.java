@@ -20,7 +20,6 @@ import com.google.swarm.tokenization.avro.AvroColumnNamesDoFn;
 import com.google.swarm.tokenization.common.Util.FileType;
 import com.google.swarm.tokenization.json.JsonColumnNameDoFn;
 import com.google.swarm.tokenization.txt.TxtColumnNameDoFn;
-
 import java.util.List;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.io.FileIO;
@@ -69,8 +68,8 @@ public abstract class ExtractColumnNamesTransform
         readHeader = input.apply("ReadHeader", ParDo.of(new JsonColumnNameDoFn(headers())));
         break;
       case TXT:
-          readHeader = input.apply("ReadHeader", ParDo.of(new TxtColumnNameDoFn(headers())));
-          break;  
+        readHeader = input.apply("ReadHeader", ParDo.of(new TxtColumnNameDoFn(headers())));
+        break;
       default:
         throw new IllegalStateException("Unexpected value: " + fileType());
     }

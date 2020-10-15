@@ -16,7 +16,6 @@
 package com.google.swarm.tokenization.txt;
 
 import com.google.swarm.tokenization.common.FileReader;
-import com.google.swarm.tokenization.common.Util;
 import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
@@ -27,18 +26,9 @@ import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.DoFn.Element;
-import org.apache.beam.sdk.transforms.DoFn.GetInitialRestriction;
-import org.apache.beam.sdk.transforms.DoFn.NewTracker;
-import org.apache.beam.sdk.transforms.DoFn.OutputReceiver;
-import org.apache.beam.sdk.transforms.DoFn.ProcessContext;
-import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
-import org.apache.beam.sdk.transforms.DoFn.Restriction;
-import org.apache.beam.sdk.transforms.DoFn.SplitRestriction;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.KV;
-import org.apache.commons.lang3.StringUtils;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,10 +60,7 @@ public class TxtReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<String
         String contents = reader.getCurrent().toStringUtf8();
         String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
         numberOfRowsRead.inc();
-        String convertedContents = Util.parseChatlog(fileName, contents);
-        if(convertedContents!=StringUtils.EMPTY) {
-        	c.outputWithTimestamp(KV.of(key, Util.parseChatlog(fileName, contents)), Instant.now());
-        }
+        c.outputWithTimestamp(KV.of(key, contents), Instant.now());
       }
     }
   }

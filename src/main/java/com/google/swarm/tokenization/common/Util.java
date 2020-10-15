@@ -86,6 +86,10 @@ public class Util {
   private static final char DEFAULT_QUOTE = '"';
 
   private static final DateTimeFormatter BIGQUERY_TIMESTAMP_PRINTER;
+  public static final TupleTag<KV<String, String>> agentTranscriptTuple =
+	      new TupleTag<KV<String, String>>() {};
+  public static final TupleTag<KV<String, String>> customerTranscriptTuple =
+	      new TupleTag<KV<String, String>>() {};
   public static final TupleTag<KV<String, String>> contentTag =
       new TupleTag<KV<String, String>>() {};
   public static final TupleTag<KV<String, ReadableFile>> headerTag =
@@ -393,6 +397,7 @@ public class Util {
 
     String index = chatLog.substring(0, 1);
     String transcript = chatLog.substring(1);
+    Random r = new Random();
     // escape header fields
     if (StringUtils.isNumeric(index)) {
       try (Scanner scanner = new Scanner(transcript.trim())) {
@@ -408,14 +413,18 @@ public class Util {
             agentScript = false;
             if (agentTranscript.length() > 0) {
               String[] tempValues = {
-            	String.format("%s%s%s%s%s", fileName, "_", index,"_",new Random(9999999).toString()),
+                String.format("%s%s%s%s%d", fileName, "_", index, "_", r.nextInt(100)),
                 "agent",
                 agentTranscript.toString(),
-                String.valueOf(position)
+                String.valueOf(position),
+                "N/A"
               };
               agentTranscript.setLength(0);
               position = position + 1;
-              return Arrays.asList(tempValues).stream().collect(Collectors.joining(","));
+              String finalTranscript =
+                  Arrays.asList(tempValues).stream().collect(Collectors.joining(","));
+              LOG.info(finalTranscript);
+              return finalTranscript;
             }
 
           } else if (word.contains("[Agent]:")) {
@@ -423,14 +432,18 @@ public class Util {
             agentScript = true;
             if (customerTranscript.length() > 0) {
               String[] tempValues = {
-                String.format("%s%s%s%s%s", fileName, "_", index,"_",new Random(9999999).toString()),
+                String.format("%s%s%s%s%d", fileName, "_", index, "_", r.nextInt(100)),
                 "customer",
                 customerTranscript.toString(),
-                String.valueOf(position)
+                String.valueOf(position),
+                "N/A"
               };
               customerTranscript.setLength(0);
               position = position + 1;
-              return Arrays.asList(tempValues).stream().collect(Collectors.joining(","));
+              String finalTranscript =
+                  Arrays.asList(tempValues).stream().collect(Collectors.joining(","));
+              LOG.info(finalTranscript);
+              return finalTranscript;
             }
 
           } else {
