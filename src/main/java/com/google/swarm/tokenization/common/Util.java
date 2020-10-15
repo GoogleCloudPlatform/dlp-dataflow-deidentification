@@ -36,6 +36,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -76,7 +77,8 @@ public class Util {
   public enum FileType {
     CSV,
     AVRO,
-    JSON
+    JSON,
+    TXT
   }
 
   public static final Gson gson = new Gson();
@@ -421,7 +423,7 @@ public class Util {
             agentScript = true;
             if (customerTranscript.length() > 0) {
               String[] tempValues = {
-                String.format("%s%s%s", fileName, "_", index),
+                String.format("%s%s%s%s%d", fileName, "_", index,"_",new Random(99999999)),
                 "customer",
                 customerTranscript.toString(),
                 String.valueOf(position)

@@ -33,6 +33,9 @@ import com.google.swarm.tokenization.common.PubSubMessageConverts;
 import com.google.swarm.tokenization.common.Util;
 import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
 import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
+import com.google.swarm.tokenization.txt.ConvertTxtToDLPRow;
+import com.google.swarm.tokenization.txt.TxtReaderSplitDoFn;
+
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
@@ -140,6 +143,19 @@ public class DLPTextToBigQueryStreamingV2 {
                                 options.getSplitSize())))
                     .apply("ConvertToDLPRow", ParDo.of(new ConvertJsonRecordToDLPRow()));
             break;
+          case TXT:
+              records =
+                  inputFiles
+                      .apply(
+                          "SplitTextFile",
+                          ParDo.of(
+                              new TxtReaderSplitDoFn(
+                                  options.getKeyRange(),
+                                  options.getRecordDelimiter(),
+                                  options.getSplitSize())))
+                      .apply("ConvertToDLPRow", ParDo.of(new ConvertTxtToDLPRow(options.getColumnDelimiter(),header))
+                              .withSideInputs(header));
+              break;  
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");
         }
