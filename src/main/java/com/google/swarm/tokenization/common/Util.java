@@ -34,8 +34,11 @@ import java.net.URI;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
@@ -50,6 +53,7 @@ import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.Lists;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.io.BaseEncoding;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Instant;
 import org.joda.time.format.DateTimeFormat;
@@ -381,5 +385,65 @@ public class Util {
     String contentString = new String(content, UTF_8);
     LOG.debug("Query: {}", contentString);
     return contentString;
+  }
+  // index, transcript -> 0 [Customer]: <text> [Agent]:
+  public static String parseChatlog(String fileName, String chatLog) {
+
+    String index = chatLog.substring(0, 1);
+    String transcript = chatLog.substring(1);
+    // escape header fields
+    if (StringUtils.isNumeric(index)) {
+      try (Scanner scanner = new Scanner(transcript.trim())) {
+        scanner.useDelimiter("\\ ");
+        int position = 1;
+        StringBuilder agentTranscript = new StringBuilder();
+        StringBuilder customerTranscript = new StringBuilder();
+        boolean agentScript = true;
+        while (scanner.hasNext()) {
+          String word = scanner.next().trim();
+          if (word.contains("[Customer]:")) {
+            customerTranscript.append(StringUtils.remove(word, "[Customer]:"));
+            agentScript = false;
+            if (agentTranscript.length() > 0) {
+              String[] tempValues = {
+                String.format("%s%s%s", fileName, "_", index),
+                "agent",
+                agentTranscript.toString(),
+                String.valueOf(position)
+              };
+              agentTranscript.setLength(0);
+              position = position + 1;
+              return Arrays.asList(tempValues).stream().collect(Collectors.joining(","));
+            }
+
+          } else if (word.contains("[Agent]:")) {
+            agentTranscript.append(StringUtils.remove(word, "[Agent]:"));
+            agentScript = true;
+            if (customerTranscript.length() > 0) {
+              String[] tempValues = {
+                String.format("%s%s%s", fileName, "_", index),
+                "customer",
+                customerTranscript.toString(),
+                String.valueOf(position)
+              };
+              customerTranscript.setLength(0);
+              position = position + 1;
+              return Arrays.asList(tempValues).stream().collect(Collectors.joining(","));
+            }
+
+          } else {
+            if (agentScript) {
+              agentTranscript.append(StringUtils.SPACE);
+              agentTranscript.append(word);
+            } else {
+              customerTranscript.append(StringUtils.SPACE);
+              customerTranscript.append(word);
+            }
+          }
+        }
+      }
+    }
+
+    return StringUtils.EMPTY;
   }
 }
