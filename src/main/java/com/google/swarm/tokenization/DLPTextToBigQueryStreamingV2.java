@@ -33,6 +33,9 @@ import com.google.swarm.tokenization.common.PubSubMessageConverts;
 import com.google.swarm.tokenization.common.Util;
 import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
 import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
+import com.google.swarm.tokenization.txt.ConvertTxtToDLPRow;
+import com.google.swarm.tokenization.txt.ParseTextLogDoFn;
+import com.google.swarm.tokenization.txt.TxtReaderSplitDoFn;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
@@ -42,6 +45,7 @@ import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
@@ -52,7 +56,10 @@ import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionList;
+import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
+import org.apache.beam.sdk.values.TupleTagList;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,6 +146,29 @@ public class DLPTextToBigQueryStreamingV2 {
                                 options.getRecordDelimiter(),
                                 options.getSplitSize())))
                     .apply("ConvertToDLPRow", ParDo.of(new ConvertJsonRecordToDLPRow()));
+            break;
+          case TXT:
+            PCollectionTuple recordTuple =
+                inputFiles
+                    .apply(
+                        "SplitTextFile",
+                        ParDo.of(
+                            new TxtReaderSplitDoFn(
+                                options.getKeyRange(),
+                                options.getRecordDelimiter(),
+                                options.getSplitSize())))
+                    .apply("ParseTextFile", ParDo.of(new ParseTextLogDoFn())
+                    		.withOutputTags(Util.agentTranscriptTuple, 
+                    				TupleTagList.of(Util.customerTranscriptTuple)));
+            
+           records = PCollectionList
+            		.of(recordTuple.get(Util.agentTranscriptTuple))
+            		.and(recordTuple.get(Util.customerTranscriptTuple))
+            		.apply("Flatten",Flatten.pCollections())
+                    .apply(
+                        "ConvertToDLPRow",
+                        ParDo.of(new ConvertTxtToDLPRow(options.getColumnDelimiter(), header))
+                            .withSideInputs(header));
             break;
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");

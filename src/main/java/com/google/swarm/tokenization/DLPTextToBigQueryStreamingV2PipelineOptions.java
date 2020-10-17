@@ -128,6 +128,11 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
           .toLowerCase()
           .endsWith(".json")) {
         return FileType.JSON;
+      } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".txt")) {
+        return FileType.TXT;
       } else {
         return FileType.CSV;
       }
