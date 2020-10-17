@@ -17,6 +17,7 @@ package com.google.swarm.tokenization;
 
 import com.google.swarm.tokenization.common.Util.DLPMethod;
 import com.google.swarm.tokenization.common.Util.FileType;
+import java.util.List;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
@@ -108,6 +109,11 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setSplitSize(Integer value);
 
+  @Description("DLP Table Headers- Required for Json type")
+  List<String> getHeaders();
+
+  void setHeaders(List<String> topic);
+
   class FileTypeFactory implements DefaultValueFactory<FileType> {
     @Override
     public FileType create(PipelineOptions options) {
@@ -116,6 +122,12 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
           .toLowerCase()
           .endsWith(".avro")) {
         return FileType.AVRO;
+
+      } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".json")) {
+        return FileType.JSON;
       } else {
         return FileType.CSV;
       }

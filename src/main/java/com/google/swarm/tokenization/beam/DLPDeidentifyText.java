@@ -25,6 +25,8 @@ import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.InspectConfig;
 import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
+import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +39,8 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A {@link PTransform} connecting to Cloud DLP (https://cloud.google.com/dlp/docs/libraries) and
@@ -196,6 +200,8 @@ public abstract class DLPDeidentifyText
   /** DoFn performing calls to Cloud DLP service on GCP. */
   static class DeidentifyText
       extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, DeidentifyContentResponse>> {
+	  public static final Logger LOG = LoggerFactory.getLogger(DeidentifyText.class);
+
     private final String projectId;
     private final String inspectTemplateName;
     private final String deidentifyTemplateName;
@@ -204,6 +210,7 @@ public abstract class DLPDeidentifyText
     private final PCollectionView<List<String>> headerColumns;
     private transient DeidentifyContentRequest.Builder requestBuilder;
     private transient DlpServiceClient dlpServiceClient;
+    
 
     @Setup
     public void setup() throws IOException {

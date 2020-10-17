@@ -29,15 +29,14 @@ public class PubSubMessageConverts extends DoFn<KV<String, TableRow>, PubsubMess
 
   @ProcessElement
   public void processContext(ProcessContext c) {
-   String tableRef = c.element().getKey();
-   TableRow row =  c.element().getValue();
-   String json = Util.gson.toJson(row.getF());
-   LOG.info("Json {}", json);
-	  PubsubMessage message =
-	      new PubsubMessage(
-	          json.getBytes(),
-	          ImmutableMap.<String, String>builder().put("table_name", tableRef).build());
-	  c.output(message);
-    
+    String tableRef = c.element().getKey();
+    TableRow row = c.element().getValue();
+    String json = Util.gson.toJson(row.getF());
+    LOG.info("Json {}", json);
+    PubsubMessage message =
+        new PubsubMessage(
+            json.getBytes(),
+            ImmutableMap.<String, String>builder().put("table_name", tableRef).build());
+    c.output(message);
   }
 }

@@ -71,7 +71,8 @@ public class Util {
 
   public enum FileType {
     CSV,
-    AVRO
+    AVRO,
+    JSON
   }
 
   public static final Gson gson = new Gson();
