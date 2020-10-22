@@ -24,7 +24,6 @@ import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
 import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
 import com.google.swarm.tokenization.common.BigQueryReadTransform;
 import com.google.swarm.tokenization.common.BigQueryTableHeaderDoFn;
-import com.google.swarm.tokenization.common.CSVFileReaderSplitDoFn;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.ExtractColumnNamesTransform;
 import com.google.swarm.tokenization.common.FilePollingTransform;
@@ -43,11 +42,13 @@ import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.io.contextualtextio.ContextualTextIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.Values;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
@@ -84,7 +85,7 @@ public class DLPTextToBigQueryStreamingV2 {
 
   public static PipelineResult run(DLPTextToBigQueryStreamingV2PipelineOptions options) {
     Pipeline p = Pipeline.create(options);
-
+    // p.apply(ContextualTextIO.readFiles());
     switch (options.getDLPMethod()) {
       case INSPECT:
       case DEID:
@@ -123,13 +124,8 @@ public class DLPTextToBigQueryStreamingV2 {
           case CSV:
             records =
                 inputFiles
-                    .apply(
-                        "SplitCSVFile",
-                        ParDo.of(
-                            new CSVFileReaderSplitDoFn(
-                                options.getKeyRange(),
-                                options.getRecordDelimiter(),
-                                options.getSplitSize())))
+                    .apply(Values.create())
+                    .apply(ContextualTextIO.readFiles())
                     .apply(
                         "ConvertToDLPRow",
                         ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), header))
@@ -157,14 +153,17 @@ public class DLPTextToBigQueryStreamingV2 {
                                 options.getKeyRange(),
                                 options.getRecordDelimiter(),
                                 options.getSplitSize())))
-                    .apply("ParseTextFile", ParDo.of(new ParseTextLogDoFn())
-                    		.withOutputTags(Util.agentTranscriptTuple, 
-                    				TupleTagList.of(Util.customerTranscriptTuple)));
-            
-           records = PCollectionList
-            		.of(recordTuple.get(Util.agentTranscriptTuple))
-            		.and(recordTuple.get(Util.customerTranscriptTuple))
-            		.apply("Flatten",Flatten.pCollections())
+                    .apply(
+                        "ParseTextFile",
+                        ParDo.of(new ParseTextLogDoFn())
+                            .withOutputTags(
+                                Util.agentTranscriptTuple,
+                                TupleTagList.of(Util.customerTranscriptTuple)));
+
+            records =
+                PCollectionList.of(recordTuple.get(Util.agentTranscriptTuple))
+                    .and(recordTuple.get(Util.customerTranscriptTuple))
+                    .apply("Flatten", Flatten.pCollections())
                     .apply(
                         "ConvertToDLPRow",
                         ParDo.of(new ConvertTxtToDLPRow(options.getColumnDelimiter(), header))

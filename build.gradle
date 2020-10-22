@@ -15,14 +15,16 @@
  */
 buildscript {
     ext {
-        dataflowBeamVersion = '2.23.0'
+        dataflowBeamVersion = '2.26.0-SNAPSHOT'
     }
     repositories {
         mavenCentral()
         jcenter()
         maven {
             url "https://plugins.gradle.org/m2/"
+
         }
+
         dependencies {
             classpath "net.ltgt.gradle:gradle-apt-plugin:0.19"
             classpath "com.diffplug.spotless:spotless-plugin-gradle:3.24.2"
@@ -80,7 +82,12 @@ tasks.withType(JavaCompile) {
 }
 
 repositories {
-    mavenCentral()
+     
+     maven {
+           url "https://repository.apache.org/content/repositories/snapshots/"
+        }
+      mavenCentral()
+    
 }
 
 dependencies {
@@ -89,6 +96,7 @@ dependencies {
     compile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
     compile group: 'org.apache.beam', name: 'beam-sdks-java-extensions-ml', version: dataflowBeamVersion
     compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
+    compile group: 'org.apache.beam', name: 'beam-sdks-java-io-contextualtextio', version: dataflowBeamVersion
     compile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
     compile 'com.google.cloud:google-cloud-kms:0.70.0-beta'
     compile 'com.google.guava:guava:27.0-jre'

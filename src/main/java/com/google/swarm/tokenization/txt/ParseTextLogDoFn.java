@@ -15,24 +15,22 @@
  */
 package com.google.swarm.tokenization.txt;
 
+import com.google.swarm.tokenization.common.Util;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.stream.Collectors;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.TupleTag;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.swarm.tokenization.common.Util;
 
 @SuppressWarnings("serial")
 public class ParseTextLogDoFn extends DoFn<KV<String, String>, KV<String, String>> {
 
   private static final Logger LOG = LoggerFactory.getLogger(ParseTextLogDoFn.class);
-  
+
   private Random r;
 
   @Setup
