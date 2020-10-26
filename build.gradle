@@ -15,7 +15,7 @@
  */
 buildscript {
     ext {
-        dataflowBeamVersion = '2.26.0-SNAPSHOT'
+        dataflowBeamVersion = '2.25.0'
     }
     repositories {
         mavenCentral()
@@ -96,7 +96,7 @@ dependencies {
     compile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
     compile group: 'org.apache.beam', name: 'beam-sdks-java-extensions-ml', version: dataflowBeamVersion
     compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
-    compile group: 'org.apache.beam', name: 'beam-sdks-java-io-contextualtextio', version: dataflowBeamVersion
+    compile group: 'org.apache.beam', name: 'beam-sdks-java-io-contextualtextio', version: '2.26.0-SNAPSHOT'
     compile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
     compile 'com.google.cloud:google-cloud-kms:0.70.0-beta'
     compile 'com.google.guava:guava:27.0-jre'
