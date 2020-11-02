@@ -53,5 +53,6 @@ public class ConvertCSVRecordToDLPRow extends DoFn<Row, KV<String, Table.Row>> {
   public void processElement(ProcessContext context) throws IOException {
     Table.Row.Builder rowBuilder = Table.Row.newBuilder();
     LOG.info("Row {}", context.element().toString());
+    context.output(KV.of("test",rowBuilder.build()));
   }
 }
