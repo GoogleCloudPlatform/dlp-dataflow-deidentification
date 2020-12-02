@@ -144,4 +144,16 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   FileType getFileType();
 
   void setFileType(FileType fileType);
+
+  class DLPConfigProjectFactory implements DefaultValueFactory<String> {
+    @Override
+    public String create(PipelineOptions options) {
+      return ((DLPTextToBigQueryStreamingV2PipelineOptions) options).getProject();
+    }
+  }
+
+  @Default.InstanceFactory(DLPConfigProjectFactory.class)
+  String getDLPProject();
+
+  void setDLPProject(String project);
 }

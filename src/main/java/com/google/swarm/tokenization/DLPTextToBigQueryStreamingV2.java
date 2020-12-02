@@ -157,14 +157,17 @@ public class DLPTextToBigQueryStreamingV2 {
                                 options.getKeyRange(),
                                 options.getRecordDelimiter(),
                                 options.getSplitSize())))
-                    .apply("ParseTextFile", ParDo.of(new ParseTextLogDoFn())
-                    		.withOutputTags(Util.agentTranscriptTuple, 
-                    				TupleTagList.of(Util.customerTranscriptTuple)));
-            
-           records = PCollectionList
-            		.of(recordTuple.get(Util.agentTranscriptTuple))
-            		.and(recordTuple.get(Util.customerTranscriptTuple))
-            		.apply("Flatten",Flatten.pCollections())
+                    .apply(
+                        "ParseTextFile",
+                        ParDo.of(new ParseTextLogDoFn())
+                            .withOutputTags(
+                                Util.agentTranscriptTuple,
+                                TupleTagList.of(Util.customerTranscriptTuple)));
+
+            records =
+                PCollectionList.of(recordTuple.get(Util.agentTranscriptTuple))
+                    .and(recordTuple.get(Util.customerTranscriptTuple))
+                    .apply("Flatten", Flatten.pCollections())
                     .apply(
                         "ConvertToDLPRow",
                         ParDo.of(new ConvertTxtToDLPRow(options.getColumnDelimiter(), header))
@@ -183,7 +186,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setInspectTemplateName(options.getInspectTemplateName())
                     .setDeidTemplateName(options.getDeidentifyTemplateName())
                     .setDlpmethod(options.getDLPMethod())
-                    .setProjectId(options.getProject())
+                    .setProjectId(options.getDLPProject())
                     .setHeader(header)
                     .setColumnDelimiter(options.getColumnDelimiter())
                     .setJobName(options.getJobName())
@@ -231,7 +234,7 @@ public class DLPTextToBigQueryStreamingV2 {
                         .setInspectTemplateName(options.getInspectTemplateName())
                         .setDeidTemplateName(options.getDeidentifyTemplateName())
                         .setDlpmethod(options.getDLPMethod())
-                        .setProjectId(options.getProject())
+                        .setProjectId(options.getDLPProject())
                         .setHeader(selectedColumns)
                         .setColumnDelimiter(options.getColumnDelimiter())
                         .setJobName(options.getJobName())
