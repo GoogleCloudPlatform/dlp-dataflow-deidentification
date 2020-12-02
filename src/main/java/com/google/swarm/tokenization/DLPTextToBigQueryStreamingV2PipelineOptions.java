@@ -148,6 +148,7 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   class DLPConfigProjectFactory implements DefaultValueFactory<String> {
     @Override
     public String create(PipelineOptions options) {
+
       return ((DLPTextToBigQueryStreamingV2PipelineOptions) options).getProject();
     }
   }
