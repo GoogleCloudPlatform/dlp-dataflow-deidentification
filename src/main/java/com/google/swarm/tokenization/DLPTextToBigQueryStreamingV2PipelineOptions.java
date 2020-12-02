@@ -15,6 +15,7 @@
  */
 package com.google.swarm.tokenization;
 
+import com.google.privacy.dlp.v2.LocationName;
 import com.google.swarm.tokenization.common.Util.DLPMethod;
 import com.google.swarm.tokenization.common.Util.FileType;
 import java.util.List;
@@ -148,13 +149,14 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   class DLPConfigProjectFactory implements DefaultValueFactory<String> {
     @Override
     public String create(PipelineOptions options) {
-
-      return ((DLPTextToBigQueryStreamingV2PipelineOptions) options).getProject();
+      return LocationName.of(
+              ((DLPTextToBigQueryStreamingV2PipelineOptions) options).getProject(), "global")
+          .toString();
     }
   }
 
   @Default.InstanceFactory(DLPConfigProjectFactory.class)
-  String getDLPProject();
+  String getDLPParent();
 
-  void setDLPProject(String project);
+  void setDLPParent(String parent);
 }

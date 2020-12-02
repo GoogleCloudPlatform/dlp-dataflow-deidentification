@@ -202,8 +202,7 @@ public abstract class DLPInspectText
 
     @Setup
     public void setup() throws IOException {
-      this.requestBuilder =
-          InspectContentRequest.newBuilder().setParent(ProjectName.of(this.projectId).toString());
+      this.requestBuilder = InspectContentRequest.newBuilder().setParent(projectId);
       if (inspectTemplateName != null) {
         requestBuilder.setInspectTemplateName(this.inspectTemplateName);
       }

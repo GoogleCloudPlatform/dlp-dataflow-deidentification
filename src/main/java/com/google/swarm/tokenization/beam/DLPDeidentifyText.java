@@ -23,7 +23,6 @@ import com.google.privacy.dlp.v2.DeidentifyContentRequest;
 import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.InspectConfig;
-import com.google.privacy.dlp.v2.ProjectName;
 import com.google.privacy.dlp.v2.Table;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -211,8 +210,7 @@ public abstract class DLPDeidentifyText
 
     @Setup
     public void setup() throws IOException {
-      requestBuilder =
-          DeidentifyContentRequest.newBuilder().setParent(ProjectName.of(projectId).toString());
+      requestBuilder = DeidentifyContentRequest.newBuilder().setParent(projectId);
       if (inspectTemplateName != null) {
         requestBuilder.setInspectTemplateName(inspectTemplateName);
       }
