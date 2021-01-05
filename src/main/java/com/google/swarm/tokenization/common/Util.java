@@ -87,9 +87,9 @@ public class Util {
 
   private static final DateTimeFormatter BIGQUERY_TIMESTAMP_PRINTER;
   public static final TupleTag<KV<String, String>> agentTranscriptTuple =
-	      new TupleTag<KV<String, String>>() {};
+      new TupleTag<KV<String, String>>() {};
   public static final TupleTag<KV<String, String>> customerTranscriptTuple =
-	      new TupleTag<KV<String, String>>() {};
+      new TupleTag<KV<String, String>>() {};
   public static final TupleTag<KV<String, String>> contentTag =
       new TupleTag<KV<String, String>>() {};
   public static final TupleTag<KV<String, ReadableFile>> headerTag =
