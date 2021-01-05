@@ -51,9 +51,10 @@ public class ConvertCSVRecordToDLPRow extends DoFn<Row, KV<String, Table.Row>> {
   public void processElement(ProcessContext context) throws IOException {
     Table.Row.Builder rowBuilder = Table.Row.newBuilder();
     Row nonTokenizedRow = context.element();
-    ResourceId filename = nonTokenizedRow.getLogicalTypeValue("resourceId", ResourceId.class);
+    String filename = Util.sanitizeCSVFileName(
+        nonTokenizedRow.getLogicalTypeValue("resourceId", ResourceId.class).getFilename());
     String input = nonTokenizedRow.getString("value");
-    LOG.debug("File Name: {} Value: {}", filename.getFilename(), input);
+    LOG.info("File Name: {} Value: {}", filename, input);
     List<String> csvHeader = context.sideInput(header);
 
     if (columnDelimiter != null) {
@@ -61,7 +62,7 @@ public class ConvertCSVRecordToDLPRow extends DoFn<Row, KV<String, Table.Row>> {
       if (values.size() == csvHeader.size()) {
         values.forEach(
             value -> rowBuilder.addValues(Value.newBuilder().setStringValue(value).build()));
-        context.output(KV.of(filename.getFilename(), rowBuilder.build()));
+        context.output(KV.of(filename, rowBuilder.build()));
 
       } else {
         LOG.warn(
@@ -71,7 +72,7 @@ public class ConvertCSVRecordToDLPRow extends DoFn<Row, KV<String, Table.Row>> {
       }
     } else {
       rowBuilder.addValues(Value.newBuilder().setStringValue(input).build());
-      context.output(KV.of(filename.getFilename(), rowBuilder.build()));
+      context.output(KV.of(filename, rowBuilder.build()));
     }
   }
 }

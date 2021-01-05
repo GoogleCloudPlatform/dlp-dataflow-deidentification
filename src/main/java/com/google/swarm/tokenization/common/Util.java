@@ -362,7 +362,6 @@ public class Util {
     }
 
     result.add(curVal.toString());
-
     return result;
   }
 
@@ -423,7 +422,6 @@ public class Util {
               position = position + 1;
               String finalTranscript =
                   Arrays.asList(tempValues).stream().collect(Collectors.joining(","));
-              LOG.info(finalTranscript);
               return finalTranscript;
             }
 
@@ -442,7 +440,6 @@ public class Util {
               position = position + 1;
               String finalTranscript =
                   Arrays.asList(tempValues).stream().collect(Collectors.joining(","));
-              LOG.info(finalTranscript);
               return finalTranscript;
             }
 
@@ -460,5 +457,10 @@ public class Util {
     }
 
     return StringUtils.EMPTY;
+  }
+  // needed to transform after parsing contextual text io read metadata for csv files.
+  public static String sanitizeCSVFileName(String fileName){
+    // fileName.csv
+    return fileName.replace(".","_");
   }
 }
