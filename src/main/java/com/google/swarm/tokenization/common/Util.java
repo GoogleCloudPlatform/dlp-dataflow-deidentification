@@ -461,6 +461,10 @@ public class Util {
   // needed to transform after parsing contextual text io read metadata for csv files.
   public static String sanitizeCSVFileName(String fileName){
     // fileName.csv
-    return fileName.replace(".","_");
+    if(fileName.contains(".")){
+      return fileName.replace(".","_");
+    }
+    return fileName;
+
   }
 }
