@@ -82,10 +82,7 @@ tasks.withType(JavaCompile) {
 }
 
 repositories {
-     
-     maven {
-           url "https://repository.apache.org/content/repositories/snapshots/"
-        }
+
       mavenCentral()
     
 }

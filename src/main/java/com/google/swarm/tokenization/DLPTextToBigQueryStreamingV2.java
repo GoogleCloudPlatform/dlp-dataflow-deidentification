@@ -125,7 +125,9 @@ public class DLPTextToBigQueryStreamingV2 {
             records =
                 inputFiles
                     .apply(Values.create())
-                    .apply(ContextualTextIO.readFiles())
+                    .apply(
+                        ContextualTextIO.readFiles()
+                            .withDelimiter(options.getRecordDelimiter().getBytes()))
                     .apply(
                         "ConvertToDLPRow",
                         ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), header))
