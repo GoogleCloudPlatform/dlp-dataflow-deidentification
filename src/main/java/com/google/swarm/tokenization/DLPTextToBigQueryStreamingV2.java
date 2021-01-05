@@ -136,6 +136,7 @@ public class DLPTextToBigQueryStreamingV2 {
                             .withSideInputs(header));
             break;
           case JSON:
+
             records =
                 inputFiles
                     .apply(
