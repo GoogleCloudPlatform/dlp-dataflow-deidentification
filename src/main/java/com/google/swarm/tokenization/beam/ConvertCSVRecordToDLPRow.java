@@ -54,7 +54,7 @@ public class ConvertCSVRecordToDLPRow extends DoFn<Row, KV<String, Table.Row>> {
     String filename = Util.sanitizeCSVFileName(
         nonTokenizedRow.getLogicalTypeValue("resourceId", ResourceId.class).getFilename());
     String input = nonTokenizedRow.getString("value");
-    LOG.info("File Name: {} Value: {}", filename, input);
+    LOG.debug("File Name: {} Value: {}", filename, input);
     List<String> csvHeader = context.sideInput(header);
 
     if (columnDelimiter != null) {

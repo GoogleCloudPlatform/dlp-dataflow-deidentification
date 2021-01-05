@@ -90,10 +90,6 @@ public class Util {
       new TupleTag<KV<String, String>>() {};
   public static final TupleTag<KV<String, String>> customerTranscriptTuple =
       new TupleTag<KV<String, String>>() {};
-  public static final TupleTag<KV<String, String>> contentTag =
-      new TupleTag<KV<String, String>>() {};
-  public static final TupleTag<KV<String, ReadableFile>> headerTag =
-      new TupleTag<KV<String, ReadableFile>>() {};
 
   public static final TupleTag<KV<String, TableRow>> inspectOrDeidSuccess =
       new TupleTag<KV<String, TableRow>>() {};
@@ -105,27 +101,14 @@ public class Util {
   public static final TupleTag<KV<String, TableRow>> reidFailure =
       new TupleTag<KV<String, TableRow>>() {};
 
-  public static final TupleTag<KV<String, InspectContentResponse>> inspectApiCallSuccess =
-      new TupleTag<KV<String, InspectContentResponse>>() {};
-  public static final TupleTag<KV<String, TableRow>> inspectApiCallError =
-      new TupleTag<KV<String, TableRow>>() {};
 
-  public static final String BQ_DLP_INSPECT_TABLE_NAME = String.valueOf("dlp_inspection_result");
-  public static final String BQ_ERROR_TABLE_NAME = String.valueOf("error_log");
-  public static final String BQ_REID_TABLE_EXT = String.valueOf("re_id");
+
+  public static final String BQ_DLP_INSPECT_TABLE_NAME = "dlp_inspection_result";
+  public static final String BQ_ERROR_TABLE_NAME = "error_log";
+  public static final String BQ_REID_TABLE_EXT = "re_id";
 
   public static final DateTimeFormatter TIMESTAMP_FORMATTER =
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
-
-  public static Table.Row convertCsvRowToTableRow(String row) {
-    String[] values = row.split(",");
-    Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
-    for (String value : values) {
-      tableRowBuilder.addValues(Value.newBuilder().setStringValue(value).build());
-    }
-
-    return tableRowBuilder.build();
-  }
 
   public static String checkHeaderName(String name) {
     String checkedHeader = name.replaceAll("\\s", "_");
@@ -181,17 +164,6 @@ public class Util {
     return br;
   }
 
-  public static boolean isDefaultMode(String[] args) {
-
-    for (String arg : args) {
-      String[] splitFromEqual = arg.split("=");
-      String value = splitFromEqual[1];
-      if (value.equals("s3")) {
-        return false;
-      }
-    }
-    return true;
-  }
 
   static {
     DateTimeFormatter dateTimePart =
@@ -268,22 +240,8 @@ public class Util {
     return output;
   }
 
-  public static List<String> getFileHeaders(BufferedReader reader) {
-    List<String> headers = new ArrayList<>();
-    try {
-      CSVRecord csvHeader = CSVFormat.DEFAULT.parse(reader).getRecords().get(0);
-      csvHeader.forEach(
-          headerValue -> {
-            headers.add(headerValue);
-          });
-    } catch (IOException e) {
-      LOG.error("Failed to get csv header values}", e.getMessage());
-      throw new RuntimeException(e);
-    }
-    return headers;
-  }
-
   @SuppressWarnings("null")
+  // custom parser for csv- will be taken out
   public static List<String> parseLine(String cvsLine, char separators, char customQuote) {
 
     List<String> result = new ArrayList<>();
@@ -374,7 +332,7 @@ public class Util {
         .forEach(
             value -> {
               String checkedHeaderName =
-                  Util.checkHeaderName(headers[headerIndex.getAndIncrement()].toString());
+                  Util.checkHeaderName(headers[headerIndex.getAndIncrement()]);
               bqRow.set(checkedHeaderName, value.getStringValue());
               cells.add(new TableCell().set(checkedHeaderName, value.getStringValue()));
             });
