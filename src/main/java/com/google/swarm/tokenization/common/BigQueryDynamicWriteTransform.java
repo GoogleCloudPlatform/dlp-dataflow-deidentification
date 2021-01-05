@@ -90,7 +90,6 @@ public abstract class BigQueryDynamicWriteTransform
     public TableDestination getTable(KV<String, TableRow> destination) {
       TableDestination dest =
           new TableDestination(destination.getKey(), "DLP Transformation Storage Table");
-      LOG.debug("Table Destination {}", dest.getTableSpec());
       return dest;
     }
 
@@ -98,14 +97,13 @@ public abstract class BigQueryDynamicWriteTransform
     public KV<String, TableRow> getDestination(ValueInSingleWindow<KV<String, TableRow>> element) {
       String key = element.getValue().getKey();
       String tableName = String.format("%s:%s.%s", projectId, datasetName, key);
-      LOG.debug("Table Name {}", tableName);
       return KV.of(tableName, element.getValue().getValue());
     }
 
     @Override
     public TableSchema getSchema(KV<String, TableRow> destination) {
       String tableName = destination.getKey().split("\\.")[1];
-      LOG.info("Table Name {}", tableName);
+      LOG.debug("Table Name {}", tableName);
       switch (tableName) {
         case "dlp_inspection_result":
           return BigQueryUtils.toTableSchema(Util.dlpInspectionSchema);

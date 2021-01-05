@@ -169,7 +169,7 @@ public abstract class DLPTransform
 
       String deidTableName = BigQueryHelpers.parseTableSpec(element.getKey()).getTableId();
       String tableName = String.format("%s_%s", deidTableName, Util.BQ_REID_TABLE_EXT);
-      LOG.info("Table Ref {}", tableName);
+      LOG.debug("Table Ref {}", tableName);
       Table originalData = element.getValue().getItem().getTable();
       numberOfBytesReidentified.inc(originalData.toByteArray().length);
       List<String> headers =
@@ -205,7 +205,7 @@ public abstract class DLPTransform
 
       String fileName = element.getKey().split("\\~")[0];
       Table tokenizedData = element.getValue().getItem().getTable();
-      LOG.info("Table Tokenized {}", tokenizedData.toString());
+      LOG.debug("Table Tokenized {}", tokenizedData.toString());
       numberOfRowDeidentified.inc(tokenizedData.getRowsCount());
       List<String> headers =
           tokenizedData.getHeadersList().stream()
