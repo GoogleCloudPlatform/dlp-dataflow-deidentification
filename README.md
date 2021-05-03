@@ -19,7 +19,8 @@
 ![Reference Architecture](diagrams/ref_arch_solution.png)	   	
 
 ## Quick Start
-[![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git)
+[![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git&
+cloudshell_git_branch=dlp-loadtest)
 
   Run the following commands to trigger an automated deployment in your GCP project. Script handles following topics:   
  
