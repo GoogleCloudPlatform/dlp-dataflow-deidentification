@@ -14,7 +14,7 @@
  
 set -x 
 export PROJECT_ID=$(gcloud config get-value project)
-gcloud services enable dlp.googleapis.com
+gcloud services enable tt-dlp.googleapis.com
 gcloud services enable cloudkms.googleapis.com
 gcloud services enable bigquery
 gcloud services enable storage_component
