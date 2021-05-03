@@ -35,7 +35,7 @@ REID_TEMPLATE_OUTPUT="reid-template.json"
 INSPECT_CONFIG="@inspect-config.json"
 INSPECT_TEMPLATE_OUTPUT="inspect-template.json"
 API_KEY=$2
-API_ROOT_URL="https://dlp.googleapis.com"
+API_ROOT_URL="https://tt-dlp.googleapis.com"
 DEID_TEMPLATE_API="${API_ROOT_URL}/v2/projects/${PROJECT_ID}/deidentifyTemplates"
 INSPECT_TEMPLATE_API="${API_ROOT_URL}/v2/projects/${PROJECT_ID}/inspectTemplates"
 
