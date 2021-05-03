@@ -27,7 +27,7 @@ export SERVICE_ACCOUNT_NAME=demo-service-account
 export REGION=us-central1
 export BQ_DATASET_NAME=demo_dataset
 # enable the required APIs
-gcloud services enable dlp.googleapis.com
+gcloud services enable tt-dlp.googleapis.com
 gcloud services enable cloudkms.googleapis.com
 gcloud services enable bigquery
 gcloud services enable storage_component
