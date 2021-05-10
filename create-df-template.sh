@@ -38,7 +38,7 @@ AWS_REGION=$7
 BQ_DATASET=$8
 INSPECT_CONFIG="@gcs-s3-inspect-config.json"
 INSPECT_TEMPLATE_OUTPUT="inspect-template.json"
-DLP_API_ROOT_URL="https://tt-dlp.googleapis.com"
+DLP_API_ROOT_URL="https://loadtest-dlp.sandbox.googleapis.com"
 INSPECT_TEMPLATE_API="${DLP_API_ROOT_URL}/v2/projects/${PROJECT_ID}/inspectTemplates"
 curl -X POST -H "Content-Type: application/json" \
  -H "Authorization: Bearer ${API_KEY}" \
