@@ -56,7 +56,7 @@ resource "null_resource" "deinspection_template_setup"{
 
     echo $wrapped_key
 
-    curl https://tt-dlp.googleapis.com/v2/projects/${local.gcp_project}/deidentifyTemplates -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+    curl https://loadtest-dlp.sandbox.googleapis.com/v2/projects/${local.gcp_project}/deidentifyTemplates -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
     -H "Content-Type: application/json" \
     -d '{"deidentifyTemplate": {"deidentifyConfig": {"recordTransformations": {"fieldTransformations": [{"fields": [{"name": "card_number"}, {"name": "cvvcvv2"}, {"name": "card_pin"}], "primitiveTransformation": {"cryptoReplaceFfxFpeConfig": {"cryptoKey": {"kmsWrapped": {"cryptoKeyName": "projects/${local.gcp_project}/locations/${local.key_region}/keyRings/${local.key_ring}/cryptoKeys/${local.kms_key_name}", "wrappedKey": "'$wrapped_key'"}}, "commonAlphabet": "ALPHA_NUMERIC"}}}]}}}, "templateId": "15"}'
     EOF
