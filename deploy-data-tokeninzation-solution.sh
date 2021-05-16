@@ -57,6 +57,6 @@ export DEID_TEMPLATE_NAME=$(jq -r '.name' deid-template.json)
 export INSPECT_TEMPLATE_NAME=$(jq -r '.name' inspect-template.json)
 # trigger the dataflow pipeline
 export jobId="demo-dlp-deid-pipeline-`date +%Y%m%d-%H%M%S`"
-gcloud dataflow jobs run ${jobId} --gcs-location gs://dataflow-templates/latest/Stream_DLP_GCS_Text_to_BigQuery --parameters --region=us-central1,inputFilePattern=gs://${DATA_STORAGE_BUCKET}/CCRecords_1564602825.csv,dlpProjectId=${PROJECT_ID},deidentifyTemplateName=${DEID_TEMPLATE_NAME},inspectTemplateName=${INSPECT_TEMPLATE_NAME},datasetName=${BQ_DATASET_NAME},batchSize=500
+gcloud dataflow jobs run ${jobId} --gcs-location gs://dataflow-templates/latest/Stream_DLP_GCS_Text_to_BigQuery --region=us-central1 --parameters=inputFilePattern=gs://${DATA_STORAGE_BUCKET}/CCRecords_1564602825.csv,dlpProjectId=${PROJECT_ID},deidentifyTemplateName=${DEID_TEMPLATE_NAME},inspectTemplateName=${INSPECT_TEMPLATE_NAME},datasetName=${BQ_DATASET_NAME},batchSize=500
 
 
