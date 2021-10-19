@@ -37,6 +37,7 @@ import com.google.swarm.tokenization.txt.ConvertTxtToDLPRow;
 import com.google.swarm.tokenization.txt.ParseTextLogDoFn;
 import com.google.swarm.tokenization.txt.TxtReaderSplitDoFn;
 import java.util.List;
+import java.util.Map;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -93,20 +94,18 @@ public class DLPTextToBigQueryStreamingV2 {
                 FilePollingTransform.newBuilder()
                     .setFilePattern(options.getFilePattern())
                     .setInterval(DEFAULT_POLL_INTERVAL)
-                    .build());
-        final PCollectionView<List<String>> header =
+                    .build())
+                .apply(
+                    "Fixed Window",
+                    Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+        final PCollectionView<Map<String, List<String>>> headers =
             inputFiles
-                .apply(
-                    "GlobalWindow",
-                    Window.<KV<String, FileIO.ReadableFile>>into(new GlobalWindows())
-                        .triggering(
-                            Repeatedly.forever(AfterProcessingTime.pastFirstElementInPane()))
-                        .discardingFiredPanes())
-                .apply(
+                .apply("Extract Column Names",
                     ExtractColumnNamesTransform.newBuilder()
                         .setFileType(options.getFileType())
                         .setHeaders(options.getHeaders())
                         .build());
+
         PCollection<KV<String, Table.Row>> records;
 
         switch (options.getFileType()) {
@@ -132,8 +131,9 @@ public class DLPTextToBigQueryStreamingV2 {
                                 options.getSplitSize())))
                     .apply(
                         "ConvertToDLPRow",
-                        ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), header))
-                            .withSideInputs(header));
+                        ParDo
+                            .of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), headers))
+                            .withSideInputs(headers));
             break;
           case JSON:
             records =
@@ -170,15 +170,15 @@ public class DLPTextToBigQueryStreamingV2 {
                     .apply("Flatten", Flatten.pCollections())
                     .apply(
                         "ConvertToDLPRow",
-                        ParDo.of(new ConvertTxtToDLPRow(options.getColumnDelimiter(), header))
-                            .withSideInputs(header));
+                        ParDo.of(new ConvertTxtToDLPRow(options.getColumnDelimiter(), headers))
+                            .withSideInputs(headers));
             break;
           default:
             throw new IllegalArgumentException("Please validate FileType parameter");
         }
 
         records
-            .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)))
+            // .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)))
             .apply(
                 "DLPTransform",
                 DLPTransform.newBuilder()
@@ -187,7 +187,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setDeidTemplateName(options.getDeidentifyTemplateName())
                     .setDlpmethod(options.getDLPMethod())
                     .setProjectId(options.getDLPParent())
-                    .setHeader(header)
+                    .setHeaders(headers)
                     .setColumnDelimiter(options.getColumnDelimiter())
                     .setJobName(options.getJobName())
                     .build())
@@ -201,6 +201,7 @@ public class DLPTextToBigQueryStreamingV2 {
 
         return p.run();
 
+        /*
       case REID:
         PCollection<KV<String, TableRow>> record =
             p.apply(
@@ -261,6 +262,7 @@ public class DLPTextToBigQueryStreamingV2 {
         }
 
         return p.run();
+         */
       default:
         throw new IllegalArgumentException("Please validate DLPMethod param!");
     }

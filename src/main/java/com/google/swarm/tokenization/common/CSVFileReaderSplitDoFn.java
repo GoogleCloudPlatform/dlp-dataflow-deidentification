@@ -58,9 +58,10 @@ public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<St
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent().toStringUtf8();
-        String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
+        // TODO: fix the range calculation String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
+        String key = fileName;
         numberOfRowsRead.inc();
-        c.outputWithTimestamp(KV.of(key, contents), Instant.now());
+        c.outputWithTimestamp(KV.of(key, contents), c.timestamp());
       }
     }
   }
