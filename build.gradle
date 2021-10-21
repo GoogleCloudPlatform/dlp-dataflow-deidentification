@@ -99,7 +99,7 @@ dependencies {
     compile group: 'com.google.apis', name: 'google-api-services-cloudkms', version: 'v1-rev53-1.23.0'
     compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
     compile "com.google.auto.value:auto-value-annotations:1.6.2"
-    compile 'com.google.cloud:google-cloud-storage:1.101.0'
+    compile 'com.google.cloud:google-cloud-storage:2.1.9'
     annotationProcessor "com.google.auto.value:auto-value:1.6.2"
     compile group: 'org.apache.commons', name: 'commons-csv', version: '1.4'
     testCompile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
