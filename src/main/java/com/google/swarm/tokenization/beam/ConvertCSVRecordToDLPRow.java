@@ -65,17 +65,18 @@ public class ConvertCSVRecordToDLPRow extends DoFn<KV<String, String>, KV<String
       if (values.size() == csvHeader.size()) {
         values.forEach(
             value -> rowBuilder.addValues(Value.newBuilder().setStringValue(value).build()));
-        context.output(KV.of(context.element().getKey(), rowBuilder.build()));
+        context.output(KV.of(fileName, rowBuilder.build()));
 
       } else {
         LOG.warn(
-            "Rows must have the same number of items {} as there are headers {}",
+            "Rows in {} must have the same number of items {} as there are headers {}",
+            fileName,
             values.size(),
             csvHeader.size());
       }
     } else {
       rowBuilder.addValues(Value.newBuilder().setStringValue(input).build());
-      context.output(KV.of(context.element().getKey(), rowBuilder.build()));
+      context.output(KV.of(fileName, rowBuilder.build()));
     }
   }
 }
