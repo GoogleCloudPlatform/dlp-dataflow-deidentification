@@ -66,15 +66,17 @@ public abstract class ExtractColumnNamesTransform
         break;
 
       case AVRO:
-        // readHeader = input.apply("ReadHeader", ParDo.of(new AvroColumnNamesDoFn()));
-        // break;
+        readHeader = input.apply("ReadHeader", ParDo.of(new AvroColumnNamesDoFn()));
+        break;
 
       case JSON:
-        // readHeader = input.apply("ReadHeader", ParDo.of(new JsonColumnNameDoFn(headers())));
-        // break;
+        readHeader = input.apply("ReadHeader", ParDo.of(new JsonColumnNameDoFn(headers())));
+        break;
+
       case TXT:
-        // readHeader = input.apply("ReadHeader", ParDo.of(new TxtColumnNameDoFn(headers())));
-        // break;
+        readHeader = input.apply("ReadHeader", ParDo.of(new TxtColumnNameDoFn(headers())));
+        break;
+
       default:
         throw new IllegalStateException("Unexpected value: " + fileType());
     }

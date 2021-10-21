@@ -33,9 +33,6 @@ import org.slf4j.LoggerFactory;
 /**
  * Sanitizes input filenames by ensuring that the file extensions are valid and outputting keys that
  * are compatible with BigQuery table names.
- *
- * <p>TODO: Maybe the BigQuery table name sanitazation part should be moved to the BigQuery write
- * transforms instead.
  */
 public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, ReadableFile>> {
 

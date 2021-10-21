@@ -21,7 +21,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 
 @SuppressWarnings("serial")
-public class JsonColumnNameDoFn extends DoFn<KV<String, ReadableFile>, String> {
+public class JsonColumnNameDoFn extends DoFn<KV<String, ReadableFile>, KV<String, List<String>>> {
 
   private List<String> headers;
 
@@ -31,9 +31,7 @@ public class JsonColumnNameDoFn extends DoFn<KV<String, ReadableFile>, String> {
 
   @ProcessElement
   public void processContext(ProcessContext c) {
-    headers.forEach(
-        header -> {
-          c.output(header);
-        });
+    String fileName = c.element().getKey();
+    c.output(KV.of(fileName, headers));
   }
 }

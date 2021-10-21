@@ -47,7 +47,9 @@ public class CSVColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, KV<String
               (key) -> {
                 columnNames.add(key);
               });
-      c.output(KV.of(c.element().getKey(), columnNames));
+
+      String fileName = c.element().getKey();
+      c.output(KV.of(fileName, columnNames));
 
     } catch (IOException e) {
       LOG.error("Failed to get csv header values. Error message: {}", e.getMessage());

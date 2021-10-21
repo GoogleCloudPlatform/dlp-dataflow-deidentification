@@ -16,29 +16,27 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.api.services.bigquery.model.TableRow;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
-public class BigQueryTableHeaderDoFn extends DoFn<KV<String, Iterable<TableRow>>, String> {
+public class BigQueryTableHeaderDoFn extends DoFn<KV<String, TableRow>, KV<String, List<String>>> {
+
   public static final Logger LOG = LoggerFactory.getLogger(BigQueryTableHeaderDoFn.class);
 
   @ProcessElement
   public void processElement(ProcessContext c) {
+    List<String> columns = new ArrayList<>();
+    c.element().getValue().entrySet().forEach(value -> columns.add(value.getKey()));
 
-    Iterator<TableRow> rows = c.element().getValue().iterator();
+    String tableRef = c.element().getKey();
+    c.output(KV.of(tableRef, columns));
 
-    while (rows.hasNext()) {
-      rows.next()
-          .entrySet()
-          .forEach(
-              value -> {
-                c.output(value.getKey());
-              });
-      break;
-    }
+    LOG.info("Extracted columns for {} :{}", tableRef, columns);
   }
 }

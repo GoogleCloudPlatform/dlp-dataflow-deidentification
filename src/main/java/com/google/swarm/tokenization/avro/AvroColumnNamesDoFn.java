@@ -29,7 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Reads the given avro file's schema then outputs flattened column names. */
-public class AvroColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, String> {
+public class AvroColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, KV<String,List<String>>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(AvroColumnNamesDoFn.class);
 
@@ -41,9 +41,10 @@ public class AvroColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, String> 
       DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, reader);
       List<String> fieldNames = new ArrayList<>();
       AvroUtil.flattenFieldNames(fileReader.getSchema(), fieldNames, "");
-      for (String fieldName : fieldNames) {
-        c.output(fieldName);
-      }
+
+      String fileName = c.element().getKey();
+      c.output(KV.of(fileName, fieldNames));
+
       LOG.info("Avro header fields: {}", String.join(",", fieldNames));
     } catch (IOException e) {
       LOG.error("Failed to get Avro header values: {}", e.getMessage());

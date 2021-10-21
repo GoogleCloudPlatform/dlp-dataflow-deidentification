@@ -15,7 +15,7 @@
  */
 buildscript {
     ext {
-        dataflowBeamVersion = '2.23.0'
+        dataflowBeamVersion = '2.33.0'
     }
     repositories {
         mavenCentral()
@@ -74,7 +74,6 @@ group 'com.google.swarm'
 version '0.1.0'
 
 
-
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
@@ -85,7 +84,10 @@ repositories {
 
 dependencies {
     compile group: 'org.apache.beam', name: 'beam-sdks-java-core', version: dataflowBeamVersion
-    compile group: 'org.apache.beam', name: 'beam-runners-google-cloud-dataflow-java', version: dataflowBeamVersion
+    compile(group: 'org.apache.beam', name: 'beam-runners-google-cloud-dataflow-java', version: dataflowBeamVersion) {
+        exclude group: 'io.confluent', module: 'kafka-schema-registry-client'
+        exclude group: 'io.confluent', module: 'kafka-avro-serializer'
+    }
     compile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
     compile group: 'org.apache.beam', name: 'beam-sdks-java-extensions-ml', version: dataflowBeamVersion
     compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
@@ -150,19 +152,19 @@ sourceSets {
 
 def enableSpotlessCheck = project.hasProperty('enableSpotlessCheck') && project.enableSpotlessCheck == 'true'
 spotless {
-  enforceCheck enableSpotlessCheck
-  java {
-    licenseHeader javaLicenseHeader
-    googleJavaFormat()
-  }
+    enforceCheck enableSpotlessCheck
+    java {
+        licenseHeader javaLicenseHeader
+        googleJavaFormat()
+    }
 }
 run.mustRunAfter 'resources'
 run.mustRunAfter 'resources'
 task fatJar(type: Jar) {
     manifest {
         attributes 'Implementation-Title': 'dlp-demo-tool',
-            'Implementation-Version': version,
-            'Main-Class': mainClassName
+                'Implementation-Version': version,
+                'Main-Class': mainClassName
     }
     baseName = project.name + '-all'
     from {

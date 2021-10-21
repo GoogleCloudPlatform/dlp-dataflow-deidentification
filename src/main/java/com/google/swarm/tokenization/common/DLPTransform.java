@@ -97,7 +97,6 @@ public abstract class DLPTransform
   @Override
   public PCollectionTuple expand(PCollection<KV<String, Table.Row>> input) {
     switch (dlpmethod()) {
-      /*
       case INSPECT: {
         return input
             .apply(
@@ -115,7 +114,7 @@ public abstract class DLPTransform
                     .withOutputTags(
                         Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
       }
-       */
+
       case DEID: {
         return input
             .apply(
@@ -134,7 +133,6 @@ public abstract class DLPTransform
                     .withOutputTags(
                         Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
       }
-      /*
       case REID: {
         return input
             .apply(
@@ -142,7 +140,7 @@ public abstract class DLPTransform
                 DLPReidentifyText.newBuilder()
                     .setBatchSizeBytes(batchSize())
                     .setColumnDelimiter(columnDelimiter())
-                    .setHeaderColumns(header())
+                    .setHeaderColumns(headers())
                     .setInspectTemplateName(inspectTemplateName())
                     .setReidentifyTemplateName(deidTemplateName())
                     .setProjectId(projectId())
@@ -152,7 +150,6 @@ public abstract class DLPTransform
                 ParDo.of(new ConvertReidResponse())
                     .withOutputTags(Util.reidSuccess, TupleTagList.of(Util.reidFailure)));
       }
-       */
       default: {
         throw new IllegalArgumentException("Please validate DLPMethod param!");
       }
@@ -205,11 +202,9 @@ public abstract class DLPTransform
     public void processElement(
         @Element KV<String, DeidentifyContentResponse> element, MultiOutputReceiver out) {
 
-      // TODO: we removed adding the random shard number upstream. This attempt to split is
-      // compatible with that change. Long term - remove this.
-      String fileName = element.getKey().split("\\~")[0];
+      String fileName = element.getKey();
       Table tokenizedData = element.getValue().getItem().getTable();
-      LOG.info("Table Tokenized {}", tokenizedData.toString());
+      LOG.info("Table Tokenized {}", tokenizedData);
       numberOfRowDeidentified.inc(tokenizedData.getRowsCount());
       List<String> headers =
           tokenizedData.getHeadersList().stream()

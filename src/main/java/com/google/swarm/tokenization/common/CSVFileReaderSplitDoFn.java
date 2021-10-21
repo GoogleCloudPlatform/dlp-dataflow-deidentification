@@ -37,12 +37,10 @@ public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<St
   private final Counter numberOfRowsRead =
       Metrics.counter(CSVFileReaderSplitDoFn.class, "numberOfRowsRead");
 
-  private final Integer keyRange;
   private final String recordDelimiter;
   private final Integer splitSize;
 
-  public CSVFileReaderSplitDoFn(Integer keyRange, String recordDelimiter, Integer splitSize) {
-    this.keyRange = keyRange;
+  public CSVFileReaderSplitDoFn(String recordDelimiter, Integer splitSize) {
     this.recordDelimiter = recordDelimiter;
     this.splitSize = splitSize;
   }
@@ -58,7 +56,6 @@ public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<St
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent().toStringUtf8();
-        // TODO: fix the range calculation String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
         String key = fileName;
         numberOfRowsRead.inc();
         c.outputWithTimestamp(KV.of(key, contents), c.timestamp());
