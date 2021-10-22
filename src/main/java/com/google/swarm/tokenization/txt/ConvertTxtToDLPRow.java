@@ -20,7 +20,6 @@ import com.google.privacy.dlp.v2.Value;
 import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
 import com.google.swarm.tokenization.common.Util;
 import java.io.IOException;
-import java.rmi.RemoteException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,7 +39,8 @@ public class ConvertTxtToDLPRow extends DoFn<KV<String, String>, KV<String, Tabl
   private final Character columnDelimiter;
   private PCollectionView<Map<String, List<String>>> header;
 
-  public ConvertTxtToDLPRow(Character columnDelimiter, PCollectionView<Map<String,List<String>>> header) {
+  public ConvertTxtToDLPRow(
+      Character columnDelimiter, PCollectionView<Map<String, List<String>>> header) {
     this.columnDelimiter = columnDelimiter;
     this.header = header;
   }
@@ -52,9 +52,12 @@ public class ConvertTxtToDLPRow extends DoFn<KV<String, String>, KV<String, Tabl
     Map<String, List<String>> headers = context.sideInput(header);
     String fileName = context.element().getKey();
     List<String> csvHeader = headers.get(fileName);
-    if(csvHeader == null) {
-      throw new RuntimeException("Unable to find header row for fileName: " + fileName
-        + ". The side input only contains header for " + headers.keySet());
+    if (csvHeader == null) {
+      throw new RuntimeException(
+          "Unable to find header row for fileName: "
+              + fileName
+              + ". The side input only contains header for "
+              + headers.keySet());
     }
 
     if (columnDelimiter != null) {

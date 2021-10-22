@@ -66,13 +66,9 @@ public class DLPTextToBigQueryStreamingV2 {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTextToBigQueryStreamingV2.class);
   private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(3);
   private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(3);
-  /**
-   * PubSub configuration for default batch size in number of messages
-   */
+  /** PubSub configuration for default batch size in number of messages */
   public static final Integer PUB_SUB_BATCH_SIZE = 1000;
-  /**
-   * PubSub configuration for default batch size in bytes
-   */
+  /** PubSub configuration for default batch size in bytes */
   public static final Integer PUB_SUB_BATCH_SIZE_BYTES = 10000;
 
   public static void main(String[] args) {
@@ -103,24 +99,22 @@ public class DLPTextToBigQueryStreamingV2 {
     return p.run();
   }
 
-  private static void runInspectAndDeidPipeline(Pipeline p,
-      DLPTextToBigQueryStreamingV2PipelineOptions options) {
+  private static void runInspectAndDeidPipeline(
+      Pipeline p, DLPTextToBigQueryStreamingV2PipelineOptions options) {
     PCollection<KV<String, ReadableFile>> inputFiles =
         p.apply(
-            FilePollingTransform.newBuilder()
-                .setFilePattern(options.getFilePattern())
-                .setInterval(DEFAULT_POLL_INTERVAL)
-                .build())
-            .apply(
-                "Fixed Window",
-                Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+                FilePollingTransform.newBuilder()
+                    .setFilePattern(options.getFilePattern())
+                    .setInterval(DEFAULT_POLL_INTERVAL)
+                    .build())
+            .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
     final PCollectionView<Map<String, List<String>>> headers =
-        inputFiles
-            .apply("Extract Column Names",
-                ExtractColumnNamesTransform.newBuilder()
-                    .setFileType(options.getFileType())
-                    .setHeaders(options.getHeaders())
-                    .build());
+        inputFiles.apply(
+            "Extract Column Names",
+            ExtractColumnNamesTransform.newBuilder()
+                .setFileType(options.getFileType())
+                .setHeaders(options.getHeaders())
+                .build());
 
     PCollection<KV<String, Table.Row>> records;
 
@@ -142,12 +136,10 @@ public class DLPTextToBigQueryStreamingV2 {
                     "SplitCSVFile",
                     ParDo.of(
                         new CSVFileReaderSplitDoFn(
-                            options.getRecordDelimiter(),
-                            options.getSplitSize())))
+                            options.getRecordDelimiter(), options.getSplitSize())))
                 .apply(
                     "ConvertToDLPRow",
-                    ParDo
-                        .of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), headers))
+                    ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), headers))
                         .withSideInputs(headers));
         break;
       case JSON:
@@ -214,11 +206,12 @@ public class DLPTextToBigQueryStreamingV2 {
                 .build());
   }
 
-  private static void runReidPipeline(Pipeline p,
-      DLPTextToBigQueryStreamingV2PipelineOptions options) {
+  private static void runReidPipeline(
+      Pipeline p, DLPTextToBigQueryStreamingV2PipelineOptions options) {
     // TODO: there is no reason for this method to key elements by table reference because
     // there is always a single possible reference for this batch pipeline.
-    // Changing it will require additional refactoring which is outside of the scope of the current fix.
+    // Changing it will require additional refactoring which is outside of the scope of the current
+    // fix.
     PCollection<KV<String, TableRow>> records =
         p.apply(
             "ReadFromBQ",

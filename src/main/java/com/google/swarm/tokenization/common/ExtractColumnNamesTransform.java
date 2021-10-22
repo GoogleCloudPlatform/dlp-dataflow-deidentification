@@ -35,7 +35,7 @@ import org.apache.beam.sdk.values.PCollectionView;
 @AutoValue
 public abstract class ExtractColumnNamesTransform
     extends PTransform<
-    PCollection<KV<String, FileIO.ReadableFile>>, PCollectionView<Map<String, List<String>>>> {
+        PCollection<KV<String, FileIO.ReadableFile>>, PCollectionView<Map<String, List<String>>>> {
 
   public abstract FileType fileType();
 

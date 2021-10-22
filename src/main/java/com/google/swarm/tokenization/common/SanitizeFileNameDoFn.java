@@ -17,14 +17,10 @@ package com.google.swarm.tokenization.common;
 
 import com.google.common.io.Files;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.WithTimestamps;
 import org.apache.beam.sdk.values.KV;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
@@ -38,8 +34,7 @@ public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, Readable
 
   public static final Logger LOG = LoggerFactory.getLogger(SanitizeFileNameDoFn.class);
   private static final Set<String> ALLOWED_FILE_EXTENSIONS =
-      Arrays.asList("csv", "avro", "json", "txt").stream().collect(Collectors.toUnmodifiableSet());
-  ;
+      Arrays.asList("csv", "avro", "json", "txt").stream().collect(Collectors.toUnmodifiableSet());;
   // Regular expression that matches valid BQ table IDs
   private static final String TABLE_REGEXP = "[-\\w$@]{1,1024}";
 
@@ -47,7 +42,10 @@ public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, Readable
     String extension = Files.getFileExtension(file);
     if (!ALLOWED_FILE_EXTENSIONS.contains(extension)) {
       throw new RuntimeException(
-          "Invalid file name '" + file + "': must have one of these extensions: " + ALLOWED_FILE_EXTENSIONS);
+          "Invalid file name '"
+              + file
+              + "': must have one of these extensions: "
+              + ALLOWED_FILE_EXTENSIONS);
     }
 
     String sanitizedName = file.substring(0, file.length() - extension.length() - 1);
@@ -56,7 +54,9 @@ public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, Readable
 
     if (!sanitizedName.matches(TABLE_REGEXP)) {
       throw new RuntimeException(
-          "Invalid file name '" + file + "': base name must be a valid BigQuery table name -"
+          "Invalid file name '"
+              + file
+              + "': base name must be a valid BigQuery table name -"
               + " can contain only letters, numbers, or underscores");
     }
 
@@ -68,8 +68,8 @@ public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, Readable
   public void processElement(ProcessContext c) {
     ReadableFile file = c.element();
     long lastModified = file.getMetadata().lastModifiedMillis();
-    if(lastModified == 0L) {
-      lastModified =  Instant.now().getMillis();
+    if (lastModified == 0L) {
+      lastModified = Instant.now().getMillis();
     }
     String fileName = sanitizeFileName(file.getMetadata().resourceId().getFilename());
     c.outputWithTimestamp(KV.of(fileName, file), Instant.ofEpochMilli(lastModified));

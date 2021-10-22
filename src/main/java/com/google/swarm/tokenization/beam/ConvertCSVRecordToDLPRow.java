@@ -42,7 +42,8 @@ public class ConvertCSVRecordToDLPRow extends DoFn<KV<String, String>, KV<String
   private final Character columnDelimiter;
   private PCollectionView<Map<String, List<String>>> header;
 
-  public ConvertCSVRecordToDLPRow(Character columnDelimiter, PCollectionView<Map<String,List<String>>> header) {
+  public ConvertCSVRecordToDLPRow(
+      Character columnDelimiter, PCollectionView<Map<String, List<String>>> header) {
     this.columnDelimiter = columnDelimiter;
     this.header = header;
   }
@@ -54,9 +55,12 @@ public class ConvertCSVRecordToDLPRow extends DoFn<KV<String, String>, KV<String
     String fileName = context.element().getKey();
     Map<String, List<String>> headers = context.sideInput(header);
     List<String> csvHeader = headers.get(fileName);
-    if(csvHeader == null) {
-      throw new RuntimeException("Unable to find header row for fileName: " + fileName
-          + ". The side input only contains header for " + headers.keySet());
+    if (csvHeader == null) {
+      throw new RuntimeException(
+          "Unable to find header row for fileName: "
+              + fileName
+              + ". The side input only contains header for "
+              + headers.keySet());
     }
 
     if (columnDelimiter != null) {

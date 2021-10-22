@@ -97,62 +97,66 @@ public abstract class DLPTransform
   @Override
   public PCollectionTuple expand(PCollection<KV<String, Table.Row>> input) {
     switch (dlpmethod()) {
-      case INSPECT: {
-        return input
-            .apply(
-                "InspectTransform",
-                DLPInspectText.newBuilder()
-                    .setBatchSizeBytes(batchSize())
-                    .setColumnDelimiter(columnDelimiter())
-                    .setHeaderColumns(headers())
-                    .setInspectTemplateName(inspectTemplateName())
-                    .setProjectId(projectId())
-                    .build())
-            .apply(
-                "ConvertInspectResponse",
-                ParDo.of(new ConvertInspectResponse(jobName()))
-                    .withOutputTags(
-                        Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
-      }
+      case INSPECT:
+        {
+          return input
+              .apply(
+                  "InspectTransform",
+                  DLPInspectText.newBuilder()
+                      .setBatchSizeBytes(batchSize())
+                      .setColumnDelimiter(columnDelimiter())
+                      .setHeaderColumns(headers())
+                      .setInspectTemplateName(inspectTemplateName())
+                      .setProjectId(projectId())
+                      .build())
+              .apply(
+                  "ConvertInspectResponse",
+                  ParDo.of(new ConvertInspectResponse(jobName()))
+                      .withOutputTags(
+                          Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
+        }
 
-      case DEID: {
-        return input
-            .apply(
-                "DeIdTransform",
-                DLPDeidentifyText.newBuilder()
-                    .setBatchSizeBytes(batchSize())
-                    .setColumnDelimiter(columnDelimiter())
-                    .setHeaderColumns(headers())
-                    .setInspectTemplateName(inspectTemplateName())
-                    .setDeidentifyTemplateName(deidTemplateName())
-                    .setProjectId(projectId())
-                    .build())
-            .apply(
-                "ConvertDeidResponse",
-                ParDo.of(new ConvertDeidResponse())
-                    .withOutputTags(
-                        Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
-      }
-      case REID: {
-        return input
-            .apply(
-                "ReIdTransform",
-                DLPReidentifyText.newBuilder()
-                    .setBatchSizeBytes(batchSize())
-                    .setColumnDelimiter(columnDelimiter())
-                    .setHeaderColumns(headers())
-                    .setInspectTemplateName(inspectTemplateName())
-                    .setReidentifyTemplateName(deidTemplateName())
-                    .setProjectId(projectId())
-                    .build())
-            .apply(
-                "ConvertReidResponse",
-                ParDo.of(new ConvertReidResponse())
-                    .withOutputTags(Util.reidSuccess, TupleTagList.of(Util.reidFailure)));
-      }
-      default: {
-        throw new IllegalArgumentException("Please validate DLPMethod param!");
-      }
+      case DEID:
+        {
+          return input
+              .apply(
+                  "DeIdTransform",
+                  DLPDeidentifyText.newBuilder()
+                      .setBatchSizeBytes(batchSize())
+                      .setColumnDelimiter(columnDelimiter())
+                      .setHeaderColumns(headers())
+                      .setInspectTemplateName(inspectTemplateName())
+                      .setDeidentifyTemplateName(deidTemplateName())
+                      .setProjectId(projectId())
+                      .build())
+              .apply(
+                  "ConvertDeidResponse",
+                  ParDo.of(new ConvertDeidResponse())
+                      .withOutputTags(
+                          Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
+        }
+      case REID:
+        {
+          return input
+              .apply(
+                  "ReIdTransform",
+                  DLPReidentifyText.newBuilder()
+                      .setBatchSizeBytes(batchSize())
+                      .setColumnDelimiter(columnDelimiter())
+                      .setHeaderColumns(headers())
+                      .setInspectTemplateName(inspectTemplateName())
+                      .setReidentifyTemplateName(deidTemplateName())
+                      .setProjectId(projectId())
+                      .build())
+              .apply(
+                  "ConvertReidResponse",
+                  ParDo.of(new ConvertReidResponse())
+                      .withOutputTags(Util.reidSuccess, TupleTagList.of(Util.reidFailure)));
+        }
+      default:
+        {
+          throw new IllegalArgumentException("Please validate DLPMethod param!");
+        }
     }
   }
 

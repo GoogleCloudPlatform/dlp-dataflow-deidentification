@@ -15,7 +15,6 @@
  */
 package com.google.swarm.tokenization.beam;
 
-
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
 import java.util.ArrayList;

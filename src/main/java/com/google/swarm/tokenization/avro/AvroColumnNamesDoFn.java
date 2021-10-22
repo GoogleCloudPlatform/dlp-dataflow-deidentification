@@ -29,7 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Reads the given avro file's schema then outputs flattened column names. */
-public class AvroColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, KV<String,List<String>>> {
+public class AvroColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, KV<String, List<String>>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(AvroColumnNamesDoFn.class);
 

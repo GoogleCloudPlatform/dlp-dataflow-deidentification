@@ -49,8 +49,8 @@ import org.slf4j.LoggerFactory;
  * PTransform, delimiter also should be set, else the results will be incorrect. If headerColumns is
  * neither set nor passed as side input, input is assumed to be unstructured.
  *
- * <p>Either deidentifyTemplateName (String) or deidentifyConfig {@link DeidentifyConfig} need to
- * be set. inspectTemplateName and inspectConfig ({@link InspectConfig} are optional.
+ * <p>Either deidentifyTemplateName (String) or deidentifyConfig {@link DeidentifyConfig} need to be
+ * set. inspectTemplateName and inspectConfig ({@link InspectConfig} are optional.
  *
  * <p>Batch size defines how big are batches sent to DLP at once in bytes.
  *
@@ -62,19 +62,15 @@ import org.slf4j.LoggerFactory;
 @AutoValue
 public abstract class DLPDeidentifyText
     extends PTransform<
-    PCollection<KV<String, Table.Row>>, PCollection<KV<String, DeidentifyContentResponse>>> {
+        PCollection<KV<String, Table.Row>>, PCollection<KV<String, DeidentifyContentResponse>>> {
 
   public static final Integer DLP_PAYLOAD_LIMIT_BYTES = 524000;
 
-  /**
-   * @return Template name for data inspection.
-   */
+  /** @return Template name for data inspection. */
   @Nullable
   public abstract String getInspectTemplateName();
 
-  /**
-   * @return Template name for data deidentification.
-   */
+  /** @return Template name for data deidentification. */
   @Nullable
   public abstract String getDeidentifyTemplateName();
 
@@ -84,45 +80,31 @@ public abstract class DLPDeidentifyText
   @Nullable
   public abstract InspectConfig getInspectConfig();
 
-  /**
-   * @return Configuration object for deidentification. If present, supersedes the template.
-   */
+  /** @return Configuration object for deidentification. If present, supersedes the template. */
   @Nullable
   public abstract DeidentifyConfig getDeidentifyConfig();
 
-  /**
-   * @return List of column names if the input KV value is a delimited row.
-   */
+  /** @return List of column names if the input KV value is a delimited row. */
   @Nullable
   public abstract PCollectionView<Map<String, List<String>>> getHeaderColumns();
 
-  /**
-   * @return Delimiter to be used when splitting values from input strings into columns.
-   */
+  /** @return Delimiter to be used when splitting values from input strings into columns. */
   @Nullable
   public abstract Character getColumnDelimiter();
 
-  /**
-   * @return Size of input elements batch to be sent to Cloud DLP service in one request.
-   */
+  /** @return Size of input elements batch to be sent to Cloud DLP service in one request. */
   public abstract Integer getBatchSizeBytes();
 
-  /**
-   * @return ID of Google Cloud project to be used when deidentifying data.
-   */
+  /** @return ID of Google Cloud project to be used when deidentifying data. */
   public abstract String getProjectId();
 
   @AutoValue.Builder
   public abstract static class Builder {
 
-    /**
-     * @param inspectTemplateName Template name for data inspection.
-     */
+    /** @param inspectTemplateName Template name for data inspection. */
     public abstract DLPDeidentifyText.Builder setInspectTemplateName(String inspectTemplateName);
 
-    /**
-     * @param headerColumns List of column names if the input KV value is a delimited row.
-     */
+    /** @param headerColumns List of column names if the input KV value is a delimited row. */
     public abstract DLPDeidentifyText.Builder setHeaderColumns(
         PCollectionView<Map<String, List<String>>> headerColumns);
 
@@ -132,31 +114,26 @@ public abstract class DLPDeidentifyText
     public abstract DLPDeidentifyText.Builder setColumnDelimiter(Character delimiter);
 
     /**
-     * @param batchSize Size of input elements batch to be sent to Cloud DLP service in one
-     * request.
+     * @param batchSize Size of input elements batch to be sent to Cloud DLP service in one request.
      */
     public abstract DLPDeidentifyText.Builder setBatchSizeBytes(Integer batchSize);
 
-    /**
-     * @param projectId ID of Google Cloud project to be used when deidentifying data.
-     */
+    /** @param projectId ID of Google Cloud project to be used when deidentifying data. */
     public abstract DLPDeidentifyText.Builder setProjectId(String projectId);
 
-    /**
-     * @param deidentifyTemplateName Template name for data deidentification.
-     */
+    /** @param deidentifyTemplateName Template name for data deidentification. */
     public abstract DLPDeidentifyText.Builder setDeidentifyTemplateName(
         String deidentifyTemplateName);
 
     /**
      * @param inspectConfig Configuration object for data inspection. If present, supersedes the
-     * template settings.
+     *     template settings.
      */
     public abstract DLPDeidentifyText.Builder setInspectConfig(InspectConfig inspectConfig);
 
     /**
      * @param deidentifyConfig Configuration object for data deidentification. If present,
-     * supersedes the template settings.
+     *     supersedes the template settings.
      */
     public abstract DLPDeidentifyText.Builder setDeidentifyConfig(
         DeidentifyConfig deidentifyConfig);
@@ -204,24 +181,25 @@ public abstract class DLPDeidentifyText
   @Override
   public PCollection<KV<String, DeidentifyContentResponse>> expand(
       PCollection<KV<String, Table.Row>> input) {
+
     return input
+        .apply("Shard Contents", new ShardRows())
         .apply("Batch Contents", ParDo.of(new BatchRequestForDLP(getBatchSizeBytes())))
+        .apply("Unshard Contents", ParDo.of(new UnshardRows()))
         .apply(
             "DLPDeidentify",
             ParDo.of(
-                new DeidentifyText(
-                    getProjectId(),
-                    getInspectTemplateName(),
-                    getDeidentifyTemplateName(),
-                    getInspectConfig(),
-                    getDeidentifyConfig(),
-                    getHeaderColumns()))
+                    new DeidentifyText(
+                        getProjectId(),
+                        getInspectTemplateName(),
+                        getDeidentifyTemplateName(),
+                        getInspectConfig(),
+                        getDeidentifyConfig(),
+                        getHeaderColumns()))
                 .withSideInputs(getHeaderColumns()));
   }
 
-  /**
-   * DoFn performing calls to Cloud DLP service on GCP.
-   */
+  /** DoFn performing calls to Cloud DLP service on GCP. */
   static class DeidentifyText
       extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, DeidentifyContentResponse>> {
 
@@ -263,10 +241,10 @@ public abstract class DLPDeidentifyText
      * @param projectId ID of GCP project that should be used for deidentification.
      * @param inspectTemplateName Template name for inspection. Optional.
      * @param deidentifyTemplateName Template name for deidentification. Either this or
-     * deidentifyConfig is required.
+     *     deidentifyConfig is required.
      * @param inspectConfig Configuration object for inspection. Optional.
      * @param deidentifyConfig Deidentification config containing data transformations. Either this
-     * or deidentifyTemplateName is required.
+     *     or deidentifyTemplateName is required.
      * @param headerColumns Header row of the table if applicable.
      */
     public DeidentifyText(
@@ -293,8 +271,11 @@ public abstract class DLPDeidentifyText
         Map<String, List<String>> headerColumnMap = c.sideInput(headerColumns);
         List<String> columns = headerColumnMap.get(fileName);
         if (columns == null) {
-          throw new RuntimeException("Unable to find header row for fileName: " + fileName
-              + ". The side input only contains header for " + headerColumnMap.keySet());
+          throw new RuntimeException(
+              "Unable to find header row for fileName: "
+                  + fileName
+                  + ". The side input only contains header for "
+                  + headerColumnMap.keySet());
         }
         dlpTableHeaders =
             columns.stream()

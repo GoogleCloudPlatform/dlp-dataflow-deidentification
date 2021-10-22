@@ -17,7 +17,6 @@ package com.google.swarm.tokenization.common;
 
 import com.google.api.services.bigquery.model.TableRow;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
