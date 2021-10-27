@@ -16,6 +16,7 @@
 package com.google.swarm.tokenization.beam;
 
 import com.google.privacy.dlp.v2.Table.Row;
+import com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2PipelineOptions;
 import java.util.Random;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.coders.Coder;
@@ -33,12 +34,12 @@ import org.apache.beam.sdk.values.ShardedKey;
 public class ShardRows
     extends PTransform<PCollection<KV<String, Row>>, PCollection<KV<ShardedKey<String>, Row>>> {
 
-  // TODO: make it dynamic, ideally based on the number of workers/streaming type.
-  public static final Random RANDOM_GENERATOR = new Random();
+  private static final Random RANDOM_GENERATOR = new Random();
+  private static final int UNDEFINED_NUMBER_OF_SHARDS = Integer.MIN_VALUE;
   private int numberOfShards;
 
   public ShardRows() {
-    numberOfShards = 100;
+    numberOfShards = UNDEFINED_NUMBER_OF_SHARDS;
   }
 
   public ShardRows(int numberOfShards) {
@@ -54,6 +55,11 @@ public class ShardRows
       rowCoder = input.getPipeline().getCoderRegistry().getCoder(Row.class);
     } catch (CannotProvideCoderException e) {
       throw new RuntimeException(e);
+    }
+
+    if(numberOfShards == UNDEFINED_NUMBER_OF_SHARDS) {
+      DLPTextToBigQueryStreamingV2PipelineOptions options = input.getPipeline().getOptions().as(DLPTextToBigQueryStreamingV2PipelineOptions.class);
+      numberOfShards = options.getNumShardsPerDLPRequestBatching();
     }
 
     return input

@@ -118,7 +118,7 @@ jar {
 compileJava {
     options.encoding = 'UTF-8'
     // Add additional jvm arguments
-    options.compilerArgs.addAll(['-Xlint:all', '-Xlint:-serial'])
+    options.compilerArgs.addAll(['-Xlint:all', '-Xlint:-serial', '-Xlint:-processing'])
 }
 
 // default tasks when you run ./gradlew
