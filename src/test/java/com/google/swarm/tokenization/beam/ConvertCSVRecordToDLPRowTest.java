@@ -18,7 +18,9 @@ package com.google.swarm.tokenization.beam;
 import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.Create;
@@ -26,6 +28,7 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Values;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.WithKeys;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.junit.Rule;
@@ -38,14 +41,16 @@ public class ConvertCSVRecordToDLPRowTest {
   @Test
   public void testConvertCSVRecordToDLPRow() {
 
-    final PCollectionView<List<String>> header =
-        pipeline.apply("create header", Create.of("h1", "h2", "h3")).apply(View.asList());
+    final PCollectionView<Map<String, List<String>>> header =
+        pipeline
+            .apply("create header", Create.of(KV.of("file_name", Arrays.asList("h1", "h2", "h3"))))
+            .apply(View.asMap());
     // Define pipeline
     Create.Values<String> input = Create.of("a1,b1,c1");
     PCollection<Table.Row> results =
         pipeline
             .apply(input)
-            .apply(WithKeys.of("some_key"))
+            .apply(WithKeys.of("file_name"))
             .apply(ParDo.of(new ConvertCSVRecordToDLPRow(',', header)).withSideInputs(header))
             .apply(Values.create());
 

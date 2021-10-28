@@ -18,7 +18,6 @@ package com.google.swarm.tokenization.common;
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
 import java.util.List;
-import java.util.Random;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.metrics.Counter;
@@ -27,7 +26,6 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.KV;
-import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,12 +35,10 @@ public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<St
   private final Counter numberOfRowsRead =
       Metrics.counter(CSVFileReaderSplitDoFn.class, "numberOfRowsRead");
 
-  private final Integer keyRange;
   private final String recordDelimiter;
   private final Integer splitSize;
 
-  public CSVFileReaderSplitDoFn(Integer keyRange, String recordDelimiter, Integer splitSize) {
-    this.keyRange = keyRange;
+  public CSVFileReaderSplitDoFn(String recordDelimiter, Integer splitSize) {
     this.recordDelimiter = recordDelimiter;
     this.splitSize = splitSize;
   }
@@ -58,9 +54,9 @@ public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<St
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent().toStringUtf8();
-        String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
+        String key = fileName;
         numberOfRowsRead.inc();
-        c.outputWithTimestamp(KV.of(key, contents), Instant.now());
+        c.outputWithTimestamp(KV.of(key, contents), c.timestamp());
       }
     }
   }

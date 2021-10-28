@@ -27,6 +27,7 @@ import com.google.privacy.dlp.v2.Table;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.annotations.Experimental;
@@ -93,7 +94,7 @@ public abstract class DLPReidentifyText
 
   /** @return List of column names if the input KV value is a delimited row. */
   @Nullable
-  public abstract PCollectionView<List<String>> getHeaderColumns();
+  public abstract PCollectionView<Map<String, List<String>>> getHeaderColumns();
 
   /** @return Size of input elements batch to be sent to Cloud DLP service in one request. */
   public abstract Integer getBatchSizeBytes();
@@ -103,6 +104,7 @@ public abstract class DLPReidentifyText
 
   @AutoValue.Builder
   public abstract static class Builder {
+
     /** @param inspectTemplateName Template name for data inspection. */
     public abstract DLPReidentifyText.Builder setInspectTemplateName(String inspectTemplateName);
 
@@ -127,9 +129,13 @@ public abstract class DLPReidentifyText
      * @param batchSize Size of input elements batch to be sent to Cloud DLP service in one request.
      */
     public abstract DLPReidentifyText.Builder setBatchSizeBytes(Integer batchSize);
-    /** @param headerColumns List of column names if the input KV value is a delimited row. */
+
+    /**
+     * @param headerColumns List of column names if the input KV value is a delimited row in a map
+     *     keyed by table references.
+     */
     public abstract DLPReidentifyText.Builder setHeaderColumns(
-        PCollectionView<List<String>> headerColumns);
+        PCollectionView<Map<String, List<String>>> headerColumns);
 
     /**
      * @param delimiter Delimiter to be used when splitting values from input strings into columns.
@@ -183,7 +189,9 @@ public abstract class DLPReidentifyText
   public PCollection<KV<String, ReidentifyContentResponse>> expand(
       PCollection<KV<String, Table.Row>> input) {
     return input
+        .apply("Shard Contents", new ShardRows())
         .apply("Batch Contents", ParDo.of(new BatchRequestForDLP(getBatchSizeBytes())))
+        .apply("Unshard Contents", ParDo.of(new UnshardRows()))
         .apply(
             "DLPReidentify",
             ParDo.of(
@@ -200,12 +208,13 @@ public abstract class DLPReidentifyText
   /** Performs the calls to Cloud DLP service on GCP. */
   static class ReidentifyText
       extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, ReidentifyContentResponse>> {
+
     private final String projectId;
     private final String inspectTemplateName;
     private final String reidentifyTemplateName;
     private final InspectConfig inspectConfig;
     private final DeidentifyConfig reidentifyConfig;
-    private final PCollectionView<List<String>> headerColumns;
+    private final PCollectionView<Map<String, List<String>>> headerColumns;
     private transient ReidentifyContentRequest.Builder requestBuilder;
     private transient DlpServiceClient dlpServiceClient;
 
@@ -248,7 +257,7 @@ public abstract class DLPReidentifyText
         String reidentifyTemplateName,
         InspectConfig inspectConfig,
         DeidentifyConfig reidentifyConfig,
-        PCollectionView<List<String>> headerColumns) {
+        PCollectionView<Map<String, List<String>>> headerColumns) {
       this.projectId = projectId;
       this.inspectTemplateName = inspectTemplateName;
       this.reidentifyTemplateName = reidentifyTemplateName;
@@ -259,10 +268,21 @@ public abstract class DLPReidentifyText
 
     @ProcessElement
     public void processElement(ProcessContext context) throws IOException {
+      String tableRef = context.element().getKey();
+
       List<FieldId> tableHeaders;
       if (headerColumns != null) {
+        Map<String, List<String>> headersByTableRefMap = context.sideInput(headerColumns);
+        List<String> columns = headersByTableRefMap.get(tableRef);
+        if (columns == null) {
+          throw new RuntimeException(
+              "Unable to find "
+                  + tableRef
+                  + " in the map with table references "
+                  + headersByTableRefMap.keySet());
+        }
         tableHeaders =
-            context.sideInput(headerColumns).stream()
+            columns.stream()
                 .map(header -> FieldId.newBuilder().setName(header).build())
                 .collect(Collectors.toList());
       } else {
@@ -279,7 +299,8 @@ public abstract class DLPReidentifyText
       this.requestBuilder.setItem(contentItem);
       ReidentifyContentResponse response =
           dlpServiceClient.reidentifyContent(requestBuilder.build());
-      context.output(KV.of(context.element().getKey(), response));
+
+      context.output(KV.of(tableRef, response));
     }
   }
 }

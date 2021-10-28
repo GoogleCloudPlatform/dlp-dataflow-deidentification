@@ -26,6 +26,7 @@ import com.google.swarm.tokenization.beam.DLPInspectText;
 import com.google.swarm.tokenization.beam.DLPReidentifyText;
 import com.google.swarm.tokenization.common.Util.DLPMethod;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryHelpers;
@@ -46,6 +47,7 @@ import org.slf4j.LoggerFactory;
 @AutoValue
 public abstract class DLPTransform
     extends PTransform<PCollection<KV<String, Table.Row>>, PCollectionTuple> {
+
   public static final Logger LOG = LoggerFactory.getLogger(DLPTransform.class);
 
   @Nullable
@@ -64,7 +66,7 @@ public abstract class DLPTransform
 
   public abstract String jobName();
 
-  public abstract PCollectionView<List<String>> header();
+  public abstract PCollectionView<Map<String, List<String>>> headers();
 
   @AutoValue.Builder
   public abstract static class Builder {
@@ -77,7 +79,7 @@ public abstract class DLPTransform
 
     public abstract Builder setProjectId(String projectId);
 
-    public abstract Builder setHeader(PCollectionView<List<String>> header);
+    public abstract Builder setHeaders(PCollectionView<Map<String, List<String>>> headers);
 
     public abstract Builder setColumnDelimiter(Character columnDelimiter);
 
@@ -103,7 +105,7 @@ public abstract class DLPTransform
                   DLPInspectText.newBuilder()
                       .setBatchSizeBytes(batchSize())
                       .setColumnDelimiter(columnDelimiter())
-                      .setHeaderColumns(header())
+                      .setHeaderColumns(headers())
                       .setInspectTemplateName(inspectTemplateName())
                       .setProjectId(projectId())
                       .build())
@@ -113,6 +115,7 @@ public abstract class DLPTransform
                       .withOutputTags(
                           Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
         }
+
       case DEID:
         {
           return input
@@ -121,7 +124,7 @@ public abstract class DLPTransform
                   DLPDeidentifyText.newBuilder()
                       .setBatchSizeBytes(batchSize())
                       .setColumnDelimiter(columnDelimiter())
-                      .setHeaderColumns(header())
+                      .setHeaderColumns(headers())
                       .setInspectTemplateName(inspectTemplateName())
                       .setDeidentifyTemplateName(deidTemplateName())
                       .setProjectId(projectId())
@@ -140,7 +143,7 @@ public abstract class DLPTransform
                   DLPReidentifyText.newBuilder()
                       .setBatchSizeBytes(batchSize())
                       .setColumnDelimiter(columnDelimiter())
-                      .setHeaderColumns(header())
+                      .setHeaderColumns(headers())
                       .setInspectTemplateName(inspectTemplateName())
                       .setReidentifyTemplateName(deidTemplateName())
                       .setProjectId(projectId())
@@ -203,9 +206,9 @@ public abstract class DLPTransform
     public void processElement(
         @Element KV<String, DeidentifyContentResponse> element, MultiOutputReceiver out) {
 
-      String fileName = element.getKey().split("\\~")[0];
+      String fileName = element.getKey();
       Table tokenizedData = element.getValue().getItem().getTable();
-      LOG.info("Table Tokenized {}", tokenizedData.toString());
+      LOG.info("Table Tokenized {}", tokenizedData);
       numberOfRowDeidentified.inc(tokenizedData.getRowsCount());
       List<String> headers =
           tokenizedData.getHeadersList().stream()

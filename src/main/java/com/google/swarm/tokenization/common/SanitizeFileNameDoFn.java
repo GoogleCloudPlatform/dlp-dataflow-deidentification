@@ -17,53 +17,61 @@ package com.google.swarm.tokenization.common;
 
 import com.google.common.io.Files;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Sanitizes input filenames by ensuring that the file extensions are valid and outputting keys that
  * are compatible with BigQuery table names.
- *
- * <p>TODO: Maybe the BigQuery table name sanitazation part should be moved to the BigQuery write
- * transforms instead.
  */
 public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, ReadableFile>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(SanitizeFileNameDoFn.class);
-  private static final List<String> ALLOWED_FILE_EXTENSIONS =
-      Arrays.asList("csv", "avro", "json", "txt");
+  private static final Set<String> ALLOWED_FILE_EXTENSIONS =
+      Arrays.asList("csv", "avro", "json", "txt").stream().collect(Collectors.toUnmodifiableSet());;
   // Regular expression that matches valid BQ table IDs
   private static final String TABLE_REGEXP = "[-\\w$@]{1,1024}";
 
-  public static String sanitizeFileName(ReadableFile file) {
-    String fileName = file.getMetadata().resourceId().getFilename();
-    String extension = Files.getFileExtension(fileName);
-    String sanitizedName = fileName.replace(".", "_");
-    sanitizedName = sanitizedName.replace("-", "_");
-    String[] fileKey = sanitizedName.split("\\.", 2);
-
-    if (!ALLOWED_FILE_EXTENSIONS.contains(extension) || !fileKey[0].matches(TABLE_REGEXP)) {
+  public static String sanitizeFileName(String file) {
+    String extension = Files.getFileExtension(file);
+    if (!ALLOWED_FILE_EXTENSIONS.contains(extension)) {
       throw new RuntimeException(
-          "[Filename must contain a {csv,avro} extension. "
-              + " BQ table name must contain only letters, numbers, or underscores ["
-              + fileKey[1]
-              + "], ["
-              + fileKey[0]
-              + "]");
+          "Invalid file name '"
+              + file
+              + "': must have one of these extensions: "
+              + ALLOWED_FILE_EXTENSIONS);
+    }
+
+    String sanitizedName = file.substring(0, file.length() - extension.length() - 1);
+    sanitizedName = sanitizedName.replace(".", "_");
+    sanitizedName = sanitizedName.replace("-", "_");
+
+    if (!sanitizedName.matches(TABLE_REGEXP)) {
+      throw new RuntimeException(
+          "Invalid file name '"
+              + file
+              + "': base name must be a valid BigQuery table name -"
+              + " can contain only letters, numbers, or underscores");
     }
 
     // Return sanitized file name without extension
-    return fileKey[0];
+    return sanitizedName;
   }
 
   @ProcessElement
   public void processElement(ProcessContext c) {
     ReadableFile file = c.element();
-    String fileName = sanitizeFileName(file);
-    c.output(KV.of(fileName, file));
+    long lastModified = file.getMetadata().lastModifiedMillis();
+    if (lastModified == 0L) {
+      lastModified = Instant.now().getMillis();
+    }
+    String fileName = sanitizeFileName(file.getMetadata().resourceId().getFilename());
+    c.outputWithTimestamp(KV.of(fileName, file), Instant.ofEpochMilli(lastModified));
   }
 }

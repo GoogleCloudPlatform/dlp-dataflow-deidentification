@@ -21,6 +21,7 @@ import com.google.privacy.dlp.v2.*;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.annotations.Experimental;
@@ -83,10 +84,11 @@ public abstract class DLPInspectText
 
   /** @return List of column names if the input KV value is a delimited row. */
   @Nullable
-  public abstract PCollectionView<List<String>> getHeaderColumns();
+  public abstract PCollectionView<Map<String, List<String>>> getHeaderColumns();
 
   @AutoValue.Builder
   public abstract static class Builder {
+
     /** @param inspectTemplateName Template name for data inspection. */
     public abstract Builder setInspectTemplateName(String inspectTemplateName);
 
@@ -110,7 +112,8 @@ public abstract class DLPInspectText
     public abstract Builder setColumnDelimiter(Character delimiter);
 
     /** @param headerColumns List of column names if the input KV value is a delimited row. */
-    public abstract Builder setHeaderColumns(PCollectionView<List<String>> headerColumns);
+    public abstract Builder setHeaderColumns(
+        PCollectionView<Map<String, List<String>>> headerColumns);
 
     abstract DLPInspectText autoBuild();
 
@@ -153,7 +156,9 @@ public abstract class DLPInspectText
   public PCollection<KV<String, InspectContentResponse>> expand(
       PCollection<KV<String, Table.Row>> input) {
     return input
+        .apply("Shard Contents", new ShardRows())
         .apply("Batch Contents", ParDo.of(new BatchRequestForDLP(getBatchSizeBytes())))
+        .apply("Unshard Contents", ParDo.of(new UnshardRows()))
         .apply(
             "DLPInspect",
             ParDo.of(
@@ -168,10 +173,11 @@ public abstract class DLPInspectText
   /** Performs calls to Cloud DLP service on GCP to inspect input data. */
   static class InspectData
       extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, InspectContentResponse>> {
+
     private final String projectId;
     private final String inspectTemplateName;
     private final InspectConfig inspectConfig;
-    private final PCollectionView<List<String>> headerColumns;
+    private final PCollectionView<Map<String, List<String>>> headerColumns;
     private transient DlpServiceClient dlpServiceClient;
     private transient InspectContentRequest.Builder requestBuilder;
 
@@ -193,7 +199,7 @@ public abstract class DLPInspectText
         String projectId,
         String inspectTemplateName,
         InspectConfig inspectConfig,
-        PCollectionView<List<String>> headerColumns) {
+        PCollectionView<Map<String, List<String>>> headerColumns) {
       this.projectId = projectId;
       this.inspectTemplateName = inspectTemplateName;
       this.inspectConfig = inspectConfig;
@@ -222,10 +228,20 @@ public abstract class DLPInspectText
 
     @ProcessElement
     public void processElement(ProcessContext c) throws IOException {
+      String tableRef = c.element().getKey();
       List<FieldId> tableHeaders;
       if (headerColumns != null) {
+        Map<String, List<String>> headersByTableRef = c.sideInput(headerColumns);
+        List<String> columns = headersByTableRef.get(tableRef);
+        if (columns == null) {
+          throw new RuntimeException(
+              "Unable to find table reference "
+                  + tableRef
+                  + " in a map with keys "
+                  + headersByTableRef.keySet());
+        }
         tableHeaders =
-            c.sideInput(headerColumns).stream()
+            columns.stream()
                 .map(header -> FieldId.newBuilder().setName(header).build())
                 .collect(Collectors.toList());
       } else {
@@ -240,7 +256,8 @@ public abstract class DLPInspectText
           dlpServiceClient.inspectContent(this.requestBuilder.build());
       numberOfRowsInspected.inc(table.getRowsCount());
       numberOfDlpApiCalls.inc();
-      c.output(KV.of(c.element().getKey(), response));
+
+      c.output(KV.of(tableRef, response));
     }
   }
 }

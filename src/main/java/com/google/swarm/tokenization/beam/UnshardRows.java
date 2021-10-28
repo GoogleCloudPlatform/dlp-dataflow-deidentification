@@ -13,24 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.swarm.tokenization.txt;
+package com.google.swarm.tokenization.beam;
 
-import java.util.List;
-import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import com.google.privacy.dlp.v2.Table.Row;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.ShardedKey;
 
-public class TxtColumnNameDoFn extends DoFn<KV<String, ReadableFile>, KV<String, List<String>>> {
-
-  private List<String> headers;
-
-  public TxtColumnNameDoFn(List<String> headers) {
-    this.headers = headers;
-  }
+public class UnshardRows
+    extends DoFn<KV<ShardedKey<String>, Iterable<Row>>, KV<String, Iterable<Row>>> {
 
   @ProcessElement
-  public void processContext(ProcessContext c) {
-    String fileName = c.element().getKey();
-    c.output(KV.of(fileName, headers));
+  public void process(
+      @Element KV<ShardedKey<String>, Iterable<Row>> e,
+      OutputReceiver<KV<String, Iterable<Row>>> outputReceiver) {
+    outputReceiver.output(KV.of(e.getKey().getKey(), e.getValue()));
   }
 }

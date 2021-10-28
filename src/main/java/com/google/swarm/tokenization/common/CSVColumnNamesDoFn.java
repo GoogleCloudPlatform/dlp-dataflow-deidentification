@@ -17,6 +17,8 @@ package com.google.swarm.tokenization.common;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
@@ -25,13 +27,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
-public class CSVColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, String> {
+public class CSVColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, KV<String, List<String>>> {
+
   public static final Logger LOG = LoggerFactory.getLogger(CSVColumnNamesDoFn.class);
 
   @ProcessElement
   public void processElement(ProcessContext c) {
     ReadableFile file = c.element().getValue();
     try (BufferedReader br = Util.getReader(file)) {
+
+      List<String> columnNames = new ArrayList<>();
 
       CSVFormat.DEFAULT
           .withFirstRecordAsHeader()
@@ -40,8 +45,11 @@ public class CSVColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, String> {
           .keySet()
           .forEach(
               (key) -> {
-                c.output(key);
+                columnNames.add(key);
               });
+
+      String fileName = c.element().getKey();
+      c.output(KV.of(fileName, columnNames));
 
     } catch (IOException e) {
       LOG.error("Failed to get csv header values. Error message: {}", e.getMessage());

@@ -87,7 +87,9 @@ public class BatchRequestForDLPTest {
         pipeline
             .apply(rows)
             .apply(Window.into(FixedWindows.of(windowDuration)))
-            .apply(ParDo.of(new BatchRequestForDLP(batchSize)));
+            .apply("Shard Contents", new ShardRows(1))
+            .apply("Batch Contents", ParDo.of(new BatchRequestForDLP(batchSize)))
+            .apply("Unshard Contents", ParDo.of(new UnshardRows()));
 
     // Inspect the pipeline's results
     PAssert.that(results)

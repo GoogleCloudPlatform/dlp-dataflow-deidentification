@@ -21,6 +21,7 @@ import com.google.swarm.tokenization.common.Util.FileType;
 import com.google.swarm.tokenization.json.JsonColumnNameDoFn;
 import com.google.swarm.tokenization.txt.TxtColumnNameDoFn;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -34,7 +35,7 @@ import org.apache.beam.sdk.values.PCollectionView;
 @AutoValue
 public abstract class ExtractColumnNamesTransform
     extends PTransform<
-        PCollection<KV<String, FileIO.ReadableFile>>, PCollectionView<List<String>>> {
+        PCollection<KV<String, FileIO.ReadableFile>>, PCollectionView<Map<String, List<String>>>> {
 
   public abstract FileType fileType();
 
@@ -43,6 +44,7 @@ public abstract class ExtractColumnNamesTransform
 
   @AutoValue.Builder
   public abstract static class Builder {
+
     public abstract ExtractColumnNamesTransform.Builder setFileType(FileType fileType);
 
     public abstract ExtractColumnNamesTransform.Builder setHeaders(List<String> headers);
@@ -55,24 +57,29 @@ public abstract class ExtractColumnNamesTransform
   }
 
   @Override
-  public PCollectionView<List<String>> expand(PCollection<KV<String, FileIO.ReadableFile>> input) {
-    PCollection<String> readHeader;
+  public PCollectionView<Map<String, List<String>>> expand(
+      PCollection<KV<String, FileIO.ReadableFile>> input) {
+    PCollection<KV<String, List<String>>> readHeader;
     switch (fileType()) {
-      case AVRO:
-        readHeader = input.apply("ReadHeader", ParDo.of(new AvroColumnNamesDoFn()));
-        break;
       case CSV:
         readHeader = input.apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn()));
         break;
+
+      case AVRO:
+        readHeader = input.apply("ReadHeader", ParDo.of(new AvroColumnNamesDoFn()));
+        break;
+
       case JSON:
         readHeader = input.apply("ReadHeader", ParDo.of(new JsonColumnNameDoFn(headers())));
         break;
+
       case TXT:
         readHeader = input.apply("ReadHeader", ParDo.of(new TxtColumnNameDoFn(headers())));
         break;
+
       default:
         throw new IllegalStateException("Unexpected value: " + fileType());
     }
-    return readHeader.apply("ViewAsList", View.asList());
+    return readHeader.apply("ViewAsList", View.asMap());
   }
 }

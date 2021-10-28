@@ -115,6 +115,12 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setHeaders(List<String> topic);
 
+  @Description("Number of shards for DLP request batches. "
+      + "Can be used to controls parallelism of DLP requests.")
+  @Default.Integer(100)
+  int getNumShardsPerDLPRequestBatching();
+  void setNumShardsPerDLPRequestBatching(int value);
+
   class FileTypeFactory implements DefaultValueFactory<FileType> {
     @Override
     public FileType create(PipelineOptions options) {

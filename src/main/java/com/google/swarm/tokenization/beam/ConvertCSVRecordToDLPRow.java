@@ -20,6 +20,7 @@ import com.google.privacy.dlp.v2.Value;
 import com.google.swarm.tokenization.common.Util;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
@@ -39,14 +40,10 @@ public class ConvertCSVRecordToDLPRow extends DoFn<KV<String, String>, KV<String
   public static final Logger LOG = LoggerFactory.getLogger(ConvertCSVRecordToDLPRow.class);
 
   private final Character columnDelimiter;
-  private PCollectionView<List<String>> header;
+  private PCollectionView<Map<String, List<String>>> header;
 
-  public ConvertCSVRecordToDLPRow(PCollectionView<List<String>> header) {
-    this.columnDelimiter = null;
-    this.header = header;
-  }
-
-  public ConvertCSVRecordToDLPRow(Character columnDelimiter, PCollectionView<List<String>> header) {
+  public ConvertCSVRecordToDLPRow(
+      Character columnDelimiter, PCollectionView<Map<String, List<String>>> header) {
     this.columnDelimiter = columnDelimiter;
     this.header = header;
   }
@@ -55,7 +52,16 @@ public class ConvertCSVRecordToDLPRow extends DoFn<KV<String, String>, KV<String
   public void processElement(ProcessContext context) throws IOException {
     Table.Row.Builder rowBuilder = Table.Row.newBuilder();
     String input = Objects.requireNonNull(context.element().getValue());
-    List<String> csvHeader = context.sideInput(header);
+    String fileName = context.element().getKey();
+    Map<String, List<String>> headers = context.sideInput(header);
+    List<String> csvHeader = headers.get(fileName);
+    if (csvHeader == null) {
+      throw new RuntimeException(
+          "Unable to find header row for fileName: "
+              + fileName
+              + ". The side input only contains header for "
+              + headers.keySet());
+    }
 
     if (columnDelimiter != null) {
 
@@ -63,17 +69,18 @@ public class ConvertCSVRecordToDLPRow extends DoFn<KV<String, String>, KV<String
       if (values.size() == csvHeader.size()) {
         values.forEach(
             value -> rowBuilder.addValues(Value.newBuilder().setStringValue(value).build()));
-        context.output(KV.of(context.element().getKey(), rowBuilder.build()));
+        context.output(KV.of(fileName, rowBuilder.build()));
 
       } else {
         LOG.warn(
-            "Rows must have the same number of items {} as there are headers {}",
+            "Rows in {} must have the same number of items {} as there are headers {}",
+            fileName,
             values.size(),
             csvHeader.size());
       }
     } else {
       rowBuilder.addValues(Value.newBuilder().setStringValue(input).build());
-      context.output(KV.of(context.element().getKey(), rowBuilder.build()));
+      context.output(KV.of(fileName, rowBuilder.build()));
     }
   }
 }

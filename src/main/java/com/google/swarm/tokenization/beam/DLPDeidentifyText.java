@@ -27,6 +27,7 @@ import com.google.privacy.dlp.v2.Table;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.annotations.Experimental;
@@ -85,7 +86,7 @@ public abstract class DLPDeidentifyText
 
   /** @return List of column names if the input KV value is a delimited row. */
   @Nullable
-  public abstract PCollectionView<List<String>> getHeaderColumns();
+  public abstract PCollectionView<Map<String, List<String>>> getHeaderColumns();
 
   /** @return Delimiter to be used when splitting values from input strings into columns. */
   @Nullable
@@ -99,12 +100,13 @@ public abstract class DLPDeidentifyText
 
   @AutoValue.Builder
   public abstract static class Builder {
+
     /** @param inspectTemplateName Template name for data inspection. */
     public abstract DLPDeidentifyText.Builder setInspectTemplateName(String inspectTemplateName);
 
     /** @param headerColumns List of column names if the input KV value is a delimited row. */
     public abstract DLPDeidentifyText.Builder setHeaderColumns(
-        PCollectionView<List<String>> headerColumns);
+        PCollectionView<Map<String, List<String>>> headerColumns);
 
     /**
      * @param delimiter Delimiter to be used when splitting values from input strings into columns.
@@ -179,8 +181,11 @@ public abstract class DLPDeidentifyText
   @Override
   public PCollection<KV<String, DeidentifyContentResponse>> expand(
       PCollection<KV<String, Table.Row>> input) {
+
     return input
+        .apply("Shard Contents", new ShardRows())
         .apply("Batch Contents", ParDo.of(new BatchRequestForDLP(getBatchSizeBytes())))
+        .apply("Unshard Contents", ParDo.of(new UnshardRows()))
         .apply(
             "DLPDeidentify",
             ParDo.of(
@@ -197,6 +202,7 @@ public abstract class DLPDeidentifyText
   /** DoFn performing calls to Cloud DLP service on GCP. */
   static class DeidentifyText
       extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, DeidentifyContentResponse>> {
+
     public static final Logger LOG = LoggerFactory.getLogger(DeidentifyText.class);
 
     private final String projectId;
@@ -204,7 +210,7 @@ public abstract class DLPDeidentifyText
     private final String deidentifyTemplateName;
     private final InspectConfig inspectConfig;
     private final DeidentifyConfig deidentifyConfig;
-    private final PCollectionView<List<String>> headerColumns;
+    private final PCollectionView<Map<String, List<String>>> headerColumns;
     private transient DeidentifyContentRequest.Builder requestBuilder;
     private transient DlpServiceClient dlpServiceClient;
 
@@ -247,7 +253,7 @@ public abstract class DLPDeidentifyText
         String deidentifyTemplateName,
         InspectConfig inspectConfig,
         DeidentifyConfig deidentifyConfig,
-        PCollectionView<List<String>> headerColumns) {
+        PCollectionView<Map<String, List<String>>> headerColumns) {
       this.projectId = projectId;
       this.inspectTemplateName = inspectTemplateName;
       this.deidentifyTemplateName = deidentifyTemplateName;
@@ -259,10 +265,20 @@ public abstract class DLPDeidentifyText
     @ProcessElement
     public void processElement(ProcessContext c) throws IOException {
       String fileName = c.element().getKey();
+
       List<FieldId> dlpTableHeaders;
       if (headerColumns != null) {
+        Map<String, List<String>> headerColumnMap = c.sideInput(headerColumns);
+        List<String> columns = headerColumnMap.get(fileName);
+        if (columns == null) {
+          throw new RuntimeException(
+              "Unable to find header row for fileName: "
+                  + fileName
+                  + ". The side input only contains header for "
+                  + headerColumnMap.keySet());
+        }
         dlpTableHeaders =
-            c.sideInput(headerColumns).stream()
+            columns.stream()
                 .map(header -> FieldId.newBuilder().setName(header).build())
                 .collect(Collectors.toList());
       } else {
