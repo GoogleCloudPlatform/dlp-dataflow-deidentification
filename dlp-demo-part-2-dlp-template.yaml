@@ -12,7 +12,8 @@
  # See the License for the specific language governing permissions and
  # limitations under the License.
 steps:
-- name: 'gcr.io/cloud-builders/gradle'
+- name: gradle:6-jdk11
+  entrypoint: gradle
   args: ['run', '-DmainClass=com.google.swarm.tokenization.tool.DLPTemplateHelper', '--x', 'test', '-Pargs=${_KEK_CONFIG_FILE}']
 - name: gcr.io/cloud-builders/gsutil
   args: ['cp', '${_GCS_BUCKET_NAME}/de-identify-config.json', '.']
