@@ -24,6 +24,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.WriteDisposition;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryUtils;
 import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
 import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
@@ -45,6 +48,8 @@ public abstract class BigQueryDynamicWriteTransform
 
   public abstract String datasetId();
 
+  public abstract boolean isStreaming();
+
   public static Builder newBuilder() {
     return new AutoValue_BigQueryDynamicWriteTransform.Builder();
   }
@@ -55,26 +60,32 @@ public abstract class BigQueryDynamicWriteTransform
 
     public abstract Builder setProjectId(String datasetId);
 
+    public abstract Builder setIsStreaming(boolean streaming);
+
     public abstract BigQueryDynamicWriteTransform build();
   }
 
   @Override
   public WriteResult expand(PCollection<KV<String, TableRow>> input) {
 
-    return input.apply(
-        "BQ Write",
-        BigQueryIO.<KV<String, TableRow>>write()
-            .to(new BQDestination(datasetId(), projectId()))
-            .withFormatFunction(
-                element -> {
-                  return element.getValue();
-                })
-            .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
-            .withoutValidation()
-            .withAutoSharding()
-            .ignoreInsertIds()
-            .withMethod(BigQueryIO.Write.Method.STREAMING_INSERTS)
-            .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED));
+    Write<KV<String, TableRow>> transform = BigQueryIO.<KV<String, TableRow>>write()
+        .to(new BQDestination(datasetId(), projectId()))
+        .withFormatFunction(
+            element -> {
+              return element.getValue();
+            })
+        .withWriteDisposition(WriteDisposition.WRITE_APPEND)
+        .withoutValidation()
+        .withAutoSharding()
+        .ignoreInsertIds()
+        .withMethod(Write.Method.STREAMING_INSERTS)
+        .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED);
+
+    if(isStreaming()) {
+      transform = transform.withAutoSharding();
+    }
+
+    return input.apply("BQ Write", transform);
   }
 
   public class BQDestination

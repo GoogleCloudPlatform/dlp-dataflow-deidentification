@@ -203,6 +203,7 @@ public class DLPTextToBigQueryStreamingV2 {
             BigQueryDynamicWriteTransform.newBuilder()
                 .setDatasetId(options.getDataset())
                 .setProjectId(options.getProject())
+                .setIsStreaming(true)
                 .build());
   }
 
@@ -251,6 +252,7 @@ public class DLPTextToBigQueryStreamingV2 {
         BigQueryDynamicWriteTransform.newBuilder()
             .setDatasetId(options.getDataset())
             .setProjectId(options.getProject())
+            .setIsStreaming(false)
             .build());
     // pubsub publish
     if (options.getTopic() != null) {
