@@ -23,7 +23,6 @@ import com.google.auto.value.AutoValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
@@ -70,10 +69,7 @@ public abstract class BigQueryDynamicWriteTransform
 
     Write<KV<String, TableRow>> transform = BigQueryIO.<KV<String, TableRow>>write()
         .to(new BQDestination(datasetId(), projectId()))
-        .withFormatFunction(
-            element -> {
-              return element.getValue();
-            })
+        .withFormatFunction(KV::getValue)
         .withWriteDisposition(WriteDisposition.WRITE_APPEND)
         .withoutValidation()
         .ignoreInsertIds()
@@ -126,12 +122,12 @@ public abstract class BigQueryDynamicWriteTransform
         default:
           TableRow bqRow = destination.getValue();
           TableSchema schema = new TableSchema();
-          List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
+          List<TableFieldSchema> fields = new ArrayList<>();
           List<TableCell> cells = bqRow.getF();
           for (int i = 0; i < cells.size(); i++) {
             Map<String, Object> object = cells.get(i);
             String header = object.keySet().iterator().next();
-            /** currently all BQ data types are set to String */
+            /* currently all BQ data types are set to String */
             fields.add(
                 new TableFieldSchema().setName(Util.checkHeaderName(header)).setType("STRING"));
           }
