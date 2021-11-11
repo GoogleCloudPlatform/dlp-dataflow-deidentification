@@ -89,7 +89,7 @@ EOF
 ```
 Run the pipeline by passing required parameters:
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=5 --maxNumWorkers=10 --runner=DataflowRunner --tableRef=<project_id>:<dataset>.<table> --topic=projects/<project_id>/topics/<name> --autoscalingAlgorithm=THROUGHPUT_BASED --workerMachineType=n1-highmem-4 --deidentifyTemplateName=projects/<project_id>/deidentifyTemplates/<name> --DLPMethod=REID --keyRange=1024 --queryPath=gs://<gcs_reid_query_bucket>/reid_query.sql"
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=5 --maxNumWorkers=10 --runner=DataflowRunner --tableRef=<project_id>:<dataset>.<table> --dataset=<dataset> --topic=projects/<project_id>/topics/<name> --autoscalingAlgorithm=THROUGHPUT_BASED --workerMachineType=n1-highmem-4 --deidentifyTemplateName=projects/<project_id>/deidentifyTemplates/<name> --DLPMethod=REID --keyRange=1024 --queryPath=gs://<gcs_reid_query_bucket>/reid_query.sql"
 
 ```
 ## Dataflow DAG
