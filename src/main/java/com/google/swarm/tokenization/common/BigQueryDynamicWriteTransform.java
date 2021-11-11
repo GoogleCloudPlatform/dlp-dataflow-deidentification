@@ -23,6 +23,7 @@ import com.google.auto.value.AutoValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
@@ -31,6 +32,7 @@ import org.apache.beam.sdk.io.gcp.bigquery.BigQueryUtils;
 import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
 import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
 import org.apache.beam.sdk.io.gcp.bigquery.WriteResult;
+import org.apache.beam.sdk.options.StreamingOptions;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
@@ -42,13 +44,12 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings("serial")
 public abstract class BigQueryDynamicWriteTransform
     extends PTransform<PCollection<KV<String, TableRow>>, WriteResult> {
+
   public static final Logger LOG = LoggerFactory.getLogger(BigQueryDynamicWriteTransform.class);
 
   public abstract String projectId();
 
   public abstract String datasetId();
-
-  public abstract boolean isStreaming();
 
   public static Builder newBuilder() {
     return new AutoValue_BigQueryDynamicWriteTransform.Builder();
@@ -56,11 +57,10 @@ public abstract class BigQueryDynamicWriteTransform
 
   @AutoValue.Builder
   public abstract static class Builder {
+
     public abstract Builder setDatasetId(String projectId);
 
     public abstract Builder setProjectId(String datasetId);
-
-    public abstract Builder setIsStreaming(boolean streaming);
 
     public abstract BigQueryDynamicWriteTransform build();
   }
@@ -81,7 +81,7 @@ public abstract class BigQueryDynamicWriteTransform
         .withMethod(Write.Method.STREAMING_INSERTS)
         .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED);
 
-    if(isStreaming()) {
+    if (input.getPipeline().getOptions().as(StreamingOptions.class).isStreaming()) {
       transform = transform.withAutoSharding();
     }
 
@@ -90,6 +90,7 @@ public abstract class BigQueryDynamicWriteTransform
 
   public class BQDestination
       extends DynamicDestinations<KV<String, TableRow>, KV<String, TableRow>> {
+
     private String datasetName;
     private String projectId;
 
