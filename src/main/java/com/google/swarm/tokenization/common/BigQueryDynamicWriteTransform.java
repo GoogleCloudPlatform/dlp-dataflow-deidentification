@@ -24,10 +24,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.WriteDisposition;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryUtils;
 import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
 import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
 import org.apache.beam.sdk.io.gcp.bigquery.WriteResult;
+import org.apache.beam.sdk.options.StreamingOptions;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
@@ -39,6 +43,7 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings("serial")
 public abstract class BigQueryDynamicWriteTransform
     extends PTransform<PCollection<KV<String, TableRow>>, WriteResult> {
+
   public static final Logger LOG = LoggerFactory.getLogger(BigQueryDynamicWriteTransform.class);
 
   public abstract String projectId();
@@ -51,6 +56,7 @@ public abstract class BigQueryDynamicWriteTransform
 
   @AutoValue.Builder
   public abstract static class Builder {
+
     public abstract Builder setDatasetId(String projectId);
 
     public abstract Builder setProjectId(String datasetId);
@@ -61,24 +67,25 @@ public abstract class BigQueryDynamicWriteTransform
   @Override
   public WriteResult expand(PCollection<KV<String, TableRow>> input) {
 
-    return input.apply(
-        "BQ Write",
-        BigQueryIO.<KV<String, TableRow>>write()
-            .to(new BQDestination(datasetId(), projectId()))
-            .withFormatFunction(
-                element -> {
-                  return element.getValue();
-                })
-            .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
-            .withoutValidation()
-            .withAutoSharding()
-            .ignoreInsertIds()
-            .withMethod(BigQueryIO.Write.Method.STREAMING_INSERTS)
-            .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED));
+    Write<KV<String, TableRow>> transform = BigQueryIO.<KV<String, TableRow>>write()
+        .to(new BQDestination(datasetId(), projectId()))
+        .withFormatFunction(KV::getValue)
+        .withWriteDisposition(WriteDisposition.WRITE_APPEND)
+        .withoutValidation()
+        .ignoreInsertIds()
+        .withMethod(Write.Method.STREAMING_INSERTS)
+        .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED);
+
+    if (input.getPipeline().getOptions().as(StreamingOptions.class).isStreaming()) {
+      transform = transform.withAutoSharding();
+    }
+
+    return input.apply("BQ Write", transform);
   }
 
   public class BQDestination
       extends DynamicDestinations<KV<String, TableRow>, KV<String, TableRow>> {
+
     private String datasetName;
     private String projectId;
 
@@ -115,12 +122,12 @@ public abstract class BigQueryDynamicWriteTransform
         default:
           TableRow bqRow = destination.getValue();
           TableSchema schema = new TableSchema();
-          List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
+          List<TableFieldSchema> fields = new ArrayList<>();
           List<TableCell> cells = bqRow.getF();
           for (int i = 0; i < cells.size(); i++) {
             Map<String, Object> object = cells.get(i);
             String header = object.keySet().iterator().next();
-            /** currently all BQ data types are set to String */
+            /* currently all BQ data types are set to String */
             fields.add(
                 new TableFieldSchema().setName(Util.checkHeaderName(header)).setType("STRING"));
           }
