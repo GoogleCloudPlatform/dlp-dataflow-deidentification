@@ -97,6 +97,7 @@ public class DLPTemplateHelper {
       LOG.error("Unable to read {} file from the resources folder!", DLP_DEID_CONFIG_FILE, e);
     }
 
+    //schema
     return schemaJson;
   }
 }
