@@ -236,7 +236,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 DLPTransform.newBuilder()
                     .setBatchSize(options.getBatchSize())
                     .setInspectTemplateName(options.getInspectTemplateName())
-                    .setDeidTemplateName(options.getDeidentifyTemplateName())
+                    .setReidTemplateName(options.getReidentifyTemplateName())
                     .setDlpmethod(options.getDLPMethod())
                     .setProjectId(options.getDLPParent())
                     .setHeaders(selectedColumns)
