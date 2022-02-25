@@ -43,6 +43,11 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setDeidentifyTemplateName(String value);
 
+  @Description("DLP ReIdentify Template Name")
+  String getReidentifyTemplateName();
+
+  void setReidentifyTemplateName(String value);
+
   @Description("DLP method deid,inspect,reid")
   @Default.Enum("INSPECT")
   DLPMethod getDLPMethod();
@@ -115,10 +120,12 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setHeaders(List<String> topic);
 
-  @Description("Number of shards for DLP request batches. "
-      + "Can be used to controls parallelism of DLP requests.")
+  @Description(
+      "Number of shards for DLP request batches. "
+          + "Can be used to controls parallelism of DLP requests.")
   @Default.Integer(100)
   int getNumShardsPerDLPRequestBatching();
+
   void setNumShardsPerDLPRequestBatching(int value);
 
   class FileTypeFactory implements DefaultValueFactory<FileType> {
