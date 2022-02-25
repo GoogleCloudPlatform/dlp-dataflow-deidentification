@@ -74,10 +74,11 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 ## ReIdentification From BigQuery 
 You can. use the pipeline to read from BgQuery table and publish the re-identification data in a secure pub sub topic.
 
-Export the Standard SQL Query to read data from bigQuery
+Export the Standard SQL Query to read data from bigQuery. 
+DLP templates are case-sensitive, for records to be identified camelcase of fields should be used as DLP template name. One example from our solution guide:
 One example from our solution guide:
 ```
-export QUERY="select id,card_number,card_holders_name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.100000CCRecords\` where safe_cast(credit_limit as int64)>100000 and safe_cast (age as int64)>50 group by id,card_number,card_holders_name limit 10"
+export QUERY="select id,card_number as Card_Number,card_holders_name as Card_Holders_Name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.100000CCRecords\` where safe_cast(credit_limit as int64)>100000 and safe_cast (age as int64)>50 group by id,card_number,card_holders_name limit 10"
 ```
 Create a gcs file with the query:
 
@@ -87,6 +88,14 @@ cat << EOF | gsutil cp - gs://${REID_QUERY_BUCKET}/reid_query.sql
 ${QUERY}
 EOF
 ```
+
+Batch re-identification run of the pipeline requires following parameters:
+
+```
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --tempLocation=gs://<bucket>/temp --numWorkers=5 --maxNumWorkers=10 --runner=DataflowRunner --tableRef=<project_id>:<dataset>.<table> --dataset=<dataset> --topic=projects/<project_id>/topics/<name> --workerMachineType=n1-highmem-4 --reidentifyTemplateName=projects/<project_id>/deidentifyTemplates/<name> --DLPMethod=REID --keyRange=1024 --queryPath=gs://<gcs_reid_query_bucket>/reid_query.sql"
+
+``` 
+
 Run the pipeline by passing required parameters:
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=5 --maxNumWorkers=10 --runner=DataflowRunner --tableRef=<project_id>:<dataset>.<table> --dataset=<dataset> --topic=projects/<project_id>/topics/<name> --autoscalingAlgorithm=THROUGHPUT_BASED --workerMachineType=n1-highmem-4 --deidentifyTemplateName=projects/<project_id>/deidentifyTemplates/<name> --DLPMethod=REID --keyRange=1024 --queryPath=gs://<gcs_reid_query_bucket>/reid_query.sql"

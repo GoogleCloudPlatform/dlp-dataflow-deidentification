@@ -67,14 +67,15 @@ public abstract class BigQueryDynamicWriteTransform
   @Override
   public WriteResult expand(PCollection<KV<String, TableRow>> input) {
 
-    Write<KV<String, TableRow>> transform = BigQueryIO.<KV<String, TableRow>>write()
-        .to(new BQDestination(datasetId(), projectId()))
-        .withFormatFunction(KV::getValue)
-        .withWriteDisposition(WriteDisposition.WRITE_APPEND)
-        .withoutValidation()
-        .ignoreInsertIds()
-        .withMethod(Write.Method.STREAMING_INSERTS)
-        .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED);
+    Write<KV<String, TableRow>> transform =
+        BigQueryIO.<KV<String, TableRow>>write()
+            .to(new BQDestination(datasetId(), projectId()))
+            .withFormatFunction(KV::getValue)
+            .withWriteDisposition(WriteDisposition.WRITE_APPEND)
+            .withoutValidation()
+            .ignoreInsertIds()
+            .withMethod(Write.Method.STREAMING_INSERTS)
+            .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED);
 
     if (input.getPipeline().getOptions().as(StreamingOptions.class).isStreaming()) {
       transform = transform.withAutoSharding();

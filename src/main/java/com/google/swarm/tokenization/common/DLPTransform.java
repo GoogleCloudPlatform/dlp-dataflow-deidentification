@@ -56,6 +56,9 @@ public abstract class DLPTransform
   @Nullable
   public abstract String deidTemplateName();
 
+  @Nullable
+  public abstract String reidTemplateName();
+
   public abstract Integer batchSize();
 
   public abstract String projectId();
@@ -73,7 +76,9 @@ public abstract class DLPTransform
 
     public abstract Builder setInspectTemplateName(String inspectTemplateName);
 
-    public abstract Builder setDeidTemplateName(String inspectTemplateName);
+    public abstract Builder setDeidTemplateName(String deidTemplateName);
+
+    public abstract Builder setReidTemplateName(String reidTemplateName);
 
     public abstract Builder setBatchSize(Integer batchSize);
 
@@ -145,7 +150,7 @@ public abstract class DLPTransform
                       .setColumnDelimiter(columnDelimiter())
                       .setHeaderColumns(headers())
                       .setInspectTemplateName(inspectTemplateName())
-                      .setReidentifyTemplateName(deidTemplateName())
+                      .setReidentifyTemplateName(reidTemplateName())
                       .setProjectId(projectId())
                       .build())
               .apply(
@@ -200,7 +205,7 @@ public abstract class DLPTransform
       extends DoFn<KV<String, DeidentifyContentResponse>, KV<String, TableRow>> {
 
     private final Counter numberOfRowDeidentified =
-        Metrics.counter(ConvertDeidResponse.class, "numberOfRowDeidentified");
+        Metrics.counter(ConvertReidResponse.class, "numberOfRowDeidentified");
 
     @ProcessElement
     public void processElement(
