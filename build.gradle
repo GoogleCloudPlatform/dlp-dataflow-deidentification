@@ -15,17 +15,15 @@
  */
 buildscript {
     ext {
-        dataflowBeamVersion = '2.33.0'
+        dataflowBeamVersion = '2.42.0'
     }
     repositories {
         mavenCentral()
-        jcenter()
         maven {
             url "https://plugins.gradle.org/m2/"
         }
         dependencies {
-            classpath "net.ltgt.gradle:gradle-apt-plugin:0.19"
-            classpath "com.diffplug.spotless:spotless-plugin-gradle:3.24.2"
+            classpath "com.diffplug.spotless:spotless-plugin-gradle:6.15.0"
             classpath "gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:2.6.0"
         }
     }
@@ -35,9 +33,8 @@ apply plugin: 'java'
 apply plugin: 'application'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
-apply plugin: "net.ltgt.apt"
 apply plugin: 'com.google.cloud.tools.jib'
-apply plugin: "com.diffplug.gradle.spotless"
+apply plugin: "com.diffplug.spotless"
 // Licence header enforced by spotless
 def javaLicenseHeader = """/*
  * Copyright 2020 Google LLC
@@ -83,30 +80,30 @@ repositories {
 }
 
 dependencies {
-    compile group: 'org.apache.beam', name: 'beam-sdks-java-core', version: dataflowBeamVersion
-    compile(group: 'org.apache.beam', name: 'beam-runners-google-cloud-dataflow-java', version: dataflowBeamVersion) {
+    implementation group: 'org.apache.beam', name: 'beam-sdks-java-core', version: dataflowBeamVersion
+    implementation(group: 'org.apache.beam', name: 'beam-runners-google-cloud-dataflow-java', version: dataflowBeamVersion) {
         exclude group: 'io.confluent', module: 'kafka-schema-registry-client'
         exclude group: 'io.confluent', module: 'kafka-avro-serializer'
     }
-    compile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
-    compile group: 'org.apache.beam', name: 'beam-sdks-java-extensions-ml', version: dataflowBeamVersion
-    compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
-    compile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
-    compile 'com.google.cloud:google-cloud-kms:0.70.0-beta'
-    compile 'com.google.guava:guava:27.0-jre'
-    compile group: 'com.google.cloud', name: 'google-cloud-dlp', version: '3.0.11'
-    compile 'com.google.api-client:google-api-client:1.27.0'
-    compile group: 'com.google.apis', name: 'google-api-services-cloudkms', version: 'v1-rev53-1.23.0'
-    compile group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
-    compile "com.google.auto.value:auto-value-annotations:1.6.2"
-    compile 'com.google.cloud:google-cloud-storage:2.1.9'
+    implementation group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
+    implementation group: 'org.apache.beam', name: 'beam-sdks-java-extensions-ml', version: dataflowBeamVersion
+    implementation group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
+    implementation group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
+    implementation 'com.google.cloud:google-cloud-kms:0.70.0-beta'
+    implementation 'com.google.guava:guava:27.0-jre'
+    implementation group: 'com.google.cloud', name: 'google-cloud-dlp', version: '3.0.11'
+    implementation 'com.google.api-client:google-api-client:1.27.0'
+    implementation group: 'com.google.apis', name: 'google-api-services-cloudkms', version: 'v1-rev53-1.23.0'
+    implementation group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
+    implementation "com.google.auto.value:auto-value-annotations:1.6.2"
+    implementation 'com.google.cloud:google-cloud-storage:2.1.9'
     annotationProcessor "com.google.auto.value:auto-value:1.6.2"
-    compile group: 'org.apache.commons', name: 'commons-csv', version: '1.4'
-    testCompile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
-    testCompile group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
-    testCompile group: 'org.hamcrest', name: 'hamcrest-core', version: '1.3'
-    testCompile group: 'org.hamcrest', name: 'hamcrest-library', version: '1.3'
-    testCompile 'junit:junit:4.12'
+    implementation group: 'org.apache.commons', name: 'commons-csv', version: '1.4'
+    testImplementation group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
+    testImplementation group: 'org.slf4j', name: 'slf4j-jdk14', version: '1.7.5'
+    testImplementation group: 'org.hamcrest', name: 'hamcrest-core', version: '1.3'
+    testImplementation group: 'org.hamcrest', name: 'hamcrest-library', version: '1.3'
+    testImplementation 'junit:junit:4.12'
 }
 
 jar {
@@ -166,7 +163,7 @@ task fatJar(type: Jar) {
                 'Implementation-Version': version,
                 'Main-Class': mainClassName
     }
-    baseName = project.name + '-all'
+    archiveFileName = project.name + '-all'
     from {
         configurations.compile.collect {
             it.isDirectory() ? it : zipTree(it)
