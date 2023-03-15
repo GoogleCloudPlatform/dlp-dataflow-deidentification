@@ -77,7 +77,7 @@ You can. use the pipeline to read from BgQuery table and publish the re-identifi
 Export the Standard SQL Query to read data from bigQuery
 One example from our solution guide:
 ```
-export QUERY="select id,card_number,card_holders_name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.100000CCRecords\` where safe_cast(credit_limit as int64)>100000 and safe_cast (age as int64)>50 group by id,card_number,card_holders_name limit 10"
+export QUERY="select ID,Card_Number,Card_Holders_Name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.100000CCRecords\` where safe_cast(Credit_Limit as int64)>100000 and safe_cast (Age as int64)>50 group by ID,Card_Number,Card_Holders_Name limit 10"
 ```
 Create a gcs file with the query:
 
