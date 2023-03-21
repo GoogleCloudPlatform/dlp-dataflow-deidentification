@@ -54,6 +54,7 @@ public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<St
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         Long readerPosition = reader.getStartOfNextRecord();
         reader.readNextRecord();
+        // Skip CSV header row so that it does not get included in the data being de-identified.
         if (readerPosition == 0) {
           continue;
         }
