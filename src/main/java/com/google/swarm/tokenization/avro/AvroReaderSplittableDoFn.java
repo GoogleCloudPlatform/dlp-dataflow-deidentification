@@ -82,8 +82,6 @@ public class AvroReaderSplittableDoFn
         GenericRecord record = fileReader.next();
 
         // Output the Avro record
-        // Removed outputKey computation as it was unnecessary 
-        // and creating error logs in the pipeline
         c.outputWithTimestamp(KV.of(fileName, record), Instant.now());
         numberOfAvroRecordsIngested.inc();
       }
