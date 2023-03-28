@@ -34,7 +34,7 @@ public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, Readable
 
   public static final Logger LOG = LoggerFactory.getLogger(SanitizeFileNameDoFn.class);
   private static final Set<String> ALLOWED_FILE_EXTENSIONS =
-      Arrays.asList("csv", "avro", "json", "txt").stream().collect(Collectors.toUnmodifiableSet());;
+      Arrays.asList("csv", "avro", "jsonl", "txt").stream().collect(Collectors.toUnmodifiableSet());;
   // Regular expression that matches valid BQ table IDs
   private static final String TABLE_REGEXP = "[-\\w$@]{1,1024}";
 
@@ -62,7 +62,7 @@ public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, Readable
 
     // Return sanitized file name without extension
     return sanitizedName;
-  }
+}
 
   @ProcessElement
   public void processElement(ProcessContext c) {

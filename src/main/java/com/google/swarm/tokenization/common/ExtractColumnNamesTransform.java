@@ -69,7 +69,7 @@ public abstract class ExtractColumnNamesTransform
         readHeader = input.apply("ReadHeader", ParDo.of(new AvroColumnNamesDoFn()));
         break;
 
-      case JSON:
+      case JSONL:
         readHeader = input.apply("ReadHeader", ParDo.of(new JsonColumnNameDoFn(headers())));
         break;
 
