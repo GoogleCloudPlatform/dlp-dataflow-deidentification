@@ -52,7 +52,12 @@ public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<St
           new FileReader(
               channel, tracker.currentRestriction().getFrom(), recordDelimiter.getBytes());
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
+        long readerPosition = reader.getStartOfNextRecord();
         reader.readNextRecord();
+        // Skip CSV header row so that it does not get included in the data being de-identified.
+        if (readerPosition == 0) {
+          continue;
+        }
         String contents = reader.getCurrent().toStringUtf8();
         String key = fileName;
         numberOfRowsRead.inc();
