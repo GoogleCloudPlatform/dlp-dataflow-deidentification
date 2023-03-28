@@ -72,10 +72,10 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 ```
 
 ## DeIdentification of JSONL files
-The pipeline supports JSONL file format where each line is a valid JSON Object and newline character is used to separate JSON objects. A sample file can be found at [sample_file](test/resources/CCRecords_sample.jsonl)
+The pipeline supports JSONL file format where each line is a valid JSON Object and newline character is used to separate JSON objects. A sample file can be found at [sample_file](src/test/resources/CCRecords_sample.jsonl)
 ```
 // Copy the sample jsonl file to GCS
-gsutil cp ./src/test/resources/sample_data.jsonl gs://<bucket>/
+gsutil cp ./src/test/resources/CCRecords_sample.jsonl gs://<bucket>/
 
 // Run the pipeline using following command
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" --region=<region> --project=<projct_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=gs://<path>.jsonl --dataset=<name>   --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --DLPMethod=DEID --headers=<comma_separated_list_of_headers>"
