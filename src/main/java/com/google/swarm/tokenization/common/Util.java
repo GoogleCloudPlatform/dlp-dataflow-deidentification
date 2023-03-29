@@ -77,7 +77,7 @@ public class Util {
   public enum FileType {
     CSV,
     AVRO,
-    JSON,
+    JSONL,
     TXT
   }
 

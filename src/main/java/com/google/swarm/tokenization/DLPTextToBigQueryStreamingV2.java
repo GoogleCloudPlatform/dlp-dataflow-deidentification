@@ -142,7 +142,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), headers))
                         .withSideInputs(headers));
         break;
-      case JSON:
+      case JSONL:
         records =
             inputFiles
                 .apply(

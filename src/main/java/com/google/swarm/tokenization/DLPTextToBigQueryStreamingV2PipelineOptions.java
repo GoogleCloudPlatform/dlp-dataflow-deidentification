@@ -133,8 +133,8 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
       } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
           .getFilePattern()
           .toLowerCase()
-          .endsWith(".json")) {
-        return FileType.JSON;
+          .endsWith(".jsonl")) {
+        return FileType.JSONL;
       } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
           .getFilePattern()
           .toLowerCase()
