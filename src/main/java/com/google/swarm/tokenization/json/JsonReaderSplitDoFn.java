@@ -58,9 +58,8 @@ public class JsonReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
       while (tracker.tryClaim(reader.getStartOfNextRecord())) {
         reader.readNextRecord();
         String contents = reader.getCurrent().toStringUtf8();
-        String key = String.format("%s", fileName);
         numberOfRowsRead.inc();
-        c.outputWithTimestamp(KV.of(key, contents), Instant.now());
+        c.outputWithTimestamp(KV.of(fileName, contents), Instant.now());
       }
     }
   }
