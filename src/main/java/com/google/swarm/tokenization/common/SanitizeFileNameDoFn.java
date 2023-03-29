@@ -62,7 +62,7 @@ public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, Readable
 
     // Return sanitized file name without extension
     return sanitizedName;
-}
+  }
 
   @ProcessElement
   public void processElement(ProcessContext c) {

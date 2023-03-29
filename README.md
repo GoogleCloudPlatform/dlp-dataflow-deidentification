@@ -72,7 +72,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 ```
 
 ## DeIdentification of JSONL files
-The pipeline supports JSONL file format where each line is a valid JSON Object and newline character is used to separate JSON objects. A sample file can be found at [sample_file](src/test/resources/CCRecords_sample.jsonl)
+The pipeline supports JSONL file format where each line is a valid JSON Object and newline character is used to separate JSON objects. A sample file can be found at [test resources](src/test/resources/CCRecords_sample.jsonl)
 ```
 // Copy the sample jsonl file to GCS
 gsutil cp ./src/test/resources/CCRecords_sample.jsonl gs://<bucket>/
