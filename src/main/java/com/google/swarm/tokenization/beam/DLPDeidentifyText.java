@@ -16,6 +16,8 @@
 package com.google.swarm.tokenization.beam;
 
 import com.google.auto.value.AutoValue;
+import com.google.api.gax.rpc.ResourceExhaustedException;
+import com.google.api.gax.rpc.ApiException;
 import com.google.cloud.dlp.v2.DlpServiceClient;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.DeidentifyConfig;
@@ -37,6 +39,11 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
+import org.apache.beam.sdk.util.BackOff;
+import org.apache.beam.sdk.util.BackOffUtils;
+import org.apache.beam.sdk.util.FluentBackoff;
+import org.apache.beam.sdk.util.Sleeper;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -213,6 +220,10 @@ public abstract class DLPDeidentifyText
     private final PCollectionView<Map<String, List<String>>> headerColumns;
     private transient DeidentifyContentRequest.Builder requestBuilder;
     private transient DlpServiceClient dlpServiceClient;
+    private static final FluentBackoff BUNDLE_WRITE_BACKOFF =
+            FluentBackoff.DEFAULT
+                    .withMaxRetries(10)
+                    .withInitialBackoff(Duration.standardSeconds(5));
 
     @Setup
     public void setup() throws IOException {
@@ -263,7 +274,7 @@ public abstract class DLPDeidentifyText
     }
 
     @ProcessElement
-    public void processElement(ProcessContext c) throws IOException {
+    public void processElement(ProcessContext c) throws IOException, InterruptedException {
       String fileName = c.element().getKey();
 
       List<FieldId> dlpTableHeaders;
@@ -293,9 +304,35 @@ public abstract class DLPDeidentifyText
               .build();
       ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
       this.requestBuilder.setItem(contentItem);
-      DeidentifyContentResponse response =
-          dlpServiceClient.deidentifyContent(this.requestBuilder.build());
-      c.output(KV.of(fileName, response));
+
+      Sleeper sleeper = Sleeper.DEFAULT;
+      BackOff backoff = BUNDLE_WRITE_BACKOFF.backoff();
+
+      boolean retryApiFlag = true;
+      while(retryApiFlag){
+        try {
+          DeidentifyContentResponse response =
+                  dlpServiceClient.deidentifyContent(this.requestBuilder.build());
+          c.output(KV.of(fileName, response));
+          break;
+        }
+        catch(ResourceExhaustedException e) {
+            retryApiFlag = BackOffUtils.next(sleeper, backoff);
+            if(!retryApiFlag){
+                LOG.info("Max retries reached");
+            }
+            else{
+                LOG.info("Retrying because of ResourceExhaustedException");
+            }
+        }
+        catch (ApiException e) {
+            LOG.warn("Error in DLP API request", e); 
+            retryApiFlag = false;
+        }
+
+      }
+
+      
     }
   }
 }
