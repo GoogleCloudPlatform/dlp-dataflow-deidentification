@@ -105,6 +105,11 @@ public abstract class DLPDeidentifyText
   /** @return ID of Google Cloud project to be used when deidentifying data. */
   public abstract String getProjectId();
 
+  public abstract Integer getDlpApiRetryCount();
+
+  public abstract Integer getInitialBackoff();
+
+
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -144,6 +149,9 @@ public abstract class DLPDeidentifyText
      */
     public abstract DLPDeidentifyText.Builder setDeidentifyConfig(
         DeidentifyConfig deidentifyConfig);
+
+    public abstract DLPDeidentifyText.Builder setDlpApiRetryCount(Integer dlpApiRetryCount);
+    public abstract DLPDeidentifyText.Builder setInitialBackoff(Integer initialBackoff);
 
     abstract DLPDeidentifyText autoBuild();
 
@@ -202,7 +210,9 @@ public abstract class DLPDeidentifyText
                         getDeidentifyTemplateName(),
                         getInspectConfig(),
                         getDeidentifyConfig(),
-                        getHeaderColumns()))
+                        getHeaderColumns(),
+                        getDlpApiRetryCount(),
+                        getInitialBackoff()))
                 .withSideInputs(getHeaderColumns()));
   }
 
@@ -220,10 +230,8 @@ public abstract class DLPDeidentifyText
     private final PCollectionView<Map<String, List<String>>> headerColumns;
     private transient DeidentifyContentRequest.Builder requestBuilder;
     private transient DlpServiceClient dlpServiceClient;
-    private static final FluentBackoff BUNDLE_WRITE_BACKOFF =
-            FluentBackoff.DEFAULT
-                    .withMaxRetries(10)
-                    .withInitialBackoff(Duration.standardSeconds(5));
+    private final Integer dlpApiRetryCount;
+    private final Integer initialBackoff;
 
     @Setup
     public void setup() throws IOException {
@@ -264,13 +272,17 @@ public abstract class DLPDeidentifyText
         String deidentifyTemplateName,
         InspectConfig inspectConfig,
         DeidentifyConfig deidentifyConfig,
-        PCollectionView<Map<String, List<String>>> headerColumns) {
+        PCollectionView<Map<String, List<String>>> headerColumns,
+        Integer dlpApiRetryCount,
+        Integer initialBackoff) {
       this.projectId = projectId;
       this.inspectTemplateName = inspectTemplateName;
       this.deidentifyTemplateName = deidentifyTemplateName;
       this.inspectConfig = inspectConfig;
       this.deidentifyConfig = deidentifyConfig;
       this.headerColumns = headerColumns;
+      this.dlpApiRetryCount = dlpApiRetryCount;
+      this.initialBackoff = initialBackoff;
     }
 
     @ProcessElement
@@ -306,7 +318,10 @@ public abstract class DLPDeidentifyText
       this.requestBuilder.setItem(contentItem);
 
       Sleeper sleeper = Sleeper.DEFAULT;
-      BackOff backoff = BUNDLE_WRITE_BACKOFF.backoff();
+      FluentBackoff dlp_api_retry_backoff = FluentBackoff.DEFAULT
+                      .withMaxRetries(this.dlpApiRetryCount)
+                      .withInitialBackoff(Duration.standardSeconds(this.initialBackoff));
+      BackOff backoff = dlp_api_retry_backoff.backoff();
 
       boolean retryApiFlag = true;
       while(retryApiFlag){
@@ -319,14 +334,14 @@ public abstract class DLPDeidentifyText
         catch(ResourceExhaustedException e) {
             retryApiFlag = BackOffUtils.next(sleeper, backoff);
             if(!retryApiFlag){
-                LOG.info("Max retries reached");
+                LOG.error("DLP API request quota exceeded. Retried {} times unsuccessfully. Some records were not de-identified. Exception {}", this.dlpApiRetryCount, e);
             }
-            else{
-                LOG.info("Retrying because of ResourceExhaustedException");
+                else{
+                LOG.warn("DLP API request quota exceeded. Retrying.");
             }
         }
         catch (ApiException e) {
-            LOG.warn("Error in DLP API request", e); 
+            LOG.error("DLP API returned error. Some records were not de-identified {}", e.getMessage()); 
             retryApiFlag = false;
         }
 

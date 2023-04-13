@@ -121,6 +121,16 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   int getNumShardsPerDLPRequestBatching();
   void setNumShardsPerDLPRequestBatching(int value);
 
+  @Description("Number of retries in case of transient errors in dlp api")
+  @Default.Integer(10)
+  int getDlpApiRetryCount();
+  void setDlpApiRetryCount(int value);
+
+  @Description("Initial backoff (in seconds) for retries with exponential backoff")
+  @Default.Integer(5)
+  int getInitialBackoff();
+  void setInitialBackoff(int value);
+
   class FileTypeFactory implements DefaultValueFactory<FileType> {
     @Override
     public FileType create(PipelineOptions options) {
