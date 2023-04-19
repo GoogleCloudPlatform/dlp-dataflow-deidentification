@@ -121,7 +121,7 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   int getNumShardsPerDLPRequestBatching();
   void setNumShardsPerDLPRequestBatching(int value);
 
-  @Description("Number of retries in case of transient errors in dlp api")
+  @Description("Number of retries in case of transient errors in DLP API")
   @Default.Integer(10)
   int getDlpApiRetryCount();
   void setDlpApiRetryCount(int value);

@@ -232,6 +232,7 @@ public abstract class DLPDeidentifyText
     private transient DlpServiceClient dlpServiceClient;
     private final Integer dlpApiRetryCount;
     private final Integer initialBackoff;
+    private final BackOff dlp_api_retry_backoff;
 
     @Setup
     public void setup() throws IOException {
@@ -249,6 +250,12 @@ public abstract class DLPDeidentifyText
         requestBuilder.setDeidentifyTemplateName(deidentifyTemplateName);
       }
       dlpServiceClient = DlpServiceClient.create();
+
+      Sleeper sleeper = Sleeper.DEFAULT;
+      FluentBackoff backoff = FluentBackoff.DEFAULT
+                      .withMaxRetries(this.dlpApiRetryCount)
+                      .withInitialBackoff(Duration.standardSeconds(this.initialBackoff));
+      dlp_api_retry_backoff = backoff.backoff();
     }
 
     @Teardown
@@ -317,14 +324,8 @@ public abstract class DLPDeidentifyText
       ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
       this.requestBuilder.setItem(contentItem);
 
-      Sleeper sleeper = Sleeper.DEFAULT;
-      FluentBackoff dlp_api_retry_backoff = FluentBackoff.DEFAULT
-                      .withMaxRetries(this.dlpApiRetryCount)
-                      .withInitialBackoff(Duration.standardSeconds(this.initialBackoff));
-      BackOff backoff = dlp_api_retry_backoff.backoff();
-
-      boolean retryApiFlag = true;
-      while(retryApiFlag){
+      boolean retry = true;
+      while(retry){
         try {
           DeidentifyContentResponse response =
                   dlpServiceClient.deidentifyContent(this.requestBuilder.build());
@@ -332,8 +333,8 @@ public abstract class DLPDeidentifyText
           break;
         }
         catch(ResourceExhaustedException e) {
-            retryApiFlag = BackOffUtils.next(sleeper, backoff);
-            if(!retryApiFlag){
+            retry = BackOffUtils.next(sleeper, this.dlp_api_retry_backoff);
+            if(!retry){
                 LOG.error("DLP API request quota exceeded. Retried {} times unsuccessfully. Some records were not de-identified. Exception {}", this.dlpApiRetryCount, e);
             }
                 else{
@@ -342,7 +343,7 @@ public abstract class DLPDeidentifyText
         }
         catch (ApiException e) {
             LOG.error("DLP API returned error. Some records were not de-identified {}", e.getMessage()); 
-            retryApiFlag = false;
+            retry = false;
         }
 
       }
