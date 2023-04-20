@@ -129,6 +129,11 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   @Description("Initial backoff (in seconds) for retries with exponential backoff")
   @Default.Integer(5)
   int getInitialBackoff();
+
+  /**
+   * Initial backoff (in seconds) for retries with exponential backoff.
+   * See {@link org.apache.beam.sdk.util.FluentBackoff.BackoffImpl#nextBackOffMillis()} for details on how the exponential backoff is implemented.
+   */
   void setInitialBackoff(int value);
 
   class FileTypeFactory implements DefaultValueFactory<FileType> {

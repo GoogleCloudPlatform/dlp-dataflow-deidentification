@@ -231,8 +231,7 @@ public abstract class DLPDeidentifyText
     private transient DeidentifyContentRequest.Builder requestBuilder;
     private transient DlpServiceClient dlpServiceClient;
     private final Integer dlpApiRetryCount;
-    private final Integer initialBackoff;
-    private final BackOff dlp_api_retry_backoff;
+    private final FluentBackoff backoffBuilder;
 
     @Setup
     public void setup() throws IOException {
@@ -252,10 +251,10 @@ public abstract class DLPDeidentifyText
       dlpServiceClient = DlpServiceClient.create();
 
       Sleeper sleeper = Sleeper.DEFAULT;
-      FluentBackoff backoff = FluentBackoff.DEFAULT
+      this.backoffBuilder = FluentBackoff.DEFAULT
                       .withMaxRetries(this.dlpApiRetryCount)
                       .withInitialBackoff(Duration.standardSeconds(this.initialBackoff));
-      dlp_api_retry_backoff = backoff.backoff();
+      
     }
 
     @Teardown
@@ -324,6 +323,7 @@ public abstract class DLPDeidentifyText
       ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
       this.requestBuilder.setItem(contentItem);
 
+      Backoff backoff = backoffBuilder.backoff(); 
       boolean retry = true;
       while(retry){
         try {
@@ -333,7 +333,7 @@ public abstract class DLPDeidentifyText
           break;
         }
         catch(ResourceExhaustedException e) {
-            retry = BackOffUtils.next(sleeper, this.dlp_api_retry_backoff);
+            retry = BackOffUtils.next(sleeper, backoff);
             if(!retry){
                 LOG.error("DLP API request quota exceeded. Retried {} times unsuccessfully. Some records were not de-identified. Exception {}", this.dlpApiRetryCount, e);
             }
