@@ -231,7 +231,7 @@ public abstract class DLPDeidentifyText
     private transient DeidentifyContentRequest.Builder requestBuilder;
     private transient DlpServiceClient dlpServiceClient;
     private final Integer dlpApiRetryCount;
-    private final FluentBackoff backoffBuilder;
+    private final Integer initialBackoff;
 
     @Setup
     public void setup() throws IOException {
@@ -249,12 +249,6 @@ public abstract class DLPDeidentifyText
         requestBuilder.setDeidentifyTemplateName(deidentifyTemplateName);
       }
       dlpServiceClient = DlpServiceClient.create();
-
-      Sleeper sleeper = Sleeper.DEFAULT;
-      this.backoffBuilder = FluentBackoff.DEFAULT
-                      .withMaxRetries(this.dlpApiRetryCount)
-                      .withInitialBackoff(Duration.standardSeconds(this.initialBackoff));
-      
     }
 
     @Teardown
@@ -322,8 +316,11 @@ public abstract class DLPDeidentifyText
               .build();
       ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
       this.requestBuilder.setItem(contentItem);
-
-      Backoff backoff = backoffBuilder.backoff(); 
+      Sleeper sleeper = Sleeper.DEFAULT;
+      FluentBackoff backoffBuilder = FluentBackoff.DEFAULT
+                    .withMaxRetries(dlpApiRetryCount)
+                    .withInitialBackoff(Duration.standardSeconds(initialBackoff));
+     BackOff backoff = backoffBuilder.backoff();
       boolean retry = true;
       while(retry){
         try {
@@ -334,11 +331,12 @@ public abstract class DLPDeidentifyText
         }
         catch(ResourceExhaustedException e) {
             retry = BackOffUtils.next(sleeper, backoff);
-            if(!retry){
-                LOG.error("DLP API request quota exceeded. Retried {} times unsuccessfully. Some records were not de-identified. Exception {}", this.dlpApiRetryCount, e);
+            if(retry){
+                LOG.warn("Error in DLP API, Retrying...");
+                count++;
             }
-                else{
-                LOG.warn("DLP API request quota exceeded. Retrying.");
+            else{
+                LOG.error("Retried {} times unsuccessfully. Some records were not de-identified. Exception {}", this.dlpApiRetryCount, e);    
             }
         }
         catch (ApiException e) {
