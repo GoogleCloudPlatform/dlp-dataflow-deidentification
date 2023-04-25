@@ -16,6 +16,8 @@
 package com.google.swarm.tokenization.beam;
 
 import com.google.auto.value.AutoValue;
+import com.google.api.gax.rpc.ResourceExhaustedException;
+import com.google.api.gax.rpc.ApiException;
 import com.google.cloud.dlp.v2.DlpServiceClient;
 import com.google.privacy.dlp.v2.ContentItem;
 import com.google.privacy.dlp.v2.DeidentifyConfig;
@@ -24,6 +26,7 @@ import com.google.privacy.dlp.v2.DeidentifyContentResponse;
 import com.google.privacy.dlp.v2.FieldId;
 import com.google.privacy.dlp.v2.InspectConfig;
 import com.google.privacy.dlp.v2.Table;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,12 +34,19 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.annotations.Experimental;
+import org.apache.beam.sdk.metrics.Counter;
+import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
+import org.apache.beam.sdk.util.BackOff;
+import org.apache.beam.sdk.util.BackOffUtils;
+import org.apache.beam.sdk.util.FluentBackoff;
+import org.apache.beam.sdk.util.Sleeper;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,6 +108,11 @@ public abstract class DLPDeidentifyText
   /** @return ID of Google Cloud project to be used when deidentifying data. */
   public abstract String getProjectId();
 
+  public abstract Integer getDlpApiRetryCount();
+
+  public abstract Integer getInitialBackoff();
+
+
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -137,6 +152,9 @@ public abstract class DLPDeidentifyText
      */
     public abstract DLPDeidentifyText.Builder setDeidentifyConfig(
         DeidentifyConfig deidentifyConfig);
+
+    public abstract DLPDeidentifyText.Builder setDlpApiRetryCount(Integer dlpApiRetryCount);
+    public abstract DLPDeidentifyText.Builder setInitialBackoff(Integer initialBackoff);
 
     abstract DLPDeidentifyText autoBuild();
 
@@ -195,7 +213,9 @@ public abstract class DLPDeidentifyText
                         getDeidentifyTemplateName(),
                         getInspectConfig(),
                         getDeidentifyConfig(),
-                        getHeaderColumns()))
+                        getHeaderColumns(),
+                        getDlpApiRetryCount(),
+                        getInitialBackoff()))
                 .withSideInputs(getHeaderColumns()));
   }
 
@@ -204,6 +224,8 @@ public abstract class DLPDeidentifyText
       extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, DeidentifyContentResponse>> {
 
     public static final Logger LOG = LoggerFactory.getLogger(DeidentifyText.class);
+    private final Counter numberOfDLPRowBagsFailedDeid =
+      Metrics.counter(DeidentifyText.class, "numberOfDLPRowBagsFailedDeid");
 
     private final String projectId;
     private final String inspectTemplateName;
@@ -213,6 +235,10 @@ public abstract class DLPDeidentifyText
     private final PCollectionView<Map<String, List<String>>> headerColumns;
     private transient DeidentifyContentRequest.Builder requestBuilder;
     private transient DlpServiceClient dlpServiceClient;
+    private final Integer dlpApiRetryCount;
+    private final Integer initialBackoff;
+    private transient FluentBackoff backoffBuilder;
+    
 
     @Setup
     public void setup() throws IOException {
@@ -230,6 +256,9 @@ public abstract class DLPDeidentifyText
         requestBuilder.setDeidentifyTemplateName(deidentifyTemplateName);
       }
       dlpServiceClient = DlpServiceClient.create();
+      backoffBuilder = FluentBackoff.DEFAULT
+                    .withMaxRetries(dlpApiRetryCount)
+                    .withInitialBackoff(Duration.standardSeconds(initialBackoff));
     }
 
     @Teardown
@@ -253,17 +282,21 @@ public abstract class DLPDeidentifyText
         String deidentifyTemplateName,
         InspectConfig inspectConfig,
         DeidentifyConfig deidentifyConfig,
-        PCollectionView<Map<String, List<String>>> headerColumns) {
+        PCollectionView<Map<String, List<String>>> headerColumns,
+        Integer dlpApiRetryCount,
+        Integer initialBackoff) {
       this.projectId = projectId;
       this.inspectTemplateName = inspectTemplateName;
       this.deidentifyTemplateName = deidentifyTemplateName;
       this.inspectConfig = inspectConfig;
       this.deidentifyConfig = deidentifyConfig;
       this.headerColumns = headerColumns;
+      this.dlpApiRetryCount = dlpApiRetryCount;
+      this.initialBackoff = initialBackoff;
     }
 
     @ProcessElement
-    public void processElement(ProcessContext c) throws IOException {
+    public void processElement(ProcessContext c) throws IOException, InterruptedException {
       String fileName = c.element().getKey();
 
       List<FieldId> dlpTableHeaders;
@@ -293,9 +326,30 @@ public abstract class DLPDeidentifyText
               .build();
       ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
       this.requestBuilder.setItem(contentItem);
-      DeidentifyContentResponse response =
-          dlpServiceClient.deidentifyContent(this.requestBuilder.build());
-      c.output(KV.of(fileName, response));
+      BackOff backoff = backoffBuilder.backoff();
+      boolean retry = true;
+      while(retry){
+        try {
+          DeidentifyContentResponse response =
+                  dlpServiceClient.deidentifyContent(this.requestBuilder.build());
+          c.output(KV.of(fileName, response));
+          break;
+        }catch(ResourceExhaustedException e) {
+            retry = BackOffUtils.next(Sleeper.DEFAULT, backoff);
+            if(retry){
+                LOG.warn("Error in DLP API, Retrying...");
+            }else{
+                numberOfDLPRowBagsFailedDeid.inc();
+                LOG.error("Retried {} times unsuccessfully. Some records were not de-identified. Exception: {}", this.dlpApiRetryCount, e.getMessage());    
+            }
+        }catch (ApiException e) {
+            LOG.error("DLP API returned error. Some records were not de-identified {}", e.getMessage()); 
+            retry = false;
+        }
+
+      }
+
+      
     }
   }
 }

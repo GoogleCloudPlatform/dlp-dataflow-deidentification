@@ -68,6 +68,10 @@ public abstract class DLPTransform
 
   public abstract PCollectionView<Map<String, List<String>>> headers();
 
+  public abstract Integer dlpApiRetryCount();
+
+  public abstract Integer initialBackoff();
+
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -86,6 +90,10 @@ public abstract class DLPTransform
     public abstract Builder setDlpmethod(DLPMethod method);
 
     public abstract Builder setJobName(String jobName);
+
+    public abstract Builder setDlpApiRetryCount(Integer dlpApiRetryCount);
+
+    public abstract Builder setInitialBackoff(Integer initialBackoff);
 
     public abstract DLPTransform build();
   }
@@ -128,6 +136,8 @@ public abstract class DLPTransform
                       .setInspectTemplateName(inspectTemplateName())
                       .setDeidentifyTemplateName(deidTemplateName())
                       .setProjectId(projectId())
+                      .setDlpApiRetryCount(dlpApiRetryCount())
+                      .setInitialBackoff(initialBackoff())
                       .build())
               .apply(
                   "ConvertDeidResponse",

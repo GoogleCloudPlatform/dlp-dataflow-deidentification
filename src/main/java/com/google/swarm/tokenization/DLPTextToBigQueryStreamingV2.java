@@ -196,6 +196,8 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setHeaders(headers)
                 .setColumnDelimiter(options.getColumnDelimiter())
                 .setJobName(options.getJobName())
+                .setDlpApiRetryCount(options.getDlpApiRetryCount())
+                .setInitialBackoff(options.getInitialBackoff())
                 .build())
         .get(Util.inspectOrDeidSuccess)
         .apply(
