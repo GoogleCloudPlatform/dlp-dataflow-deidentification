@@ -334,18 +334,15 @@ public abstract class DLPDeidentifyText
                   dlpServiceClient.deidentifyContent(this.requestBuilder.build());
           c.output(KV.of(fileName, response));
           break;
-        }
-        catch(ResourceExhaustedException e) {
+        }catch(ResourceExhaustedException e) {
             retry = BackOffUtils.next(Sleeper.DEFAULT, backoff);
             if(retry){
                 LOG.warn("Error in DLP API, Retrying...");
-            }
-            else{
+            }else{
                 numberOfDLPRowBagsFailedDeid.inc();
                 LOG.error("Retried {} times unsuccessfully. Some records were not de-identified. Exception: {}", this.dlpApiRetryCount, e.getMessage());    
             }
-        }
-        catch (ApiException e) {
+        }catch (ApiException e) {
             LOG.error("DLP API returned error. Some records were not de-identified {}", e.getMessage()); 
             retry = false;
         }
