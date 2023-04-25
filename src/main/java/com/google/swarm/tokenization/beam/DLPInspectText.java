@@ -62,7 +62,9 @@ public abstract class DLPInspectText
 
   public static final Integer DLP_PAYLOAD_LIMIT_BYTES = 524000;
 
-  /** @return Template name for data inspection. */
+  /**
+   * @return Template name for data inspection.
+   */
   @Nullable
   public abstract String getInspectTemplateName();
 
@@ -72,24 +74,34 @@ public abstract class DLPInspectText
   @Nullable
   public abstract InspectConfig getInspectConfig();
 
-  /** @return Size of input elements batch to be sent to Cloud DLP service in one request. */
+  /**
+   * @return Size of input elements batch to be sent to Cloud DLP service in one request.
+   */
   public abstract Integer getBatchSizeBytes();
 
-  /** @return ID of Google Cloud project to be used when deidentifying data. */
+  /**
+   * @return ID of Google Cloud project to be used when deidentifying data.
+   */
   public abstract String getProjectId();
 
-  /** @return Delimiter to be used when splitting values from input strings into columns. */
+  /**
+   * @return Delimiter to be used when splitting values from input strings into columns.
+   */
   @Nullable
   public abstract Character getColumnDelimiter();
 
-  /** @return List of column names if the input KV value is a delimited row. */
+  /**
+   * @return List of column names if the input KV value is a delimited row.
+   */
   @Nullable
   public abstract PCollectionView<Map<String, List<String>>> getHeaderColumns();
 
   @AutoValue.Builder
   public abstract static class Builder {
 
-    /** @param inspectTemplateName Template name for data inspection. */
+    /**
+     * @param inspectTemplateName Template name for data inspection.
+     */
     public abstract Builder setInspectTemplateName(String inspectTemplateName);
 
     /**
@@ -103,7 +115,9 @@ public abstract class DLPInspectText
      */
     public abstract Builder setBatchSizeBytes(Integer batchSize);
 
-    /** @param projectId ID of Google Cloud project to be used when deidentifying data. */
+    /**
+     * @param projectId ID of Google Cloud project to be used when deidentifying data.
+     */
     public abstract Builder setProjectId(String projectId);
 
     /**
@@ -111,7 +125,9 @@ public abstract class DLPInspectText
      */
     public abstract Builder setColumnDelimiter(Character delimiter);
 
-    /** @param headerColumns List of column names if the input KV value is a delimited row. */
+    /**
+     * @param headerColumns List of column names if the input KV value is a delimited row.
+     */
     public abstract Builder setHeaderColumns(
         PCollectionView<Map<String, List<String>>> headerColumns);
 

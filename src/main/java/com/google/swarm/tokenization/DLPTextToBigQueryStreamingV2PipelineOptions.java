@@ -115,15 +115,18 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setHeaders(List<String> topic);
 
-  @Description("Number of shards for DLP request batches. "
-      + "Can be used to controls parallelism of DLP requests.")
+  @Description(
+      "Number of shards for DLP request batches. "
+          + "Can be used to controls parallelism of DLP requests.")
   @Default.Integer(100)
   int getNumShardsPerDLPRequestBatching();
+
   void setNumShardsPerDLPRequestBatching(int value);
 
   @Description("Number of retries in case of transient errors in DLP API")
   @Default.Integer(10)
   int getDlpApiRetryCount();
+
   void setDlpApiRetryCount(int value);
 
   @Description("Initial backoff (in seconds) for retries with exponential backoff")
@@ -131,8 +134,9 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   int getInitialBackoff();
 
   /**
-   * Initial backoff (in seconds) for retries with exponential backoff.
-   * See {@link org.apache.beam.sdk.util.FluentBackoff.BackoffImpl#nextBackOffMillis()} for details on how the exponential backoff is implemented.
+   * Initial backoff (in seconds) for retries with exponential backoff. See {@link
+   * org.apache.beam.sdk.util.FluentBackoff.BackoffImpl#nextBackOffMillis()} for details on how the
+   * exponential backoff is implemented.
    */
   void setInitialBackoff(int value);
 

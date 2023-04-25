@@ -19,7 +19,6 @@ import static org.apache.avro.file.DataFileConstants.SYNC_SIZE;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Random;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;

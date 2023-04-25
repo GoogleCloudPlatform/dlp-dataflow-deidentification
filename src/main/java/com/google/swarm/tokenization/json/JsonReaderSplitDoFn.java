@@ -19,7 +19,6 @@ import com.google.swarm.tokenization.common.FileReader;
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
 import java.util.List;
-import java.util.Random;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.metrics.Counter;
