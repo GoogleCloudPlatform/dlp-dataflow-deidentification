@@ -57,8 +57,9 @@ public class ShardRows
       throw new RuntimeException(e);
     }
 
-    if(numberOfShards == UNDEFINED_NUMBER_OF_SHARDS) {
-      DLPTextToBigQueryStreamingV2PipelineOptions options = input.getPipeline().getOptions().as(DLPTextToBigQueryStreamingV2PipelineOptions.class);
+    if (numberOfShards == UNDEFINED_NUMBER_OF_SHARDS) {
+      DLPTextToBigQueryStreamingV2PipelineOptions options =
+          input.getPipeline().getOptions().as(DLPTextToBigQueryStreamingV2PipelineOptions.class);
       numberOfShards = options.getNumShardsPerDLPRequestBatching();
     }
 

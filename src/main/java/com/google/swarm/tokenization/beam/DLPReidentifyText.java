@@ -70,11 +70,15 @@ public abstract class DLPReidentifyText
 
   public static final Integer DLP_PAYLOAD_LIMIT_BYTES = 524000;
 
-  /** @return Template name for data inspection. */
+  /**
+   * @return Template name for data inspection.
+   */
   @Nullable
   public abstract String getInspectTemplateName();
 
-  /** @return Template name for data reidentification. */
+  /**
+   * @return Template name for data reidentification.
+   */
   @Nullable
   public abstract String getReidentifyTemplateName();
 
@@ -84,28 +88,40 @@ public abstract class DLPReidentifyText
   @Nullable
   public abstract InspectConfig getInspectConfig();
 
-  /** @return Configuration object for reidentification. If present, supersedes the template. */
+  /**
+   * @return Configuration object for reidentification. If present, supersedes the template.
+   */
   @Nullable
   public abstract DeidentifyConfig getReidentifyConfig();
 
-  /** @return Delimiter to be used when splitting values from input strings into columns. */
+  /**
+   * @return Delimiter to be used when splitting values from input strings into columns.
+   */
   @Nullable
   public abstract Character getColumnDelimiter();
 
-  /** @return List of column names if the input KV value is a delimited row. */
+  /**
+   * @return List of column names if the input KV value is a delimited row.
+   */
   @Nullable
   public abstract PCollectionView<Map<String, List<String>>> getHeaderColumns();
 
-  /** @return Size of input elements batch to be sent to Cloud DLP service in one request. */
+  /**
+   * @return Size of input elements batch to be sent to Cloud DLP service in one request.
+   */
   public abstract Integer getBatchSizeBytes();
 
-  /** @return ID of Google Cloud project to be used when deidentifying data. */
+  /**
+   * @return ID of Google Cloud project to be used when deidentifying data.
+   */
   public abstract String getProjectId();
 
   @AutoValue.Builder
   public abstract static class Builder {
 
-    /** @param inspectTemplateName Template name for data inspection. */
+    /**
+     * @param inspectTemplateName Template name for data inspection.
+     */
     public abstract DLPReidentifyText.Builder setInspectTemplateName(String inspectTemplateName);
 
     /**
@@ -121,7 +137,9 @@ public abstract class DLPReidentifyText
     public abstract DLPReidentifyText.Builder setReidentifyConfig(
         DeidentifyConfig reidentifyConfig);
 
-    /** @param reidentifyTemplateName Template name for data deidentification. */
+    /**
+     * @param reidentifyTemplateName Template name for data deidentification.
+     */
     public abstract DLPReidentifyText.Builder setReidentifyTemplateName(
         String reidentifyTemplateName);
 
@@ -142,7 +160,9 @@ public abstract class DLPReidentifyText
      */
     public abstract DLPReidentifyText.Builder setColumnDelimiter(Character delimiter);
 
-    /** @param projectId ID of Google Cloud project to be used when deidentifying data. */
+    /**
+     * @param projectId ID of Google Cloud project to be used when deidentifying data.
+     */
     public abstract DLPReidentifyText.Builder setProjectId(String projectId);
 
     abstract DLPReidentifyText autoBuild();
