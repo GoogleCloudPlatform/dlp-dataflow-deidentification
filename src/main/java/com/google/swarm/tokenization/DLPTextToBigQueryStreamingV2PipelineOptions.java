@@ -159,6 +159,11 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
           .toLowerCase()
           .endsWith(".txt")) {
         return FileType.TXT;
+      } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".tsv")) {
+        return FileType.TSV;
       } else {
         return FileType.CSV;
       }
