@@ -15,15 +15,12 @@
  */
 package com.google.swarm.tokenization.beam;
 
+import com.google.api.gax.rpc.ApiException;
+import com.google.api.gax.rpc.ResourceExhaustedException;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.dlp.v2.DlpServiceClient;
-import com.google.privacy.dlp.v2.ContentItem;
-import com.google.privacy.dlp.v2.DeidentifyConfig;
-import com.google.privacy.dlp.v2.FieldId;
-import com.google.privacy.dlp.v2.InspectConfig;
-import com.google.privacy.dlp.v2.ReidentifyContentRequest;
-import com.google.privacy.dlp.v2.ReidentifyContentResponse;
-import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.*;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,12 +28,21 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.annotations.Experimental;
+import org.apache.beam.sdk.metrics.Counter;
+import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.util.BackOff;
+import org.apache.beam.sdk.util.BackOffUtils;
+import org.apache.beam.sdk.util.FluentBackoff;
+import org.apache.beam.sdk.util.Sleeper;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
+import org.joda.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A {@link PTransform} connecting to Cloud DLP (https://cloud.google.com/dlp/docs/libraries) and
@@ -116,6 +122,11 @@ public abstract class DLPReidentifyText
    */
   public abstract String getProjectId();
 
+  public abstract Integer getDlpApiRetryCount();
+
+  public abstract Integer getInitialBackoff();
+
+
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -164,6 +175,10 @@ public abstract class DLPReidentifyText
      * @param projectId ID of Google Cloud project to be used when deidentifying data.
      */
     public abstract DLPReidentifyText.Builder setProjectId(String projectId);
+
+    public abstract DLPReidentifyText.Builder setDlpApiRetryCount(Integer dlpApiRetryCount);
+
+    public abstract DLPReidentifyText.Builder setInitialBackoff(Integer initialBackoff);
 
     abstract DLPReidentifyText autoBuild();
 
@@ -221,7 +236,9 @@ public abstract class DLPReidentifyText
                         getReidentifyTemplateName(),
                         getInspectConfig(),
                         getReidentifyConfig(),
-                        getHeaderColumns()))
+                        getHeaderColumns(),
+                        getDlpApiRetryCount(),
+                        getInitialBackoff()))
                 .withSideInputs(getHeaderColumns()));
   }
 
@@ -229,6 +246,7 @@ public abstract class DLPReidentifyText
   static class ReidentifyText
       extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, ReidentifyContentResponse>> {
 
+    public static final Logger LOG = LoggerFactory.getLogger(DLPReidentifyText.ReidentifyText.class);
     private final String projectId;
     private final String inspectTemplateName;
     private final String reidentifyTemplateName;
@@ -237,6 +255,13 @@ public abstract class DLPReidentifyText
     private final PCollectionView<Map<String, List<String>>> headerColumns;
     private transient ReidentifyContentRequest.Builder requestBuilder;
     private transient DlpServiceClient dlpServiceClient;
+    private final Integer dlpApiRetryCount;
+    private final Integer initialBackoff;
+    private transient FluentBackoff backoffBuilder;
+
+    private final Counter numberOfDLPRowBagsFailedReid =
+            Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowBagsFailedReid");
+
 
     @Setup
     public void setup() throws IOException {
@@ -254,6 +279,10 @@ public abstract class DLPReidentifyText
         requestBuilder.setReidentifyTemplateName(reidentifyTemplateName);
       }
       dlpServiceClient = DlpServiceClient.create();
+      backoffBuilder =
+              FluentBackoff.DEFAULT
+                      .withMaxRetries(dlpApiRetryCount)
+                      .withInitialBackoff(Duration.standardSeconds(initialBackoff));
     }
 
     @Teardown
@@ -272,22 +301,24 @@ public abstract class DLPReidentifyText
      * @param headerColumns Header row of the table if applicable.
      */
     public ReidentifyText(
-        String projectId,
-        String inspectTemplateName,
-        String reidentifyTemplateName,
-        InspectConfig inspectConfig,
-        DeidentifyConfig reidentifyConfig,
-        PCollectionView<Map<String, List<String>>> headerColumns) {
+            String projectId,
+            String inspectTemplateName,
+            String reidentifyTemplateName,
+            InspectConfig inspectConfig,
+            DeidentifyConfig reidentifyConfig,
+            PCollectionView<Map<String, List<String>>> headerColumns, Integer dlpApiRetryCount, Integer initialBackoff) {
       this.projectId = projectId;
       this.inspectTemplateName = inspectTemplateName;
       this.reidentifyTemplateName = reidentifyTemplateName;
       this.inspectConfig = inspectConfig;
       this.reidentifyConfig = reidentifyConfig;
       this.headerColumns = headerColumns;
+      this.dlpApiRetryCount = dlpApiRetryCount;
+      this.initialBackoff = initialBackoff;
     }
 
     @ProcessElement
-    public void processElement(ProcessContext context) throws IOException {
+    public void processElement(ProcessContext context) throws IOException,InterruptedException {
       String tableRef = context.element().getKey();
 
       List<FieldId> tableHeaders;
@@ -317,10 +348,31 @@ public abstract class DLPReidentifyText
               .build();
       ContentItem contentItem = ContentItem.newBuilder().setTable(table).build();
       this.requestBuilder.setItem(contentItem);
-      ReidentifyContentResponse response =
-          dlpServiceClient.reidentifyContent(requestBuilder.build());
+      BackOff backoff = backoffBuilder.backoff();
+      boolean retry = true;
+      while (retry) {
+        try{
+          ReidentifyContentResponse response =
+                  dlpServiceClient.reidentifyContent(requestBuilder.build());
 
-      context.output(KV.of(tableRef, response));
+          context.output(KV.of(tableRef, response));
+        }catch (ResourceExhaustedException e) {
+          retry = BackOffUtils.next(Sleeper.DEFAULT, backoff);
+          if (retry) {
+            LOG.warn("Error in DLP API, Retrying...");
+          } else {
+            numberOfDLPRowBagsFailedReid.inc();
+            LOG.error(
+                    "Retried {} times unsuccessfully. Not able to reidentify some records. Exception: {}",
+                    this.dlpApiRetryCount,
+                    e.getMessage());
+          }
+        }catch (ApiException e) {
+          LOG.error(
+                  "DLP API returned error. Not able to insreidentifypect some records {}", e.getMessage());
+          retry = false;
+        }
+      }
     }
   }
 }
