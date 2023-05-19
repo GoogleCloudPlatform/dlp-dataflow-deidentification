@@ -1,11 +1,6 @@
 # Migrate Sensitive Data in BigQuery Using Dataflow & Cloud DLP  
  This repo contains a reference implementation of an end to end data tokenization solution designed to migrate sensitive data in BigQuery. Please check out the links below for reference guides: 
 
-1. [Concept & Overview](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp).
-2. [Create & Manage Cloud DLP Configurations](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset).  
-3. [Automated Dataflow Pipeline to De-identify PII Dataset](https://cloud.google.com/solutions/running-automated-dataflow-pipeline-de-identify-pii-dataset).   
-4. [Validate Dataset in BigQuery and Re-identify using Dataflow](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data).   
-
 ## Table of Contents  
 * [Quick Start](#quick-start).  
 	 
@@ -18,10 +13,23 @@
 ## Reference Architecture
 ![Reference Architecture](diagrams/ref_arch_solution.png)	   	
 
-## Quick Start
+## Concepts
+1. [Concept & Overview](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp).
+2. [Create & Manage Cloud DLP Configurations](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset).
+3. [Automated Dataflow Pipeline to De-identify PII Dataset](https://cloud.google.com/solutions/running-automated-dataflow-pipeline-de-identify-pii-dataset).
+4. [Validate Dataset in BigQuery and Re-identify using Dataflow](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data).
+
+
+## Tutorial
+
+### Pre-requisites
+
+1. Create a new project on Google Cloud Platform.
+
+2. Use the link below to open Google Cloud Shell.
 [![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git)
 
-  Run the following commands to trigger an automated deployment in your GCP project. Script handles following topics:   
+3. Run the following commands to trigger an automated deployment in your GCP project. Script handles following topics:   
  
  * Create a bucket ({project-id}-demo-data) in us-central1 and [uploads a sample dataset](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset#downloading_the_sample_files) with <b>mock</b> PII data.  
  
@@ -37,41 +45,35 @@
 
 ```
 gcloud config set project <project_id>
-sh deploy-data-tokeninzation-solution.sh
+sh deploy-data-tokeninzation-solution-v2.sh
 ```
 
  You can run some quick [validations](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data#validating_the_de-identified_dataset_in_bigquery) in BigQuery table to check on tokenized data.  
 
 For re-identification (getting back the original data in a Pub/Sub topic), please follow this instruction [here](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data#re-identifying_the_dataset_from_bigquery).  
 
-## V2 Solution By Using In Built Java Beam Transform
-This part of the repo provides a reference implementation to process large scale files for  any DLP transformation like Inspect, Deidentify or ReIdentify.  Solution can be used for CSV / Avro files stored in either GCS or AWS S3 bucket. It uses State and Timer API for efficient batching to process the files in optimal manner. 
 
-## Build and Run
+### Build and Run (V2 Solution By Using In Built Java Beam Transform)
+
+This part of the repo provides a reference implementation to process large scale files for  any DLP transformation like Inspect, Deidentify or ReIdentify.  Solution can be used for CSV / Avro files stored in either GCS or AWS S3 bucket. It uses State and Timer API for efficient batching to process the files in optimal manner.
+
 ```
 gradle spotlessApply
 
 gradle build
+```
 
+### Inspection
+```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" --region=<region> --project=<projct_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=gs://<path>.csv --dataset=<name>   --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --DLPMethod=DEID"
 ```
-## S3 Scanner
 
+### Deidentification
 ```
-export AWS_ACCESS_KEY="<access_key>"
-export AWS_SECRET_KEY="<secret_key>"
-export AWS_CRED="{\"@type\":\"AWSStaticCredentialsProvider\",\"awsAccessKeyId\":\"${AWS_ACCESS_KEY}\",\"awsSecretKey\":\"${AWS_SECRET_KEY}\"}"
-```
-```
-gradle spotlessApply
-
-gradle build
-
-// inspect is default as DLP Method; For deid: --DLPMethod=DEID
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=s3://<bucket>>/file.csv --dataset=<name>  --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --awsRegion=<aws_region> --awsCredentialsProvider=$AWS_CRED"
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" --region=<region> --project=<projct_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=gs://<path>.csv --dataset=<name>   --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --DLPMethod=DEID"
 ```
 
-## ReIdentification From BigQuery 
+### ReIdentification From BigQuery
 You can. use the pipeline to read from BgQuery table and publish the re-identification data in a secure pub sub topic.
 
 Export the Standard SQL Query to read data from bigQuery
@@ -92,6 +94,45 @@ Run the pipeline by passing required parameters:
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=5 --maxNumWorkers=10 --runner=DataflowRunner --tableRef=<project_id>:<dataset>.<table> --dataset=<dataset> --topic=projects/<project_id>/topics/<name> --autoscalingAlgorithm=THROUGHPUT_BASED --workerMachineType=n1-highmem-4 --deidentifyTemplateName=projects/<project_id>/deidentifyTemplates/<name> --DLPMethod=REID --keyRange=1024 --queryPath=gs://<gcs_reid_query_bucket>/reid_query.sql"
 
 ```
+
+### Pipeline Parameters
+
+### Supported File Formats
+1. AVRO
+2. JSONL
+3. TSV
+4. CSV
+
+
+### S3 Scanner
+
+```
+export AWS_ACCESS_KEY="<access_key>"
+export AWS_SECRET_KEY="<secret_key>"
+export AWS_CRED="{\"@type\":\"AWSStaticCredentialsProvider\",\"awsAccessKeyId\":\"${AWS_ACCESS_KEY}\",\"awsSecretKey\":\"${AWS_SECRET_KEY}\"}"
+```
+```
+gradle spotlessApply
+
+gradle build
+
+// inspect is default as DLP Method; For deid: --DLPMethod=DEID
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=s3://<bucket>>/file.csv --dataset=<name>  --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --awsRegion=<aws_region> --awsCredentialsProvider=$AWS_CRED"
+```
+
+## How to adapt this pipeline for your use cases
+1. Create your own inspection templates 
+2. Run inspection on a sample data 
+3. Create De-id templates and run pipeline 
+4. Stream new files to input folder.
+
+## Troubleshooting
+Give instructions on where to look for error in logs. The pipeline handles transient errors.
+
+## Advanced topics
+
+## Disclaimer
+
 ## Dataflow DAG
 
 For Deid and Inspect:
