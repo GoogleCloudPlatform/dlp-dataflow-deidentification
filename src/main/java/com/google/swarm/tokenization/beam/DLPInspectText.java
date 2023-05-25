@@ -109,7 +109,6 @@ public abstract class DLPInspectText
 
   public abstract Integer getInitialBackoff();
 
-
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -148,7 +147,6 @@ public abstract class DLPInspectText
     public abstract DLPInspectText.Builder setDlpApiRetryCount(Integer dlpApiRetryCount);
 
     public abstract DLPInspectText.Builder setInitialBackoff(Integer initialBackoff);
-
 
     abstract DLPInspectText autoBuild();
 
@@ -222,7 +220,6 @@ public abstract class DLPInspectText
     private final Integer initialBackoff;
     private transient FluentBackoff backoffBuilder;
 
-
     // Counter to track total number of Rows inspected from DLP inspection
     private final Counter numberOfRowsInspected =
         Metrics.counter(InspectData.class, "numberOfRowsInspected");
@@ -232,21 +229,23 @@ public abstract class DLPInspectText
         Metrics.counter(InspectData.class, "numberOfDlpApiCalls");
 
     private final Counter numberOfDLPRowBagsFailedInspection =
-            Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowBagsFailedInspection");
+        Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowBagsFailedInspection");
 
     /**
      * @param projectId ID of GCP project that should be used for data inspection.
      * @param inspectTemplateName Template name for inspection.
-     * @param inspectConfig       Configuration object for inspection.
-     * @param headerColumns       Header row of the table if applicable.
+     * @param inspectConfig Configuration object for inspection.
+     * @param headerColumns Header row of the table if applicable.
      * @param dlpApiRetryCount
      * @param initialBackoff
      */
     public InspectData(
-            String projectId,
-            String inspectTemplateName,
-            InspectConfig inspectConfig,
-            PCollectionView<Map<String, List<String>>> headerColumns, Integer dlpApiRetryCount, Integer initialBackoff) {
+        String projectId,
+        String inspectTemplateName,
+        InspectConfig inspectConfig,
+        PCollectionView<Map<String, List<String>>> headerColumns,
+        Integer dlpApiRetryCount,
+        Integer initialBackoff) {
       this.projectId = projectId;
       this.inspectTemplateName = inspectTemplateName;
       this.inspectConfig = inspectConfig;
@@ -269,9 +268,9 @@ public abstract class DLPInspectText
       }
       dlpServiceClient = DlpServiceClient.create();
       backoffBuilder =
-              FluentBackoff.DEFAULT
-                      .withMaxRetries(dlpApiRetryCount)
-                      .withInitialBackoff(Duration.standardSeconds(initialBackoff));
+          FluentBackoff.DEFAULT
+              .withMaxRetries(dlpApiRetryCount)
+              .withInitialBackoff(Duration.standardSeconds(initialBackoff));
     }
 
     @Teardown
@@ -280,7 +279,7 @@ public abstract class DLPInspectText
     }
 
     @ProcessElement
-    public void processElement(ProcessContext c) throws IOException,InterruptedException{
+    public void processElement(ProcessContext c) throws IOException, InterruptedException {
       String tableRef = c.element().getKey();
       List<FieldId> tableHeaders;
       if (headerColumns != null) {
@@ -309,30 +308,28 @@ public abstract class DLPInspectText
       numberOfRowsInspected.inc(table.getRowsCount());
       boolean retry = true;
       while (retry) {
-        try{
+        try {
           InspectContentResponse response =
-                  dlpServiceClient.inspectContent(this.requestBuilder.build());
+              dlpServiceClient.inspectContent(this.requestBuilder.build());
 
           numberOfDlpApiCalls.inc();
           c.output(KV.of(tableRef, response));
-        }catch (ResourceExhaustedException e) {
+        } catch (ResourceExhaustedException e) {
           retry = BackOffUtils.next(Sleeper.DEFAULT, backoff);
           if (retry) {
             LOG.warn("Error in DLP API, Retrying...");
           } else {
             numberOfDLPRowBagsFailedInspection.inc();
             LOG.error(
-                    "Retried {} times unsuccessfully. Not able to inspect some records. Exception: {}",
-                    this.dlpApiRetryCount,
-                    e.getMessage());
+                "Retried {} times unsuccessfully. Not able to inspect some records. Exception: {}",
+                this.dlpApiRetryCount,
+                e.getMessage());
           }
-        }catch (ApiException e) {
-          LOG.error(
-                  "DLP API returned error. Not able to inspect some records {}", e.getMessage());
+        } catch (ApiException e) {
+          LOG.error("DLP API returned error. Not able to inspect some records {}", e.getMessage());
           retry = false;
         }
       }
-
     }
   }
 }

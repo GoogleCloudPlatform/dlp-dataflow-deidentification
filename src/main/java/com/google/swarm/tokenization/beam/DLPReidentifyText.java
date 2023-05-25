@@ -20,7 +20,6 @@ import com.google.api.gax.rpc.ResourceExhaustedException;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.dlp.v2.DlpServiceClient;
 import com.google.privacy.dlp.v2.*;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -125,7 +124,6 @@ public abstract class DLPReidentifyText
   public abstract Integer getDlpApiRetryCount();
 
   public abstract Integer getInitialBackoff();
-
 
   @AutoValue.Builder
   public abstract static class Builder {
@@ -246,7 +244,8 @@ public abstract class DLPReidentifyText
   static class ReidentifyText
       extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, ReidentifyContentResponse>> {
 
-    public static final Logger LOG = LoggerFactory.getLogger(DLPReidentifyText.ReidentifyText.class);
+    public static final Logger LOG =
+        LoggerFactory.getLogger(DLPReidentifyText.ReidentifyText.class);
     private final String projectId;
     private final String inspectTemplateName;
     private final String reidentifyTemplateName;
@@ -260,8 +259,7 @@ public abstract class DLPReidentifyText
     private transient FluentBackoff backoffBuilder;
 
     private final Counter numberOfDLPRowBagsFailedReid =
-            Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowBagsFailedReid");
-
+        Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowBagsFailedReid");
 
     @Setup
     public void setup() throws IOException {
@@ -280,9 +278,9 @@ public abstract class DLPReidentifyText
       }
       dlpServiceClient = DlpServiceClient.create();
       backoffBuilder =
-              FluentBackoff.DEFAULT
-                      .withMaxRetries(dlpApiRetryCount)
-                      .withInitialBackoff(Duration.standardSeconds(initialBackoff));
+          FluentBackoff.DEFAULT
+              .withMaxRetries(dlpApiRetryCount)
+              .withInitialBackoff(Duration.standardSeconds(initialBackoff));
     }
 
     @Teardown
@@ -301,12 +299,14 @@ public abstract class DLPReidentifyText
      * @param headerColumns Header row of the table if applicable.
      */
     public ReidentifyText(
-            String projectId,
-            String inspectTemplateName,
-            String reidentifyTemplateName,
-            InspectConfig inspectConfig,
-            DeidentifyConfig reidentifyConfig,
-            PCollectionView<Map<String, List<String>>> headerColumns, Integer dlpApiRetryCount, Integer initialBackoff) {
+        String projectId,
+        String inspectTemplateName,
+        String reidentifyTemplateName,
+        InspectConfig inspectConfig,
+        DeidentifyConfig reidentifyConfig,
+        PCollectionView<Map<String, List<String>>> headerColumns,
+        Integer dlpApiRetryCount,
+        Integer initialBackoff) {
       this.projectId = projectId;
       this.inspectTemplateName = inspectTemplateName;
       this.reidentifyTemplateName = reidentifyTemplateName;
@@ -318,7 +318,7 @@ public abstract class DLPReidentifyText
     }
 
     @ProcessElement
-    public void processElement(ProcessContext context) throws IOException,InterruptedException {
+    public void processElement(ProcessContext context) throws IOException, InterruptedException {
       String tableRef = context.element().getKey();
 
       List<FieldId> tableHeaders;
@@ -351,25 +351,26 @@ public abstract class DLPReidentifyText
       BackOff backoff = backoffBuilder.backoff();
       boolean retry = true;
       while (retry) {
-        try{
+        try {
           ReidentifyContentResponse response =
-                  dlpServiceClient.reidentifyContent(requestBuilder.build());
+              dlpServiceClient.reidentifyContent(requestBuilder.build());
 
           context.output(KV.of(tableRef, response));
-        }catch (ResourceExhaustedException e) {
+        } catch (ResourceExhaustedException e) {
           retry = BackOffUtils.next(Sleeper.DEFAULT, backoff);
           if (retry) {
             LOG.warn("Error in DLP API, Retrying...");
           } else {
             numberOfDLPRowBagsFailedReid.inc();
             LOG.error(
-                    "Retried {} times unsuccessfully. Not able to reidentify some records. Exception: {}",
-                    this.dlpApiRetryCount,
-                    e.getMessage());
+                "Retried {} times unsuccessfully. Not able to reidentify some records. Exception: {}",
+                this.dlpApiRetryCount,
+                e.getMessage());
           }
-        }catch (ApiException e) {
+        } catch (ApiException e) {
           LOG.error(
-                  "DLP API returned error. Not able to insreidentifypect some records {}", e.getMessage());
+              "DLP API returned error. Not able to insreidentifypect some records {}",
+              e.getMessage());
           retry = false;
         }
       }
