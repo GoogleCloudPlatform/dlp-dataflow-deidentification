@@ -116,6 +116,8 @@ public abstract class DLPTransform
                       .setHeaderColumns(headers())
                       .setInspectTemplateName(inspectTemplateName())
                       .setProjectId(projectId())
+                      .setDlpApiRetryCount(dlpApiRetryCount())
+                      .setInitialBackoff(initialBackoff())
                       .build())
               .apply(
                   "ConvertInspectResponse",
@@ -157,6 +159,8 @@ public abstract class DLPTransform
                       .setInspectTemplateName(inspectTemplateName())
                       .setReidentifyTemplateName(deidTemplateName())
                       .setProjectId(projectId())
+                      .setDlpApiRetryCount(dlpApiRetryCount())
+                      .setInitialBackoff(initialBackoff())
                       .build())
               .apply(
                   "ConvertReidResponse",
