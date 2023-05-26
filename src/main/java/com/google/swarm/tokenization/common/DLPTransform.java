@@ -159,6 +159,8 @@ public abstract class DLPTransform
                       .setInspectTemplateName(inspectTemplateName())
                       .setReidentifyTemplateName(deidTemplateName())
                       .setProjectId(projectId())
+                      .setDlpApiRetryCount(dlpApiRetryCount())
+                      .setInitialBackoff(initialBackoff())
                       .build())
               .apply(
                   "ConvertReidResponse",
