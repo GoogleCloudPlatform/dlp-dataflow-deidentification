@@ -177,13 +177,14 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 ## Troubleshooting
 
-Give instructions on where to look for error in logs. The pipeline handles transient errors.
-
 Following are the known issues with Cloud DLP, along with ways you can avoid or recover from them.
 
 BigQuery Scanning: Issues common to inspection & de-identification operations in BigQuery
 
 1. Duplicate Rows: When writing data to a BigQuery table, Cloud DLP might write duplicate rows.
+
+Solution: The project uses Streaming Inserts API of BigQuery which by default enables best-effort deduplication mechanism but it should not be relied upon as a mechanism to guarantee the absence of duplicates in your data.
+For solution, checkout [high number of duplicates in Dataflow pipeline streaming inserts to BigQuery](https://cloud.google.com/knowledge/kb/high-number-of-duplicates-in-dataflow-pipeline-streaming-inserts-to-bigquery-000004276?authuser=0).
 
 ## Advanced topics
 
