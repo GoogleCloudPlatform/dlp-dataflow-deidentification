@@ -140,11 +140,18 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 ### S3 Scanner
 
+To use AWS S3 as a source of input files, use AWS credentials as instructed below.
+
+Export the AWS access key, secret key, and credentials provider to environment variables. 
+
 ```
 export AWS_ACCESS_KEY="<access_key>"
 export AWS_SECRET_KEY="<secret_key>"
 export AWS_CRED="{\"@type\":\"AWSStaticCredentialsProvider\",\"awsAccessKeyId\":\"${AWS_ACCESS_KEY}\",\"awsSecretKey\":\"${AWS_SECRET_KEY}\"}"
 ```
+
+Use Gradle to build and run the job to performs data loss prevention (DLP) on a CSV file stored in Amazon S3. The results will be written to BigQuery.
+
 ```
 gradle spotlessApply
 
@@ -153,6 +160,13 @@ gradle build
 // inspect is default as DLP Method; For deid: --DLPMethod=DEID
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=s3://<bucket>>/file.csv --dataset=<name>  --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --awsRegion=<aws_region> --awsCredentialsProvider=$AWS_CRED"
 ```
+
+#### Parameters:
+
+* --awsRegion: The region where the AWS resources reside.
+
+* --awsCredentialsProvider: The AWS credentials provider.
+
 
 ## How to adapt this pipeline for your use cases
 
