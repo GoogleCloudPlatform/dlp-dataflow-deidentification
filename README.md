@@ -52,26 +52,31 @@
 1. Create a new project on Google Cloud Platform.
 
 2. Use the link below to open Google Cloud Shell.
+
    [![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git)
 
-3. Run the following commands to trigger an automated deployment in your GCP project. Script handles following topics:
-
-* Create a bucket ({project-id}-demo-data) in us-central1 and [uploads a sample dataset](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset#downloading_the_sample_files) with <b>mock</b> PII data.
-
-* Create a BigQuery dataset in US (demo_dataset) to store the tokenized data.
-
-* Create a [KMS wrapped key(KEK)](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset#creating_a_key_encryption_key_kek) by creating an automatic [TEK](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp#token_encryption_keys) (Token Encryption Key).
-
-* Create DLP [inspect and re-identification template](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset#creating_the_cloud_dlp_templates) with the KEK and crypto based transformations identified in this [section of the guide](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp#determining_transformation_type)
-
-* Trigger an [automated Dataflow pipeline](https://cloud.google.com/dataflow/docs/guides/templates/provided-streaming#data-maskingtokenization-using-cloud-dlp-from-cloud-storage-to-bigquery-stream) by passing all the required [parameters](https://cloud.google.com/solutions/running-automated-dataflow-pipeline-de-identify-pii-dataset#reviewing_the_pipeline_parameters) e.g: data, configuration & dataset name.
-
-* Please allow 5-10 mins for the deployment to be completed.
+3. Run the following commands to trigger an automated deployment in your GCP project. 
 
 ```
 gcloud config set project <project_id>
 sh deploy-data-tokeninzation-solution-v2.sh
 ```
+
+Script (deploy-data-tokeninzation-solution-v2.sh) handles following topics:
+
+* Create a service account for running the DLP pipeline (creates a custom role).
+
+* Emit a set_env.sh that can be used to set temporary environment variables while triggering the DLP pipelines.
+
+* Create a bucket ({project-id}-demo-data) in us-central1 and [uploads a sample dataset](http://storage.googleapis.com/dataflow-dlp-solution-sample-data/sample_data_scripts.tar.gz) with <b>mock</b> PII data.
+
+* Create a BigQuery dataset in US (demo_dataset) to store the tokenized data.
+
+* Create a [KMS wrapped key(KEK)](https://cloud.google.com/kms/docs/envelope-encryption) by creating an automatic [TEK](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp#token_encryption_keys) (Token Encryption Key).
+
+* Create DLP [inspect, de-identification and re-identification templates](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset#creating_the_cloud_dlp_templates) with the KEK and crypto based transformations identified in this [section of the guide](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp#determining_transformation_type)
+
+Please allow 5-10 mins for the deployment to be completed.
 
 You can run some quick [validations](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data#validating_the_de-identified_dataset_in_bigquery) in BigQuery table to check on tokenized data.
 
@@ -135,11 +140,18 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 ### S3 Scanner
 
+To use AWS S3 as a source of input files, use AWS credentials as instructed below.
+
+Export the AWS access key, secret key, and credentials provider to environment variables. 
+
 ```
 export AWS_ACCESS_KEY="<access_key>"
 export AWS_SECRET_KEY="<secret_key>"
 export AWS_CRED="{\"@type\":\"AWSStaticCredentialsProvider\",\"awsAccessKeyId\":\"${AWS_ACCESS_KEY}\",\"awsSecretKey\":\"${AWS_SECRET_KEY}\"}"
 ```
+
+Use Gradle to build and run the job to performs data loss prevention (DLP) on a CSV file stored in Amazon S3. The results will be written to BigQuery.
+
 ```
 gradle spotlessApply
 
@@ -148,6 +160,13 @@ gradle build
 // inspect is default as DLP Method; For deid: --DLPMethod=DEID
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=s3://<bucket>>/file.csv --dataset=<name>  --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --awsRegion=<aws_region> --awsCredentialsProvider=$AWS_CRED"
 ```
+
+#### Parameters:
+
+* --awsRegion: The region where the AWS resources reside.
+
+* --awsCredentialsProvider: The AWS credentials provider.
+
 
 ## How to adapt this pipeline for your use cases
 
@@ -158,7 +177,14 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 ## Troubleshooting
 
-Give instructions on where to look for error in logs. The pipeline handles transient errors.
+Following are the known issues with Cloud DLP, along with ways you can avoid or recover from them.
+
+BigQuery Scanning: Issues common to inspection & de-identification operations in BigQuery
+
+1. Duplicate Rows: When writing data to a BigQuery table, Cloud DLP might write duplicate rows.
+
+Solution: The project uses Streaming Inserts API of BigQuery which by default enables best-effort deduplication mechanism but it should not be relied upon as a mechanism to guarantee the absence of duplicates in your data.
+For solution, checkout [high number of duplicates in Dataflow pipeline streaming inserts to BigQuery](https://cloud.google.com/knowledge/kb/high-number-of-duplicates-in-dataflow-pipeline-streaming-inserts-to-bigquery-000004276?authuser=0).
 
 ## Advanced topics
 
