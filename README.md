@@ -33,6 +33,11 @@
 
 ![Reference Architecture](diagrams/ref_arch_solution.png)
 
+## Operations Supported
+### Inspection
+### De-identification
+### Re-identification
+
 ## Concepts
 
 1. [Cloud Data Loss Prevention - Quick Start & Guides](https://cloud.google.com/dlp/docs/dlp-bigquery)
@@ -125,12 +130,61 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 ### Pipeline Parameters
 
+Following pipeline options have 
+
+| Pipeline Option                  | Description                                                                                                                  | Used in Operations  |
+|----------------------------------|------------------------------------------------------------------------------------------------------------------------------|---------------------|
+| `region`                         |                                                                                                                              | All                 |
+| `project`                        |                                                                                                                              | All                 |
+| `tempLocation`                   |                                                                                                                              | All                 | 
+| `streaming`                      |                                                                                                                              | INSPECT/DEID        |
+| `enableStreamingEngine`          |                                                                                                                              | INSPECT/DEID        |
+| `tempLocation`                   |                                                                                                                              | All                 |
+| `numWorkers`                     | (Optional)                                                                                                                   | All                 |
+| `maxNumWorkers`                  | (Optional)                                                                                                                   | All                 |
+| `runner`                         | DataflowRunner                                                                                                               | All                 |
+| `inspectTemplateName`            | DLP Inspect Template Name                                                                                                    | INSPECT/DEID        | 
+| `deidentifyTemplateName`         | DLP DeIdentify Template Name                                                                                                 | All                 |
+| `DLPMethod`                      | Type DLP operation to perform - INSPECT/DEID/REID                                                                            | All                 |
+| `batchSize`                      | (Optional) Batch size for DLP API, default is 500K                                                                           | All                 |
+| `dataset`                        | BQ Dataset                                                                                                                   | All                 |
+| `recordDelimiter`                | (Optional) Record delimiter                                                                                                  | INSPECT/DEID        |
+| `columnDelimiter`                | Column Delimiter - Only required in case of custom delimiter                                                                 | INSPECT/DEID        | 
+| `tableRef`                       | BigQuery table to export from in the form `<project>:<dataset>.<table>`                                                       | REID                |
+| `queryPath`                      |                                                                                                                              | REID                |
+| `headers`                        | DLP Table Headers- Required for Jsonl file type                                                                              | INSPECT/DEID        |
+| `numShardsPerDLPRequestBatching` | (Optional) Number of shards for DLP request batches.Can be used to controls parallelism of DLP requests. Default value is 100 | All                 |
+| `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API, Default value is 10                                     | All                 |
+| `getInitialBackoff`              | (Optional) Initial backoff (in seconds) for retries with exponential backoff, default is 5s                                  | All                 |
+
 ### Supported File Formats
 
-1. AVRO
-2. JSONL
-3. TSV
-4. CSV
+1. CSV
+
+The sample commands for processing csv files have been provided in the above section [Build and Run](#build-and-run-v2-solution-by-using-in-built-java-beam-transform)
+
+2. TSV
+
+TSV files are handled in the same way as CSV files with TAB as column delimiter. No additional changes are required in pipeline options.
+3. JSONL
+
+The pipeline supports JSONL file format where each line is a valid JSON Object and newline character is used to separate JSON objects. A sample file can be found in [test resources](src/test/resources/CCRecords_sample.jsonl). 
+To run the pipeline for JSONL files, the list of comma separated headers also needs to be passed in the pipeline options. 
+```
+// Copy the sample jsonl file to GCS
+gsutil cp ./src/test/resources/CCRecords_sample.jsonl gs://<bucket>/
+
+// Run the pipeline using following command
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" --region=<region> --project=<projct_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=gs://<path>.jsonl --dataset=<name>   --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --DLPMethod=DEID --headers=<comma_separated_list_of_headers>"
+```
+4. Avro
+5. CSV files with custom delimiter 
+
+It is possible to provide csv files with custom delimiter. The delimiter has to be passed in the pipeline option as "--columnDelimiter". 
+```
+gradle build ... -Pargs="... --columnDelimiter=|"
+```
+
 
 
 ### S3 Scanner
