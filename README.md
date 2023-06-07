@@ -226,6 +226,8 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 Avro files are handled in the same way as CSV files. No additional changes are required to run the pipeline.
 
+Refer [here](src/test/resources/avro) for sample data.
+
 5. CSV files with custom delimiter 
 
 It is possible to provide csv files with custom delimiter. The delimiter has to be passed in the pipeline option as "--columnDelimiter". 
@@ -276,40 +278,29 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 Following are the known issues with Cloud DLP, along with ways you can avoid or recover from them.
 
-1. BigQuery Scanning: Issues common to inspection & de-identification operations in BigQuery
+1. Duplicate Rows: When writing data to a BigQuery table, Cloud DLP might write duplicate rows.
 
-    Duplicate Rows: When writing data to a BigQuery table, Cloud DLP might write duplicate rows.
-
-    Solution: The project uses Streaming Inserts API of BigQuery which by default enables best-effort deduplication mechanism but it should not be relied upon as a mechanism to guarantee the absence of duplicates in your data.
+    > The project uses Streaming Inserts API of BigQuery which by default enables best-effort deduplication mechanism but it should not be relied upon as a mechanism to guarantee the absence of duplicates in your data.
     For solution, checkout [high number of duplicates in Dataflow pipeline streaming inserts to BigQuery](https://cloud.google.com/knowledge/kb/high-number-of-duplicates-in-dataflow-pipeline-streaming-inserts-to-bigquery-000004276?authuser=0).
 
 2. Error in DLP API : "Too many findings in request"
 
-   DLP has a max findings per request [limit](https://cloud.google.com/dlp/limits#content-redaction-limits) of 3000.
+   > DLP has a max findings per request [limit](https://cloud.google.com/dlp/limits#content-redaction-limits) of 3000.
    Run pipeline again with smaller batch size. 
 
 3. DLP API request quota exhausted
 
-   This can happen if the dataflow pipeline is being run with a small batch size. Rerun the pipeline with a larger value of batch size.
+   > This can happen if the dataflow pipeline is being run with a small batch size. Rerun the pipeline with a larger value of batch size.
    If batch size cannot be increased or issue persists despite saturating the batch size:
+   > 
+   >  * Increase the value of parameter dlpApiRetryCount
+   >
+   >  * The dlp-dataflow-deidentification repo offers a parameter numShardsPerDLPRequestBatching. Reducing this below the default (100) will reduce the number of parallel requests sent to DLP.
+   >
+   >  * Review if there are other pipelines/clients generating DLP API requests.  Submit a request to increase the quota.
+   >
+   >  * Submit a request to increase the quota.
 
-    * Increase the value of parameter dlpApiRetryCount
-
-    * The dlp-dataflow-deidentification repo offers a parameter numShardsPerDLPRequestBatching. Reducing this below the default (100) will reduce the number of parallel requests sent to DLP.
-
-    * Review if there are other pipelines/clients generating DLP API requests.  Submit a request to increase the quota.
-
-    * Submit a request to increase the quota.
-
-
-
-
-
-
-
-## Advanced topics
-
-## Disclaimer
 
 ## Dataflow DAG
 
@@ -325,7 +316,8 @@ For Reid:
 
 
 
-## Trigger Pipeline Using Public Image
+## Advanced topics
+
 You can use the gcloud command to trigger the pipeline using Dataflow flex template. Below is an example for de-identification transform from a S3 bucket.
 
 ```
@@ -334,3 +326,10 @@ gcloud beta dataflow flex-template run "dlp-s3-scanner-deid-demo" --project=<pro
 --parameters=^~^streaming=true~enableStreamingEngine=true~tempLocation=gs://<path>/temp~numWorkers=5~maxNumWorkers=5~runner=DataflowRunner~filePattern=<s3orgcspath>/filename.csv~dataset=<bq_dataset>~autoscalingAlgorithm=THROUGHPUT_BASED~workerMachineType=n1-highmem-8~inspectTemplateName=<inspect_template>~deidentifyTemplateName=<deid_template>~awsRegion=ca-central-1~awsCredentialsProvider=$AWS_CRED~batchSize=100000~DLPMethod=DEID
 
 ```
+
+Follow the instructions to [create a flex template](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates) and image to avoid running gradle each time.
+
+
+## Disclaimer
+
+TBD
