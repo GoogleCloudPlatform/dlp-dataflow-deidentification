@@ -139,12 +139,11 @@ You can run some quick [validations](https://cloud.google.com/solutions/validati
 
 
 #### Re-Identification From BigQuery
-Export the Standard SQL Query to read data from bigQuery
-One example from our solution guide:
+1. Export the Standard SQL Query to read data from bigQuery. One example from our solution guide:
 ```
 export QUERY="select ID,Card_Number,Card_Holders_Name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.100000CCRecords\` where safe_cast(Credit_Limit as int64)>100000 and safe_cast (Age as int64)>50 group by ID,Card_Number,Card_Holders_Name limit 10"
 ```
-Create a gcs file with the query:
+2. Create a gcs file with the query:
 
 ```
 export REID_QUERY_BUCKET=<name>
@@ -152,7 +151,9 @@ cat << EOF | gsutil cp - gs://${REID_QUERY_BUCKET}/reid_query.sql
 ${QUERY}
 EOF
 ```
-Run the pipeline by passing required parameters:
+3. Create a pub-sub topic. Refer [create a topic](https://cloud.google.com/pubsub/docs/create-topic#create_a_topic)
+
+4. Run the pipeline by passing required parameters:
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 
 -Pargs="--region=<region> 
@@ -172,36 +173,35 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --queryPath=gs://${REID_QUERY_BUCKET}/reid_query.sql"
 
 ```
-For re-identification (getting back the original data in a Pub/Sub topic), please follow this instruction [here](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data#re-identifying_the_dataset_from_bigquery).
 
 ### Pipeline Parameters
 
 Following pipeline options have 
 
-| Pipeline Option                  | Description                                                                                                                  | Used in Operations  |
-|----------------------------------|------------------------------------------------------------------------------------------------------------------------------|---------------------|
-| `region`                         |                                                                                                                              | All                 |
-| `project`                        |                                                                                                                              | All                 |
-| `tempLocation`                   |                                                                                                                              | All                 | 
-| `streaming`                      |                                                                                                                              | INSPECT/DEID        |
-| `enableStreamingEngine`          |                                                                                                                              | INSPECT/DEID        |
-| `tempLocation`                   |                                                                                                                              | All                 |
-| `numWorkers`                     | (Optional)                                                                                                                   | All                 |
-| `maxNumWorkers`                  | (Optional)                                                                                                                   | All                 |
-| `runner`                         | DataflowRunner                                                                                                               | All                 |
-| `inspectTemplateName`            | DLP Inspect Template Name                                                                                                    | INSPECT/DEID        | 
-| `deidentifyTemplateName`         | DLP DeIdentify Template Name                                                                                                 | All                 |
-| `DLPMethod`                      | Type DLP operation to perform - INSPECT/DEID/REID                                                                            | All                 |
-| `batchSize`                      | (Optional) Batch size for DLP API, default is 500K                                                                           | All                 |
-| `dataset`                        | BQ Dataset                                                                                                                   | All                 |
-| `recordDelimiter`                | (Optional) Record delimiter                                                                                                  | INSPECT/DEID        |
-| `columnDelimiter`                | Column Delimiter - Only required in case of custom delimiter                                                                 | INSPECT/DEID        | 
-| `tableRef`                       | BigQuery table to export from in the form `<project>:<dataset>.<table>`                                                       | REID                |
-| `queryPath`                      |                                                                                                                              | REID                |
-| `headers`                        | DLP Table Headers- Required for Jsonl file type                                                                              | INSPECT/DEID        |
-| `numShardsPerDLPRequestBatching` | (Optional) Number of shards for DLP request batches.Can be used to controls parallelism of DLP requests. Default value is 100 | All                 |
-| `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API, Default value is 10                                     | All                 |
-| `getInitialBackoff`              | (Optional) Initial backoff (in seconds) for retries with exponential backoff, default is 5s                                  | All                 |
+| Pipeline Option                  | Description                                                                                                                                                                                                                                                        | Used in Operations  |
+|----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
+| `region`                         | Specifies a regional endpoint for deploying your Dataflow jobs.                                                                                                                                                                                                    | All                 |
+| `project`                        | The project ID for your Google Cloud project.                                                                                                                                                                                                                      | All                 |
+| `streaming`                      | true is streaming pipeline                                                                                                                                                                                                                                         | INSPECT/DEID        |
+| `enableStreamingEngine`          | Specifies whether Dataflow Streaming Engine is enabled or disabled                                                                                                                                                                                                 | INSPECT/DEID        |
+| `tempLocation`                   | Cloud Storage path for temporary files. Must be a valid Cloud Storage URL                                                                                                                                                                                          | All                 |
+| `numWorkers`                     | (Optional) The initial number of Compute Engine instances to use when executing your pipeline. This option determines how many workers the Dataflow service starts up when your job begins.                                                                        | All                 |
+| `maxNumWorkers`                  | (Optional) The maximum number of Compute Engine instances to be made available to your pipeline during execution. This value can be higher than the initial number of workers (specified by numWorkers) to allow your job to scale up, automatically or otherwise. | All                 |
+| `runner`                         | DataflowRunner                                                                                                                                                                                                                                                     | All                 |
+| `inspectTemplateName`            | DLP Inspect Template Name                                                                                                                                                                                                                                          | INSPECT/DEID        | 
+| `deidentifyTemplateName`         | DLP DeIdentify Template Name                                                                                                                                                                                                                                       | All                 |
+| `DLPMethod`                      | Type DLP operation to perform - INSPECT/DEID/REID                                                                                                                                                                                                                  | All                 |
+| `batchSize`                      | (Optional) Batch size for DLP API, default is 500K                                                                                                                                                                                                                 | All                 |
+| `dataset`                        | BQ Dataset to write the inspect/deid results or to read from in case of reid                                                                                                                                                                                       | All                 |
+| `recordDelimiter`                | (Optional) Record delimiter                                                                                                                                                                                                                                        | INSPECT/DEID        |
+| `columnDelimiter`                | Column Delimiter - Only required in case of custom delimiter                                                                                                                                                                                                       | INSPECT/DEID        | 
+| `tableRef`                       | BigQuery table to export from in the form `<project>:<dataset>.<table>`                                                                                                                                                                                            | REID                |
+| `queryPath`                      | Query file for reid                                                                                                                                                                                                                                                | REID                |
+| `headers`                        | DLP Table Headers- Required for Jsonl file type                                                                                                                                                                                                                    | INSPECT/DEID        |
+| `numShardsPerDLPRequestBatching` | (Optional) Number of shards for DLP request batches.Can be used to controls parallelism of DLP requests. Default value is 100                                                                                                                                      | All                 |
+| `numberOfWorkerHarnessThreads`   | (Optional) The number of threads per each worker harness process                                                                                                                                                                                                   | All                 |
+| `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API, Default value is 10                                                                                                                                                                           | All                 |
+| `getInitialBackoff`              | (Optional) Initial backoff (in seconds) for retries with exponential backoff, default is 5s                                                                                                                                                                        | All                 |
 
 ### Supported File Formats
 
