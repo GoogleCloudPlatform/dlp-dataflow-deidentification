@@ -5,7 +5,7 @@
 
 ## Table of Contents
 
-* [Reference Architecture](#reference-architecture)
+* [Architecture](#architecture)
 
 * [Concepts](#concepts)
 
@@ -30,16 +30,19 @@
 * [Disclaimer](#disclaimer)
 
 
-## Reference Architecture
+## Architecture
+The solution comprises two types of pipelines (based on the DLP Transformation type). Refer [Dataflow DAG](#dataflow-dag) for pipeline job graph:
+1. Inspect and Deidentify
+2. ReIdentify
 
-![Reference Architecture](diagrams/ref_arch_solution.png)
+### Inspection and De-identification
+![Reference Architecture](diagrams/inspect-deid-architecture.png)
+The pipeline can be used for CSV, TSV, Avro, JSONL files stored in either GCS or AWS S3 bucket. It uses State and Timer API for efficient batching to process the files in optimal manner.
+The results of inspection/the deidentified data is written to BigQuery table. 
 
-## Operations Supported
-This part of the repo provides a reference implementation to process large scale files for  any DLP transformation like Inspect, Deidentify or ReIdentify.  Solution can be used for CSV / Avro files stored in either GCS or AWS S3 bucket. It uses State and Timer API for efficient batching to process the files in optimal manner.
-
-### Inspection
-### De-identification
 ### Re-identification
+The pipeline for reidentification workflow is used to read data from BigQuery table and publish the re-identified data in a secure pub sub topic.
+![Reference Architecture](diagrams/reid-architecture.png)
 
 ## Concepts
 
@@ -135,9 +138,6 @@ You can run some quick [validations](https://cloud.google.com/solutions/validati
 
 
 #### Re-Identification From BigQuery
-
-You can use the pipeline to read from BgQuery table and publish the re-identification data in a secure pub sub topic.
-
 Export the Standard SQL Query to read data from bigQuery
 One example from our solution guide:
 ```
