@@ -270,8 +270,8 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 ## How to adapt this pipeline for your use cases
 
 1. [Create your own inspection templates & run inspection on sample data](https://cloud.google.com/dlp/docs/creating-templates-inspect)
-2. [Create De-id templates and run pipeline](https://cloud.google.com/dlp/docs/creating-templates-deid)
-3. Stream new files to input folder.
+2. [Create de-identification templates and run de-identification on sample data](https://cloud.google.com/dlp/docs/creating-templates-deid)
+
 
 ## Troubleshooting
 
