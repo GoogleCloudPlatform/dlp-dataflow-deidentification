@@ -273,12 +273,36 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 Following are the known issues with Cloud DLP, along with ways you can avoid or recover from them.
 
-BigQuery Scanning: Issues common to inspection & de-identification operations in BigQuery
+1. BigQuery Scanning: Issues common to inspection & de-identification operations in BigQuery
 
-1. Duplicate Rows: When writing data to a BigQuery table, Cloud DLP might write duplicate rows.
+    Duplicate Rows: When writing data to a BigQuery table, Cloud DLP might write duplicate rows.
 
-Solution: The project uses Streaming Inserts API of BigQuery which by default enables best-effort deduplication mechanism but it should not be relied upon as a mechanism to guarantee the absence of duplicates in your data.
-For solution, checkout [high number of duplicates in Dataflow pipeline streaming inserts to BigQuery](https://cloud.google.com/knowledge/kb/high-number-of-duplicates-in-dataflow-pipeline-streaming-inserts-to-bigquery-000004276?authuser=0).
+    Solution: The project uses Streaming Inserts API of BigQuery which by default enables best-effort deduplication mechanism but it should not be relied upon as a mechanism to guarantee the absence of duplicates in your data.
+    For solution, checkout [high number of duplicates in Dataflow pipeline streaming inserts to BigQuery](https://cloud.google.com/knowledge/kb/high-number-of-duplicates-in-dataflow-pipeline-streaming-inserts-to-bigquery-000004276?authuser=0).
+
+2. Error in DLP API : "Too many findings in request"
+
+   DLP has a max findings per request [limit](https://cloud.google.com/dlp/limits#content-redaction-limits) of 3000.
+   Run pipeline again with smaller batch size. 
+
+3. DLP API request quota exhausted
+
+   This can happen if the dataflow pipeline is being run with a small batch size. Rerun the pipeline with a larger value of batch size.
+   If batch size cannot be increased or issue persists despite saturating the batch size:
+
+    * Increase the value of parameter dlpApiRetryCount
+
+    * The dlp-dataflow-deidentification repo offers a parameter numShardsPerDLPRequestBatching. Reducing this below the default (100) will reduce the number of parallel requests sent to DLP.
+
+    * Review if there are other pipelines/clients generating DLP API requests.  Submit a request to increase the quota.
+
+    * Submit a request to increase the quota.
+
+
+
+
+
+
 
 ## Advanced topics
 
