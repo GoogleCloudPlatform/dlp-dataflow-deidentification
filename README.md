@@ -113,7 +113,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --numWorkers=1 --maxNumWorkers=2 \
 --runner=DataflowRunner \
 --filePattern=gs://${PROJECT_ID}-demo-data/*.csv \
---dataset=demo_dataset   \
+--dataset=${BQ_DATASET_NAME}   \
 --inspectTemplateName=${INSPECT_TEMPLATE_NAME} \
 --deidentifyTemplateName=${DEID_TEMPLATE_NAME} \
 --DLPMethod=INSPECT" 
@@ -141,7 +141,7 @@ You can run some quick [validations](https://cloud.google.com/solutions/validati
 #### Re-Identification From BigQuery
 1. Export the Standard SQL Query to read data from bigQuery. One example from our solution guide:
 ```
-export QUERY="select ID,Card_Number,Card_Holders_Name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.100000CCRecords\` where safe_cast(Credit_Limit as int64)>100000 and safe_cast (Age as int64)>50 group by ID,Card_Number,Card_Holders_Name limit 10"
+export QUERY="select ID,Card_Number,Card_Holders_Name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.CCRecords_1564602828\` where safe_cast(Credit_Limit as int64)>100000 and safe_cast (Age as int64)>50 group by ID,Card_Number,Card_Holders_Name limit 10"
 ```
 2. Create a gcs file with the query:
 
