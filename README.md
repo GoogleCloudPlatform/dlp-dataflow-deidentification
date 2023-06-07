@@ -37,13 +37,14 @@ The solution comprises two types of pipelines (based on the DLP Transformation t
 
 ### Inspection and De-identification
 ![Reference Architecture](diagrams/inspect-deid-architecture.png)
+
 The pipeline can be used for CSV, TSV, Avro, JSONL files stored in either GCS or AWS S3 bucket. It uses State and Timer API for efficient batching to process the files in optimal manner.
 The results of inspection/the deidentified data is written to BigQuery table. 
 
 ### Re-identification
-The pipeline for reidentification workflow is used to read data from BigQuery table and publish the re-identified data in a secure pub sub topic.
 ![Reference Architecture](diagrams/reid-architecture.png)
 
+The pipeline for reidentification workflow is used to read data from BigQuery table and publish the re-identified data in a secure pub sub topic.
 ## Concepts
 
 1. [Cloud Data Loss Prevention - Quick Start & Guides](https://cloud.google.com/dlp/docs/dlp-bigquery)
