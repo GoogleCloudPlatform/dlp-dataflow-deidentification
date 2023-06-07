@@ -47,7 +47,6 @@ public class ConvertJsonRecordToDLPRow extends DoFn<KV<String, String>, KV<Strin
               tableRowBuilder.addValues(Value.newBuilder().setStringValue(value));
             });
     Table.Row dlpRow = tableRowBuilder.build();
-    LOG.debug("DLP Row {}", dlpRow.toString());
     c.output(KV.of(fileName, dlpRow));
   }
 }
