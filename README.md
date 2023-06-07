@@ -223,6 +223,9 @@ gsutil cp ./src/test/resources/CCRecords_sample.jsonl gs://<bucket>/
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" --region=<region> --project=<projct_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=gs://<path>.jsonl --dataset=<name>   --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --DLPMethod=DEID --headers=<comma_separated_list_of_headers>"
 ```
 4. Avro
+
+Avro files are handled in the same way as CSV files. No additional changes are required to run the pipeline.
+
 5. CSV files with custom delimiter 
 
 It is possible to provide csv files with custom delimiter. The delimiter has to be passed in the pipeline option as "--columnDelimiter". 
