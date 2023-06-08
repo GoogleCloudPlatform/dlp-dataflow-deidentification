@@ -176,8 +176,6 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 ### Pipeline Parameters
 
-Following pipeline options have 
-
 | Pipeline Option                  | Description                                                                                                                                                                                                                                                        | Used in Operations  |
 |----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
 | `region`                         | Specifies a regional endpoint for deploying your Dataflow jobs.                                                                                                                                                                                                    | All                 |
@@ -202,6 +200,8 @@ Following pipeline options have
 | `numberOfWorkerHarnessThreads`   | (Optional) The number of threads per each worker harness process                                                                                                                                                                                                   | All                 |
 | `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API, Default value is 10                                                                                                                                                                           | All                 |
 | `getInitialBackoff`              | (Optional) Initial backoff (in seconds) for retries with exponential backoff, default is 5s                                                                                                                                                                        | All                 |
+
+Please refer [Pipeline Options](https://cloud.google.com/dataflow/docs/reference/pipeline-options) for more details
 
 ### Supported File Formats
 
@@ -272,6 +272,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 1. [Create your own inspection templates & run inspection on sample data](https://cloud.google.com/dlp/docs/creating-templates-inspect)
 2. [Create de-identification templates and run de-identification on sample data](https://cloud.google.com/dlp/docs/creating-templates-deid)
+3. In case of cross-regional data source or sink, dataflow service account should be granted necessary permissions.
 
 
 ## Troubleshooting
