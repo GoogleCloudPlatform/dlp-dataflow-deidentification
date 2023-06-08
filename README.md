@@ -71,10 +71,10 @@ The pipeline for reidentification workflow is used to read data from BigQuery ta
 
 ```
 gcloud config set project <project_id>
-sh deploy-data-tokeninzation-solution-v2.sh
+sh setup-data-tokeninzation-solution-v2.sh
 ```
 
-Script (deploy-data-tokenization-solution-v2.sh) handles following topics:
+Script (setup-data-tokenization-solution-v2.sh) handles following topics:
 
 * Create a service account for running the DLP pipeline (creates a custom role).
 
@@ -106,7 +106,7 @@ gradle build
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
--Pargs=" --region=<region> \
+-Pargs=" --region=${REGION} \
 --project=${PROJECT_ID} \
 --streaming --enableStreamingEngine \
 --tempLocation=gs://${PROJECT_ID}-demo-data/temp \
@@ -123,7 +123,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
--Pargs=" --region=<region> \
+-Pargs=" --region=${REGION} \
 --project=${PROJECT_ID} \
 --streaming --enableStreamingEngine \
 --tempLocation=gs://${PROJECT_ID}-demo-data/temp \
