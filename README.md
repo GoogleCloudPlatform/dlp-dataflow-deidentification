@@ -9,6 +9,8 @@
 
 * [Concepts](#concepts)
 
+* [Costs](#costs)
+
 * [Tutorial](#tutorial)
 
 	* [Pre-requisites](#pre-requisites)
@@ -24,6 +26,8 @@
 * [How to adapt this pipeline for your use cases](#how-to-adapt-this-pipeline-for-your-use-cases)
 
 * [Troubleshooting](#troubleshooting)
+
+* [Dataflow DAG](#dataflow-dag)
 
 * [Advanced Topics](#advanced-topics)
 
@@ -56,18 +60,33 @@ The pipeline for reidentification workflow is used to read data from BigQuery ta
 7. [Dataflow Pipeline Options](https://cloud.google.com/dataflow/docs/reference/pipeline-options)
 8. [Cloud DLP Quotas and Limits](https://cloud.google.com/dlp/limits)
 
+## Costs
+
+This tutorial uses billable components of Google Cloud, including the following:
+
+* [Dataflow](https://cloud.google.com/dataflow/pricing)
+* [Cloud Storage](https://cloud.google.com/storage/pricing)
+* [Cloud Data Loss Prevention](https://cloud.google.com/dlp/pricing)
+* [Cloud KMS](https://cloud.google.com/kms/pricing)
+* [BigQuery](https://cloud.google.com/bigquery/pricing)
+
+Use the [pricing calculator](https://cloud.google.com/products/calculator) to generate a cost estimate based on your
+projected usage.
 
 ## Tutorial
 
 ### Pre-requisites
 
-1. Create a new project on Google Cloud Platform.
+1. [Create a Google Cloud project](https://console.cloud.google.com/projectselector2/home/dashboard).
 
-2. Use the link below to open Google Cloud Shell.
+2. Make sure that [billing is enabled](https://support.google.com/cloud/answer/6293499#enable-billing) for your Google
+   Cloud project.
+
+3. Use the link below to open Google Cloud Shell.
 
    [![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git)
 
-3. Run the following commands to set up the data tokenization solution in your GCP project. 
+4. Run the following commands to set up the data tokenization solution in your GCP project. 
 
 ```
 gcloud config set project <project_id>
@@ -333,4 +352,5 @@ Follow the instructions to [create a flex template](https://cloud.google.com/dat
 
 ## Disclaimer
 
-TBD
+The pipeline may throw errors/exceptions when provided with large amounts of input data. For this, the user may need to 
+tune the [pipeline parameters](#pipeline-parameters) as per the requirements.
