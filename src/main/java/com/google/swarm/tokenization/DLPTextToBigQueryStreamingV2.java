@@ -28,25 +28,36 @@ import com.google.swarm.tokenization.common.CSVFileReaderSplitDoFn;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.ExtractColumnNamesTransform;
 import com.google.swarm.tokenization.common.FilePollingTransform;
+import com.google.swarm.tokenization.common.SanitizeFileNameDoFn;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
 import com.google.swarm.tokenization.common.PubSubMessageConverts;
 import com.google.swarm.tokenization.common.Util;
+import com.google.swarm.tokenization.common.Util.InputLocation;
 import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
 import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
 import com.google.swarm.tokenization.txt.ConvertTxtToDLPRow;
 import com.google.swarm.tokenization.txt.ParseTextLogDoFn;
 import com.google.swarm.tokenization.txt.TxtReaderSplitDoFn;
+import com.google.common.io.Files;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.regex.Pattern;
+import java.io.IOException;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
+import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Sample;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
@@ -57,6 +68,8 @@ import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.TupleTagList;
+import org.apache.beam.sdk.io.FileSystems;
+import org.apache.beam.sdk.io.fs.MatchResult.Metadata;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +88,6 @@ public class DLPTextToBigQueryStreamingV2 {
 
     DLPTextToBigQueryStreamingV2PipelineOptions options =
         PipelineOptionsFactory.fromArgs(args).as(DLPTextToBigQueryStreamingV2PipelineOptions.class);
-
     run(options);
   }
 
@@ -99,15 +111,66 @@ public class DLPTextToBigQueryStreamingV2 {
     return p.run();
   }
 
+  public static class PubSubDoFn
+    extends DoFn<PubsubMessage, Metadata> {
+    private String filePattern;
+    private static final Set<String> ALLOWED_FILE_EXTENSIONS =
+        Arrays.asList("csv", "avro", "jsonl", "txt").stream().collect(Collectors.toUnmodifiableSet());
+
+    public PubSubDoFn(String pattern) {
+        this.filePattern = pattern;
+    }
+
+    public static boolean matches(String gsUrl, String pattern) {
+        String regex = pattern
+                .replace(".", "\\.")
+                .replace("*", ".*")
+                .replace("?", ".");
+        Pattern compiledPattern = Pattern.compile(regex);
+        return compiledPattern.matcher(gsUrl).matches();
+    }
+
+    @ProcessElement
+    public void processElement(ProcessContext c) {
+        PubsubMessage message = c.element();
+        String filename  = message.getAttribute("objectId");
+        String bucketId  = message.getAttribute("bucketId");
+        String extension = Files.getFileExtension(filename);
+
+        String gsUrl = "gs://" + bucketId + "/" + filename;
+        LOG.info("Received " + filename + " " + bucketId + " " + extension + " " + gsUrl + " " + this.filePattern);
+
+        try {
+            if (filename.endsWith("/") || !ALLOWED_FILE_EXTENSIONS.contains(extension)
+                || !matches(gsUrl, this.filePattern)) return;
+            LOG.info("Processing " + filename + " " + bucketId + " " + extension);
+            Metadata fileMetadata = org.apache.beam.sdk.io.FileSystems.matchSingleFileSpec(gsUrl);
+            c.output(fileMetadata);
+        } catch (IOException e) {
+            LOG.error("GCS Failure retrieving {}: {}", gsUrl, e);
+        }
+    }
+  }
+
   private static void runInspectAndDeidPipeline(
       Pipeline p, DLPTextToBigQueryStreamingV2PipelineOptions options) {
-    PCollection<KV<String, ReadableFile>> inputFiles =
-        p.apply(
-                FilePollingTransform.newBuilder()
-                    .setFilePattern(options.getFilePattern())
-                    .setInterval(DEFAULT_POLL_INTERVAL)
-                    .build())
-            .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+    PCollection<KV<String, ReadableFile>> inputFiles;
+
+    if (options.getIsInputAws() == InputLocation.GCS && options.getInputTopic() != null) {
+        inputFiles = p.apply("ReadFromTopic", PubsubIO.readMessagesWithAttributes().fromTopic(options.getInputTopic()))
+                        .apply("ReadFileMetadataFromMessage", ParDo.of(new PubSubDoFn(options.getFilePattern())))
+                        .apply("ReadFiles", FileIO.readMatches())
+                        .apply("SanitizeFileName", ParDo.of(new SanitizeFileNameDoFn()))
+                        .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+    } else {
+        inputFiles = p.apply(
+            FilePollingTransform.newBuilder()
+                .setFilePattern(options.getFilePattern())
+                .setInterval(DEFAULT_POLL_INTERVAL)
+                .build())
+                .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+    }
+ 
     final PCollectionView<Map<String, List<String>>> headers =
         inputFiles.apply(
             "Extract Column Names",

@@ -18,6 +18,7 @@ package com.google.swarm.tokenization;
 import com.google.privacy.dlp.v2.LocationName;
 import com.google.swarm.tokenization.common.Util.DLPMethod;
 import com.google.swarm.tokenization.common.Util.FileType;
+import com.google.swarm.tokenization.common.Util.InputLocation;
 import java.util.List;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
@@ -184,4 +185,27 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   String getDLPParent();
 
   void setDLPParent(String parent);
+
+  class InputPollingFactory implements DefaultValueFactory<InputLocation> {
+    @Override
+    public InputLocation create(PipelineOptions options) {
+       if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getFilePattern().startsWith("gs://"))  
+        return InputLocation.GCS;
+       else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getFilePattern().startsWith("s3://"))
+        return InputLocation.S3;
+       throw new IllegalArgumentException("Data needs to be ingested either from GCS Bucket or S3 Bucket");
+    }
+  }
+
+  @Validation.Required
+  @Default.InstanceFactory(InputPollingFactory.class)
+  InputLocation getIsInputAws();
+
+  void setIsInputAws(InputLocation input);
+
+  @Description("Topic to use for GCS Pub/Sub")
+  String getInputTopic();
+
+  void setInputTopic(String topic);
+
 }

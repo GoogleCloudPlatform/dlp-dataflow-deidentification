@@ -73,6 +73,6 @@ public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, Readable
       lastModified = Instant.now().getMillis();
     }
     String fileName = sanitizeFileName(file.getMetadata().resourceId().getFilename());
-    c.outputWithTimestamp(KV.of(fileName, file), Instant.ofEpochMilli(lastModified));
+    c.outputWithTimestamp(KV.of(fileName, file), Instant.ofEpochMilli(Instant.now().getMillis()));
   }
 }

@@ -81,6 +81,11 @@ public class Util {
     TXT
   }
 
+  public enum InputLocation {
+    S3,
+    GCS
+  }
+
   public static final Gson gson = new Gson();
   private static final char DEFAULT_SEPARATOR = ',';
   private static final char DEFAULT_QUOTE = '"';
