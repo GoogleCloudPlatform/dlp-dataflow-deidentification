@@ -108,11 +108,19 @@ public class DLPTextToBigQueryStreamingV2 {
     PCollection<KV<String, ReadableFile>> inputFiles;
 
     if (options.getIsInputAws() == InputLocation.GCS && options.getInputTopic() != null) {
-        inputFiles = p.apply("ReadFromTopic", PubsubIO.readMessagesWithAttributes().fromTopic(options.getInputTopic()))
+        PCollection<KV<String, ReadableFile>> existingFiles = p.apply("MatchExistingFiles", FileIO.match().filepattern(options.getFilePattern()))
+                                                                .apply("ReadExistingFiles", FileIO.readMatches())
+                                                                .apply("SanitizeFileNameExistingFiles", ParDo.of(new SanitizeFileNameDoFn()))
+                                                                .apply("Fixed Window Existing Files", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+
+        PCollection<KV<String, ReadableFile>> newFiles = p.apply("ReadFromTopic", PubsubIO.readMessagesWithAttributes().fromTopic(options.getInputTopic()))
                         .apply("ReadFileMetadataFromMessage", ParDo.of(new PubSubReadFileMetadataDoFn(options.getFilePattern())))
-                        .apply("ReadFiles", FileIO.readMatches())
-                        .apply("SanitizeFileName", ParDo.of(new SanitizeFileNameDoFn()))
-                        .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+                        .apply("ReadNewFiles", FileIO.readMatches())
+                        .apply("SanitizeFileNameNewFiles", ParDo.of(new SanitizeFileNameDoFn()))
+                        .apply("Fixed Window New Files", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+
+        inputFiles = PCollectionList.of(newFiles).and(existingFiles)
+            .apply(Flatten.<KV<String, ReadableFile>>pCollections());
     } else {
         inputFiles = p.apply(
             FilePollingTransform.newBuilder()
