@@ -13,15 +13,15 @@
 
 * [Tutorial](#tutorial)
 
-	* [Pre-requisites](#pre-requisites)
-    * [Compile the code](#compile-the-code)
-    * [Run the samples](#run-the-samples)
-      * [Inspection](#inspection)
-      * [De-identification](#de-identification)
-      * [Re-identification](#re-identification-from-bigquery)
-    * [Pipeline Parameters](#pipeline-parameters)
-    * [Supported File Formats](#supported-file-formats)
-    * [S3 Scanner](#s3-scanner)
+  * [Prerequisites](#pre-requisites)
+  * [Compile the code](#compile-the-code)
+  * [Run the samples](#run-the-samples)
+    * [Inspection](#inspection)
+    * [De-identification](#de-identification)
+    * [Re-identification](#re-identification-from-bigquery)
+  * [Pipeline parameters](#pipeline-parameters)
+  * [Supported file formats](#supported-file-formats)
+  * [Amazon S3 scanner](#amazon-s3-scanner)
 
 * [How to adapt this pipeline for your use cases](#how-to-adapt-this-pipeline-for-your-use-cases)
 
@@ -29,7 +29,7 @@
 
 * [Dataflow DAG](#dataflow-dag)
 
-* [Advanced Topics](#advanced-topics)
+* [Advanced topics](#advanced-topics)
 
 * [Disclaimer](#disclaimer)
 
@@ -214,7 +214,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 | `columnDelimiter`                | Column Delimiter - Only required in case of custom delimiter                                                                                                                                                                                                       | INSPECT/DEID        | 
 | `tableRef`                       | BigQuery table to export from in the form `<project>:<dataset>.<table>`                                                                                                                                                                                            | REID                |
 | `queryPath`                      | Query file for reid                                                                                                                                                                                                                                                | REID                |
-| `headers`                        | DLP Table Headers- Required for Jsonl file type                                                                                                                                                                                                                    | INSPECT/DEID        |
+| `headers`                        | DLP Table Headers- Required for JSONL file type                                                                                                                                                                                                                    | INSPECT/DEID        |
 | `numShardsPerDLPRequestBatching` | (Optional) Number of shards for DLP request batches.Can be used to controls parallelism of DLP requests. Default value is 100                                                                                                                                      | All                 |
 | `numberOfWorkerHarnessThreads`   | (Optional) The number of threads per each worker harness process                                                                                                                                                                                                   | All                 |
 | `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API, Default value is 10                                                                                                                                                                           | All                 |
@@ -257,7 +257,7 @@ gradle build ... -Pargs="... --columnDelimiter=|"
 
 
 
-### S3 Scanner
+### Amazon S3 Scanner
 
 To use AWS S3 as a source of input files, use AWS credentials as instructed below.
 
@@ -338,7 +338,7 @@ For Reid:
 
 ## Advanced topics
 
-You can use the gcloud command to trigger the pipeline using Dataflow flex template. Below is an example for de-identification transform from a S3 bucket.
+You can use the gcloud command to trigger the pipeline using Dataflow flex template. The following example runs a de-identification transformation on data from an S3 bucket.
 
 ```
 gcloud beta dataflow flex-template run "dlp-s3-scanner-deid-demo" --project=<project_id> \
@@ -347,7 +347,7 @@ gcloud beta dataflow flex-template run "dlp-s3-scanner-deid-demo" --project=<pro
 
 ```
 
-Follow the instructions to [create a flex template](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates) and image to avoid running gradle each time.
+To avoid repeatedly running Gradle, you can [create a flex template](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates).
 
 
 ## Disclaimer
