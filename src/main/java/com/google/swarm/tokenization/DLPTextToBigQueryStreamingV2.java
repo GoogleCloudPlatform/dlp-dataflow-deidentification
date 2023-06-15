@@ -46,6 +46,7 @@ import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.FileIO;
+import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -53,6 +54,7 @@ import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Sample;
 import org.apache.beam.sdk.transforms.View;
+import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
@@ -107,27 +109,33 @@ public class DLPTextToBigQueryStreamingV2 {
       Pipeline p, DLPTextToBigQueryStreamingV2PipelineOptions options) {
     PCollection<KV<String, ReadableFile>> inputFiles;
 
-    if (options.getIsInputAws() == InputLocation.GCS && options.getInputTopic() != null) {
-        PCollection<KV<String, ReadableFile>> existingFiles = p.apply("MatchExistingFiles", FileIO.match().filepattern(options.getFilePattern()))
-                                                                .apply("ReadExistingFiles", FileIO.readMatches())
-                                                                .apply("SanitizeFileNameExistingFiles", ParDo.of(new SanitizeFileNameDoFn()))
-                                                                .apply("Fixed Window Existing Files", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+    if (options.getIsInputAws() == InputLocation.GCS && options.getInputTopic() == null
+        && !options.getProcessExistingFiles())
+        throw new IllegalArgumentException("Either --processExistingFiles or --gcsNotificationTopic should be provided");
 
-        PCollection<KV<String, ReadableFile>> newFiles = p.apply("ReadFromTopic", PubsubIO.readMessagesWithAttributes().fromTopic(options.getInputTopic()))
+    if (options.getIsInputAws() == InputLocation.GCS) {
+        PCollection<KV<String, ReadableFile>> existingFiles = p.apply("CreateEmptyExistingFileSet",
+                                                                      Create.empty(KvCoder.of(StringUtf8Coder.of(),
+                                                                                              ReadableFileCoder.of())));
+        if (options.getProcessExistingFiles())
+            existingFiles = p.apply("MatchExistingFiles", FileIO.match().filepattern(options.getFilePattern()))
+                             .apply("ReadExistingFiles", FileIO.readMatches())
+                             .apply("SanitizeFileNameExistingFiles", ParDo.of(new SanitizeFileNameDoFn()));
+
+        PCollection<KV<String, ReadableFile>> newFiles = p.apply("CreateEmptyNewFileSet",
+                                                                Create.empty(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of())));
+        if (options.getInputTopic() != null)
+            newFiles = p.apply("ReadFromTopic", PubsubIO.readMessagesWithAttributes().fromTopic(options.getInputTopic()))
                         .apply("ReadFileMetadataFromMessage", ParDo.of(new PubSubReadFileMetadataDoFn(options.getFilePattern())))
                         .apply("ReadNewFiles", FileIO.readMatches())
-                        .apply("SanitizeFileNameNewFiles", ParDo.of(new SanitizeFileNameDoFn()))
-                        .apply("Fixed Window New Files", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+                        .apply("SanitizeFileNameNewFiles", ParDo.of(new SanitizeFileNameDoFn()));
 
         inputFiles = PCollectionList.of(newFiles).and(existingFiles)
-            .apply(Flatten.<KV<String, ReadableFile>>pCollections());
+                        .apply(Flatten.<KV<String, ReadableFile>>pCollections())
+                        .apply("FixedWindow", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
     } else {
-        inputFiles = p.apply(
-            FilePollingTransform.newBuilder()
-                .setFilePattern(options.getFilePattern())
-                .setInterval(DEFAULT_POLL_INTERVAL)
-                .build())
-                .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+        inputFiles = p.apply(FilePollingTransform.newBuilder().setFilePattern(options.getFilePattern())
+                            .setInterval(DEFAULT_POLL_INTERVAL).build()).apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
     }
  
     final PCollectionView<Map<String, List<String>>> headers =

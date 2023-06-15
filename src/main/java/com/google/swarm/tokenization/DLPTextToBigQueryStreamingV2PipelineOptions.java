@@ -208,4 +208,10 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setInputTopic(String topic);
 
+  @Description("Flag to process existing files")
+  @Default.Boolean(true)
+  Boolean getProcessExistingFiles();
+
+  void setProcessExistingFiles(Boolean value);
+
 }
