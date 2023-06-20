@@ -314,6 +314,7 @@ public abstract class DLPInspectText
 
           numberOfDlpApiCalls.inc();
           c.output(KV.of(tableRef, response));
+          break;
         } catch (ResourceExhaustedException e) {
           retry = BackOffUtils.next(Sleeper.DEFAULT, backoff);
           if (retry) {
