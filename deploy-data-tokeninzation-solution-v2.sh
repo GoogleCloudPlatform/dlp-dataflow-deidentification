@@ -27,6 +27,7 @@ export PROJECT_NUMBER=$(gcloud projects list --filter=${PROJECT_ID} --format="va
 export SERVICE_ACCOUNT_NAME=demo-service-account
 export REGION=us-central1
 export BQ_DATASET_NAME=demo_dataset
+export GCS_NOTIFICATION_TOPIC=${PROJECT_ID}-gcs-notification-topic
 # enable the required APIs
 gcloud services enable dlp.googleapis.com
 gcloud services enable cloudkms.googleapis.com
@@ -34,6 +35,7 @@ gcloud services enable bigquery
 gcloud services enable storage_component
 gcloud services enable dataflow
 gcloud services enable cloudbuild.googleapis.com
+gcloud services enable pubsub.googleapis.com
 # create BQ dataset. Table will be dynamically generated from dataflow pipeline
 bq --location=US mk -d --description "De-Identified PII Dataset" ${BQ_DATASET_NAME}
 # create a data bucket to store the PII data
@@ -57,6 +59,11 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} --member="serviceAccount:${
 
 # trigger the cloud build script to create DLP templates
 gcloud builds submit . --config dlp-demo-part-2-dlp-template.yaml --substitutions _KEK_CONFIG_FILE=gs://${DATA_STORAGE_BUCKET}/${KEK_FILE_NAME},_GCS_BUCKET_NAME=gs://${DATA_STORAGE_BUCKET},_API_KEY=$(gcloud auth print-access-token)
+
+# create Pub/Sub topic and enable GCS notification to the pub/sub topic
+gcloud pubsub topics create ${GCS_NOTIFICATION_TOPIC}
+gsutil notification create -e OBJECT_FINALIZE -t ${GCS_NOTIFICATION_TOPIC} -f json gs://${DATA_STORAGE_BUCKET}
+
 # download the json file to parse template name using jq
 gsutil cp gs://${DATA_STORAGE_BUCKET}/deid-template.json .
 gsutil cp gs://${DATA_STORAGE_BUCKET}/inspect-template.json .
@@ -73,3 +80,5 @@ echo "export INSPECT_TEMPLATE_NAME=$INSPECT_TEMPLATE_NAME">>$ENV_FILE
 echo "export DEID_TEMPLATE_NAME=$DEID_TEMPLATE_NAME">>$ENV_FILE
 echo "export REID_TEMPLATE_NAME=$REID_TEMPLATE_NAME">>$ENV_FILE
 echo "export SERVICE_ACCOUNT_EMAIL=$SERVICE_ACCOUNT_EMAIL">>$ENV_FILE
+echo "export DATA_STORAGE_BUCKET=$DATA_STORAGE_BUCKET">>$ENV_FILE
+echo "export GCS_NOTIFICATION_TOPIC=$GCS_NOTIFICATION_TOPIC">>$ENV_FILE

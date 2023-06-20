@@ -67,3 +67,15 @@ includedPermissions:
   # KMS permissions
   - cloudkms.cryptoKeyVersions.useToDecrypt
   - cloudkms.cryptoKeyVersions.useToEncrypt
+  # Pub/Sub permissions
+  - pubsub.subscriptions.consume
+  - pubsub.subscriptions.create
+  - pubsub.subscriptions.get
+  - pubsub.subscriptions.getIamPolicy
+  - pubsub.subscriptions.list
+  - pubsub.topics.attachSubscription
+  - pubsub.topics.get
+  - pubsub.topics.create
+  - pubsub.topics.getIamPolicy
+  - pubsub.topics.list
+  - pubsub.topics.publish

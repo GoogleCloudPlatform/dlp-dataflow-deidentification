@@ -109,11 +109,13 @@ public class DLPTextToBigQueryStreamingV2 {
       Pipeline p, DLPTextToBigQueryStreamingV2PipelineOptions options) {
     PCollection<KV<String, ReadableFile>> inputFiles;
 
-    if (options.getIsInputAws() == InputLocation.GCS && options.getInputTopic() == null
+    if (options.getInputProviderType() == InputLocation.GCS && options.getGCSNotificationTopic() == null
         && !options.getProcessExistingFiles())
         throw new IllegalArgumentException("Either --processExistingFiles or --gcsNotificationTopic should be provided");
 
-    if (options.getIsInputAws() == InputLocation.GCS) {
+    if (options.getInputProviderType() == InputLocation.GCS) {
+        PCollection<KV<String, ReadableFile>> allFiles;
+
         PCollection<KV<String, ReadableFile>> existingFiles = p.apply("CreateEmptyExistingFileSet",
                                                                       Create.empty(KvCoder.of(StringUtf8Coder.of(),
                                                                                               ReadableFileCoder.of())));
@@ -124,20 +126,23 @@ public class DLPTextToBigQueryStreamingV2 {
 
         PCollection<KV<String, ReadableFile>> newFiles = p.apply("CreateEmptyNewFileSet",
                                                                 Create.empty(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of())));
-        if (options.getInputTopic() != null)
-            newFiles = p.apply("ReadFromTopic", PubsubIO.readMessagesWithAttributes().fromTopic(options.getInputTopic()))
+        if (options.getGCSNotificationTopic() != null)
+            newFiles = p.apply("ReadFromTopic", PubsubIO.readMessagesWithAttributes().fromTopic(options.getGCSNotificationTopic()))
                         .apply("ReadFileMetadataFromMessage", ParDo.of(new PubSubReadFileMetadataDoFn(options.getFilePattern())))
                         .apply("ReadNewFiles", FileIO.readMatches())
                         .apply("SanitizeFileNameNewFiles", ParDo.of(new SanitizeFileNameDoFn()));
 
-        inputFiles = PCollectionList.of(newFiles).and(existingFiles)
-                        .apply(Flatten.<KV<String, ReadableFile>>pCollections())
-                        .apply("FixedWindow", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+        allFiles = PCollectionList.of(newFiles).and(existingFiles)
+                        .apply(Flatten.<KV<String, ReadableFile>>pCollections());
+
+        inputFiles = allFiles;
     } else {
         inputFiles = p.apply(FilePollingTransform.newBuilder().setFilePattern(options.getFilePattern())
-                            .setInterval(DEFAULT_POLL_INTERVAL).build()).apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+                            .setInterval(DEFAULT_POLL_INTERVAL).build());
     }
  
+    inputFiles = inputFiles.apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+
     final PCollectionView<Map<String, List<String>>> headers =
         inputFiles.apply(
             "Extract Column Names",

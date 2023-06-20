@@ -199,14 +199,14 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   @Validation.Required
   @Default.InstanceFactory(InputPollingFactory.class)
-  InputLocation getIsInputAws();
+  InputLocation getInputProviderType();
 
-  void setIsInputAws(InputLocation input);
+  void setInputProviderType(InputLocation input);
 
   @Description("Topic to use for GCS Pub/Sub")
-  String getInputTopic();
+  String getGCSNotificationTopic();
 
-  void setInputTopic(String topic);
+  void setGCSNotificationTopic(String topic);
 
   @Description("Flag to process existing files")
   @Default.Boolean(true)
