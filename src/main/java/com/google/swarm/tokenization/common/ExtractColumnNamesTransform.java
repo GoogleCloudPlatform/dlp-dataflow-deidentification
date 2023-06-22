@@ -42,12 +42,17 @@ public abstract class ExtractColumnNamesTransform
   @Nullable
   public abstract List<String> headers();
 
+  public abstract Character columnDelimiter();
+
   @AutoValue.Builder
   public abstract static class Builder {
 
     public abstract ExtractColumnNamesTransform.Builder setFileType(FileType fileType);
 
     public abstract ExtractColumnNamesTransform.Builder setHeaders(List<String> headers);
+
+    public abstract ExtractColumnNamesTransform.Builder setColumnDelimiter(
+        Character columnDelimiter);
 
     public abstract ExtractColumnNamesTransform build();
   }
@@ -62,7 +67,11 @@ public abstract class ExtractColumnNamesTransform
     PCollection<KV<String, List<String>>> readHeader;
     switch (fileType()) {
       case CSV:
-        readHeader = input.apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn()));
+        readHeader = input.apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn(columnDelimiter())));
+        break;
+
+      case TSV:
+        readHeader = input.apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn('\t')));
         break;
 
       case AVRO:

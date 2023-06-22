@@ -31,6 +31,12 @@ public class CSVColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, KV<String
 
   public static final Logger LOG = LoggerFactory.getLogger(CSVColumnNamesDoFn.class);
 
+  private Character columnDelimiter;
+
+  public CSVColumnNamesDoFn(Character columnDelimiter) {
+    this.columnDelimiter = columnDelimiter;
+  }
+
   @ProcessElement
   public void processElement(ProcessContext c) {
     ReadableFile file = c.element().getValue();
@@ -40,6 +46,7 @@ public class CSVColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, KV<String
 
       CSVFormat.DEFAULT
           .withFirstRecordAsHeader()
+          .withDelimiter(columnDelimiter)
           .parse(br)
           .getHeaderMap()
           .keySet()

@@ -356,6 +356,7 @@ public abstract class DLPReidentifyText
               dlpServiceClient.reidentifyContent(requestBuilder.build());
 
           context.output(KV.of(tableRef, response));
+          break;
         } catch (ResourceExhaustedException e) {
           retry = BackOffUtils.next(Sleeper.DEFAULT, backoff);
           if (retry) {

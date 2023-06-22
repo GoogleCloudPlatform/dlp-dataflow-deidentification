@@ -149,6 +149,7 @@ public class DLPTextToBigQueryStreamingV2 {
             ExtractColumnNamesTransform.newBuilder()
                 .setFileType(options.getFileType())
                 .setHeaders(options.getHeaders())
+                .setColumnDelimiter(options.getColumnDelimiter())
                 .build());
 
     PCollection<KV<String, Table.Row>> records;
@@ -164,6 +165,8 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setCoder(KvCoder.of(StringUtf8Coder.of(), GenericRecordCoder.of()))
                 .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
         break;
+      case TSV:
+        options.setColumnDelimiter('\t');
       case CSV:
         records =
             inputFiles
