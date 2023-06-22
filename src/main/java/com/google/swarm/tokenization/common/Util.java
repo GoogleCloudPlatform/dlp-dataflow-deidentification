@@ -78,7 +78,9 @@ public class Util {
     CSV,
     AVRO,
     JSONL,
-    TXT
+    TXT,
+
+    TSV
   }
 
   public enum InputLocation {
