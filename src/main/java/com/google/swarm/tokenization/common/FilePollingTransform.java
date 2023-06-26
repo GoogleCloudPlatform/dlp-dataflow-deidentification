@@ -16,6 +16,7 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.auto.value.AutoValue;
+import com.google.swarm.tokenization.common.Util.InputLocation;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
@@ -59,6 +60,6 @@ public abstract class FilePollingTransform
                 .filepattern(filePattern())
                 .continuously(interval(), Watch.Growth.never()))
         .apply("Find Pattern Match", FileIO.readMatches().withCompression(Compression.AUTO))
-        .apply(ParDo.of(new SanitizeFileNameDoFn()));
+        .apply(ParDo.of(new SanitizeFileNameDoFn(InputLocation.S3)));
   }
 }

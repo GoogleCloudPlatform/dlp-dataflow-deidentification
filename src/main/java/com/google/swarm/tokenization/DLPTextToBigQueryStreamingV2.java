@@ -122,7 +122,7 @@ public class DLPTextToBigQueryStreamingV2 {
         if (options.getProcessExistingFiles())
             existingFiles = p.apply("MatchExistingFiles", FileIO.match().filepattern(options.getFilePattern()))
                              .apply("ReadExistingFiles", FileIO.readMatches())
-                             .apply("SanitizeFileNameExistingFiles", ParDo.of(new SanitizeFileNameDoFn()));
+                             .apply("SanitizeFileNameExistingFiles", ParDo.of(new SanitizeFileNameDoFn(options.getInputProviderType())));
 
         PCollection<KV<String, ReadableFile>> newFiles = p.apply("CreateEmptyNewFileSet",
                                                                 Create.empty(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of())));
@@ -130,7 +130,7 @@ public class DLPTextToBigQueryStreamingV2 {
             newFiles = p.apply("ReadFromTopic", PubsubIO.readMessagesWithAttributes().fromTopic(options.getGCSNotificationTopic()))
                         .apply("ReadFileMetadataFromMessage", ParDo.of(new PubSubReadFileMetadataDoFn(options.getFilePattern())))
                         .apply("ReadNewFiles", FileIO.readMatches())
-                        .apply("SanitizeFileNameNewFiles", ParDo.of(new SanitizeFileNameDoFn()));
+                        .apply("SanitizeFileNameNewFiles", ParDo.of(new SanitizeFileNameDoFn(options.getInputProviderType())));
 
         allFiles = PCollectionList.of(newFiles).and(existingFiles)
                         .apply(Flatten.<KV<String, ReadableFile>>pCollections());
