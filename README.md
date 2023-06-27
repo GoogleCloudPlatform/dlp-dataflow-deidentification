@@ -48,11 +48,14 @@ The results of the inspection or de-identification is written to a BigQuery tabl
 ![Reference Architecture](diagrams/reid-architecture.png)
 
 The pipeline for re-identification workflow is used to read data from BigQuery table and publish the re-identified data in a secure pub sub topic.
+
 ## Concepts
+
+Please refer to the following list of resources to understand key concepts related to Cloud DLP and Dataflow.
 
 1. [Cloud Data Loss Prevention - Quick Start & Guides](https://cloud.google.com/dlp/docs/dlp-bigquery)
 2. [De-identification and re-identification of PII in large-scale datasets using Cloud DLP](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp).
-3. [Create & Manage Cloud DLP Configurations](https://cloud.google.com/dlp/docs/creating-job-triggers).
+3. [Cloud DLP templates](https://cloud.google.com/dlp/docs/concepts-templates).
 4. [Automated Dataflow Pipeline to De-identify PII Dataset](https://cloud.google.com/dataflow/docs/guides/templates/provided/dlp-text-to-bigquery).
 5. [Validate Dataset in BigQuery and Re-identify using Dataflow](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data).
 6. [Inspecting storage and databases for sensitive data](https://cloud.google.com/dlp/docs/inspecting-storage)
@@ -94,17 +97,17 @@ projected usage.
 
     Script (setup-data-tokenization-solution-v2.sh) handles following tasks:
 
-     * Creates a service account for running the DLP pipeline (creates a custom role).
+     * Creates a bucket ({project-id}-demo-data) in us-central1 region and [uploads a sample dataset](http://storage.googleapis.com/dataflow-dlp-solution-sample-data/sample_data_scripts.tar.gz) with <b>mock</b> PII data.
 
-     * Emits a set_env.sh, which you can use to set temporary environment variables while triggering the DLP pipelines.
-
-     * Creates a bucket ({project-id}-demo-data) in us-central1 and [uploads a sample dataset](http://storage.googleapis.com/dataflow-dlp-solution-sample-data/sample_data_scripts.tar.gz) with <b>mock</b> PII data.
-
-     * Creates a BigQuery dataset in US (demo_dataset) to store the tokenized data.
+     * Creates a BigQuery dataset (demo_dataset) in US multi-region to store the tokenized data.
 
      * Creates a [KMS wrapped key(KEK)](https://cloud.google.com/kms/docs/envelope-encryption) by creating an automatic [TEK](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp#token_encryption_keys) (Token Encryption Key).
 
      * Creates DLP [inspect, de-identification and re-identification templates](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset#creating_the_cloud_dlp_templates) with the KEK and crypto-based transformations identified in this [section of the guide](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp#determining_transformation_type)
+
+     * Creates a service account for running the DLP pipeline (creates a custom role).
+
+     * Emits a set_env.sh, which you can use to set temporary environment variables while triggering the DLP pipelines.
 
 5. Run set_env.sh
     ```
@@ -115,11 +118,11 @@ projected usage.
 ### Compile the code
 
 ```
-gradle spotlessApply
-
 gradle build
 ```
+
 ### Run the samples
+
 #### Inspection
 
 ```
@@ -137,6 +140,10 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --DLPMethod=INSPECT" 
 ```
 
+This command will trigger a streaming inspection Dataflow pipeline that will process all the CSV files in the demo-data 
+GCS bucket (specify in _filePattern_ parameter). The inspection findings can be found in the BQ dataset (_dataset_ 
+parameter) table.
+
 #### De-Identification
 
 ```
@@ -153,14 +160,23 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --deidentifyTemplateName=${DEID_TEMPLATE_NAME} \
 --DLPMethod=DEID" 
 ```
-You can run some quick [validations](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data#validating_the_de-identified_dataset_in_bigquery) in a BigQuery table to check the tokenized data.
+
+This command will trigger a streaming de-identification Dataflow pipeline that will process all the CSV files in the 
+demo-data GCS bucket (specify in _filePattern_ parameter). The de-identified results can be found in the BQ dataset 
+(_dataset_ parameter) tables with the same names as input files, respectively.
+
+You can run some quick [validations](https://web.archive.org/web/20220331191143/https://cloud.google.com/architecture/validating-de-identified-data-bigquery-re-identifying-pii-data) 
+in a BigQuery table to check the tokenized data.
 
 
 #### Re-identification from BigQuery
+
 1. Export the Standard SQL query to read data from BigQuery. For example:
+
 ```
 export QUERY="select ID,Card_Number,Card_Holders_Name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.CCRecords_1564602828\` where safe_cast(Credit_Limit as int64)>100000 and safe_cast (Age as int64)>50 group by ID,Card_Number,Card_Holders_Name limit 10"
 ```
+
 2. Create a Cloud Storage file with the following query:
 
 ```
@@ -169,28 +185,33 @@ cat << EOF | gsutil cp - gs://${REID_QUERY_BUCKET}/reid_query.sql
 ${QUERY}
 EOF
 ```
+
 3. Create a Pub/Sub topic. For more information, see [create a topic](https://cloud.google.com/pubsub/docs/create-topic#create_a_topic)
 
 4. Run the pipeline by passing the required parameters:
+
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 
--Pargs="--region=<region> 
---project=<project_id>
---streaming --enableStreamingEngine 
---tempLocation=gs://<bucket>/temp 
---numWorkers=5 --maxNumWorkers=10 
+-Pargs="--region=${REGION} 
+--project=${PROJECT_ID} 
+--tempLocation=gs://${PROJECT_ID}-demo-data/temp 
+--numWorkers=1 --maxNumWorkers=2 
 --runner=DataflowRunner 
---tableRef=<project_id>:<dataset>.<table> 
---dataset=<dataset> 
---topic=projects/<project_id>/topics/<name> 
+--tableRef=${PROJECT_ID}:${BQ_DATASET_NAME}.<table> 
+--dataset=${BQ_DATASET_NAME} 
+--topic=projects/${PROJECT_ID}/topics/<topic_name> 
 --autoscalingAlgorithm=THROUGHPUT_BASED 
 --workerMachineType=n1-highmem-4 
---deidentifyTemplateName=projects/<project_id>/deidentifyTemplates/<name> 
+--deidentifyTemplateName=${REID_TEMPLATE_NAME} 
 --DLPMethod=REID 
 --keyRange=1024 
 --queryPath=gs://${REID_QUERY_BUCKET}/reid_query.sql"
-
 ```
+
+This command will trigger a batch re-identification Dataflow pipeline that will process all the records from the query 
+stored in _reid_query.sql_. The re-identified results can be found in the BQ 
+dataset (_dataset_ parameter) table with the name of input table as suffix.
+
 
 ### Pipeline Parameters
 
