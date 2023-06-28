@@ -233,14 +233,14 @@ dataset (_dataset_ parameter) table with the name of input table as suffix.
 | `recordDelimiter`                | (Optional) Record delimiter                                                                                                                                                                                                                                        | INSPECT/DEID        |
 | `columnDelimiter`                | Column Delimiter - only required in case of custom delimiter                                                                                                                                                                                                       | INSPECT/DEID        | 
 | `tableRef`                       | BigQuery table to export from in the form `<project>:<dataset>.<table>`                                                                                                                                                                                            | REID                |
-| `queryPath`                      | query file for re-identification                                                                                                                                                                                                                                   | REID                |
+| `queryPath`                      | Query file for re-identification                                                                                                                                                                                                                                   | REID                |
 | `headers`                        | DLP table headers- Required for JSONL file type                                                                                                                                                                                                                    | INSPECT/DEID        |
 | `numShardsPerDLPRequestBatching` | (Optional) Number of shards for DLP request batches. Can be used to control parallelism of DLP requests. Default value is 100                                                                                                                                      | All                 |
 | `numberOfWorkerHarnessThreads`   | (Optional) The number of threads per each worker harness process                                                                                                                                                                                                   | All                 |
 | `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API. Default value is 10                                                                                                                                                                           | All                 |
-| `getInitialBackoff`              | (Optional) Initial backoff (in seconds) for retries with exponential backoff. Default is 5s                                                                                                                                                                        | All                 |
+| `initialBackoff`                 | (Optional) Initial backoff (in seconds) for retries with exponential backoff. Default is 5s                                                                                                                                                                        | All                 |
 
-For more details, see [Pipeline Options](https://cloud.google.com/dataflow/docs/reference/pipeline-options).
+For more details, see [Dataflow Pipeline Options](https://cloud.google.com/dataflow/docs/reference/pipeline-options).
 
 ### Supported File Formats
 
@@ -249,7 +249,11 @@ For sample commands for processing CSV files, see [Run the samples](#run-the-sam
 
 #### 2. TSV
 
-TSV files are handled in the same way as CSV files with TAB as column delimiter. No additional changes are required in pipeline options.
+The pipeline supports TSV file format which uses TAB as the column delimiter. No additional changes are required in pipeline options.
+```
+gradle build ... -Pargs="... --filePattern=gs://<bucket_name>/small_file.tsv"
+
+```
 #### 3. JSONL
 
 The pipeline supports JSONL file format where each line is a valid JSON object and newline character separate JSON objects. For a sample file, see the [test resources](src/test/resources/CCRecords_sample.jsonl). 
@@ -290,8 +294,6 @@ export AWS_CRED="{\"@type\":\"AWSStaticCredentialsProvider\",\"awsAccessKeyId\":
 Use Gradle to build and run the job to perform DLP operations on a CSV file stored in Amazon S3. The results will be written to BigQuery.
 
 ```
-gradle spotlessApply
-
 gradle build
 
 // inspect is default as DLP Method; For deid: --DLPMethod=DEID
@@ -311,36 +313,37 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 2. [Create de-identification templates and run de-identification on sample data](https://cloud.google.com/dlp/docs/creating-templates-deid)
 3. In case of cross-regional data source or sink, grant the necessary permissions to the Dataflow service account.
 
-.
-
 
 ## Troubleshooting
 
-Following are the known issues with Cloud DLP, along with ways you can avoid or recover from them.
+Following are some issues/errors that one may encounter while running the pipeline, and the ways you can avoid or recover from them.
 
-1. Duplicate rows: When writing data to a BigQuery table, Cloud DLP might write duplicate rows.
+* Duplicate rows: When writing data to a BigQuery table, Cloud DLP might write duplicate rows.
 
-    The project uses the Streaming Inserts API of BigQuery which by default enables best-effort deduplication mechanism. However, you should not rely on this mechanism to guarantee the absence of duplicates in your data. For a possible solution, see the knowledge base article, checkout [high number of duplicates in Dataflow pipeline streaming inserts to BigQuery](https://cloud.google.com/knowledge/kb/high-number-of-duplicates-in-dataflow-pipeline-streaming-inserts-to-bigquery-000004276?authuser=0).
-
-
-2. Error in DLP API : "Too many findings in request"
-
-    DLP has a max findings per request [limit](https://cloud.google.com/dlp/limits#content-redaction-limits) of 3000. Run the pipeline again with a smaller batch size.
+    The project uses the Streaming Inserts API of BigQuery which by default enables best-effort deduplication mechanism. For a possible solution, see the knowledge base article, checkout [high number of duplicates in Dataflow pipeline streaming inserts to BigQuery](https://cloud.google.com/knowledge/kb/high-number-of-duplicates-in-dataflow-pipeline-streaming-inserts-to-bigquery-000004276?authuser=0).
 
 
-3. DLP API request quota exhausted
+* Errors in DLPTransform step: 
 
-    This can happen if the Dataflow pipeline is being run with a small batch size. Rerun the pipeline with a larger batch size.
+  (The detailed errors can be viewed in worker logs for the mentioned PTransform.)
+   
+    1. ```INVALID_ARGUMENT: Too many findings to de-identify. Retry with a smaller request.```
 
-    If the batch size cannot be increased or if the issue persists after you saturate the batch size:
+       DLP has a max findings per request [limit](https://cloud.google.com/dlp/limits#content-redaction-limits) of 3000. Run the pipeline again with a smaller batch size.
+       
+    2. ```RESOURCE_EXHAUSTED: Quota exceeded for quota metric 'Number of requests' and limit 'Number of requests per minute' of service 'dlp.googleapis.com'```
 
-   * Increase the value of the dlpApiRetryCount parameter
+       This can happen if the Dataflow pipeline is being run with a small batch size. Re-run the pipeline with a larger batch size.
 
-   * The dlp-dataflow-deidentification repo offers a parameter numShardsPerDLPRequestBatching. Reducing this below the default (100) will reduce the number of parallel requests sent to DLP.
+       If increasing the batch size is not possible or if the issue persists even after reaching the maximum batch size, consider trying one of the following options:
 
-   * Check whether there are other pipelines/clients generating DLP API requests.
+       * The pipeline incorporates a retry mechanism for DLP API calls, utilizing an exponential delay approach. To enhance the retry behavior, you can adjust the value of the `dlpApiRetryCount` parameter. For more information, please refer to the [pipeline parameters](#pipeline-parameters) section, specifically the `dlpApiRetryCount` and `initialBackoff` parameters.
 
-   * Submit a request to increase the quota.
+       * The pipeline includes a parameter called `numShardsPerDLPRequestBatching`. Decreasing this value below the default (100) will result in a lower number of concurrent requests sent to DLP.
+
+       * Verify if there are any other pipelines or clients generating DLP API requests.
+
+       * Consider submitting a request to increase the quota limit. Refer [increase dlp quota](https://cloud.google.com/dlp/limits#increases).
 
 
 ## Dataflow DAG
@@ -357,20 +360,14 @@ For re-identification
 
 
 ## Advanced topics
+Dataflow templates allow you to package a Dataflow pipeline for deployment. Instead of having to build the pipeline everytime, you can create flex templates and deploy the template by using the Google Cloud console, the Google Cloud CLI, or REST API calls.
+For more details, refer [Dataflow templates](https://cloud.google.com/dataflow/docs/concepts/dataflow-templates) and [flex templates](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates).
 
-You can use the gcloud command to trigger the pipeline using a Dataflow flex template. The following example runs a de-identification transformation on data from an S3 bucket.
+## Some Considerations
 
-```
-gcloud beta dataflow flex-template run "dlp-s3-scanner-deid-demo" --project=<project_id> \
---region=<region> --template-file-gcs-location=gs://dataflow-dlp-solution-sample-data/dynamic_template_dlp_v2.json \
---parameters=^~^streaming=true~enableStreamingEngine=true~tempLocation=gs://<path>/temp~numWorkers=5~maxNumWorkers=5~runner=DataflowRunner~filePattern=<s3orgcspath>/filename.csv~dataset=<bq_dataset>~autoscalingAlgorithm=THROUGHPUT_BASED~workerMachineType=n1-highmem-8~inspectTemplateName=<inspect_template>~deidentifyTemplateName=<deid_template>~awsRegion=ca-central-1~awsCredentialsProvider=$AWS_CRED~batchSize=100000~DLPMethod=DEID
+The behavior of the pipeline is dependent on factors such as the length of the record, the number of findings per record, the DLP API quota on the project, and other applications/pipelines generating DLP API traffic.
+Customers may need to adjust the parameters mentioned above and should refer to the troubleshooting section when they encounter errors.
+Most errors observed in the pipeline indicate that the parameters need to be adjusted.
+There may be error scenarios that the pipeline doesn't currently handle and may require code changes.
+Therefore, it is important not to assume that this solution is production-ready due to the reasons mentioned above.
 
-```
-
-To avoid repeatedly running Gradle, you can [create a flex template](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates).
-
-
-## Disclaimer
-
-The pipeline may throw errors/exceptions when provided with large amounts of input data. For this, the user may need to 
-tune the [pipeline parameters](#pipeline-parameters) as per the requirements.
