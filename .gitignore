@@ -74,9 +74,3 @@ secrets.yml
 kek.json
 tek.json
 set_env.sh
-
-# sample data
-!avro_files_01.avro
-!avro_files_02.avro
-!avro_files_03.avro
-!avro_files_04.avro
