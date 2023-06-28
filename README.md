@@ -125,6 +125,8 @@ gradle build
 
 #### Inspection
 
+Run following command to trigger the inspection pipeline: 
+
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
 -Pargs=" --region=${REGION} \
@@ -146,6 +148,8 @@ GCS bucket (specify in _filePattern_ parameter). The inspection findings can be 
 parameter) table.
 
 #### De-Identification
+
+Run following command to trigger the de-identification pipeline:
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -173,7 +177,7 @@ in a BigQuery table to check the tokenized data.
 
 #### Re-identification from BigQuery
 
-1. Export the Standard SQL query to read data from BigQuery. For example:
+1. Export the Standard SQL query to read data from BigQuery. The query is picking 10 records as sample to re-identify. For example:
 
 ```
 export QUERY="select ID,Card_Number,Card_Holders_Name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.CCRecords_1564602828\` where safe_cast(Credit_Limit as int64)>100000 and safe_cast (Age as int64)>50 group by ID,Card_Number,Card_Holders_Name limit 10"
@@ -265,12 +269,24 @@ To run the pipeline for JSONL files, the list of comma-separated headers also ne
 gsutil cp ./src/test/resources/CCRecords_sample.jsonl gs://<bucket>/
 
 // Run the pipeline using following command
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" --region=<region> --project=<projct_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=gs://<path>.jsonl --dataset=<name>   --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --DLPMethod=DEID --headers=<comma_separated_list_of_headers>"
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" 
+--region=${REGION} 
+--project=${PROJECT_ID} 
+--streaming --enableStreamingEngine 
+--tempLocation=gs://${PROJECT_ID}-demo-data/temp 
+--numWorkers=1 --maxNumWorkers=2 
+--runner=DataflowRunner 
+--filePattern=gs://<path>.jsonl 
+--dataset=${BQ_DATASET_NAME}    
+--inspectTemplateName=${INSPECT_TEMPLATE_NAME}  
+--deidentifyTemplateName=${DEID_TEMPLATE_NAME}
+--DLPMethod=DEID 
+--headers=<comma_separated_list_of_headers>"
 ```
 #### 4. Avro
 
-Avro files are handled in the same way as CSV files. No additional changes are required to run the pipeline.
-For sample data, see the [avro](src/test/resources/avro) directory.
+The pipeline support similar working for Avro files as in case of CSV files. No additional changes are required to run 
+the pipeline except updating the _filePattern_ parameter. For sample data, see the [avro](src/test/resources/avro) directory.
 
 #### 5. CSV files with custom delimiter 
 
@@ -299,7 +315,19 @@ Use Gradle to build and run the job to perform DLP operations on a CSV file stor
 gradle build
 
 // inspect is default as DLP Method; For deid: --DLPMethod=DEID
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=s3://<bucket>>/file.csv --dataset=<name>  --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --awsRegion=<aws_region> --awsCredentialsProvider=$AWS_CRED"
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="
+--region=${REGION}  
+--project=${PROJECT_ID}
+--streaming --enableStreamingEngine 
+--tempLocation=gs://${PROJECT_ID}-demo-data/temp 
+--numWorkers=1 --maxNumWorkers=2 
+--runner=DataflowRunner 
+--filePattern=s3://<bucket>/file.csv 
+--dataset=${BQ_DATASET_NAME}  
+--inspectTemplateName=${INSPECT_TEMPLATE_NAME}  
+--deidentifyTemplateName=${DEID_TEMPLATE_NAME}
+--awsRegion=<aws_region> 
+--awsCredentialsProvider=${AWS_CRED}"
 ```
 
 #### Parameters
