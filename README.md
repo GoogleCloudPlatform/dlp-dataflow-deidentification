@@ -308,10 +308,9 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 
 ## Adapt this pipeline for your use cases
-
+The DLP templates utilized in this tutorial are specifically tailored for inspecting, de-identifying, and re-identifying sample data containing simulated personally identifiable information (PII). It is important to note that when working with your own data, you should create custom DLP templates that align with the characteristics of the data being processed. Please refer to the links below to create your own templates.
 1. [Create your own inspection templates and run inspection on sample data](https://cloud.google.com/dlp/docs/creating-templates-inspect)
 2. [Create de-identification templates and run de-identification on sample data](https://cloud.google.com/dlp/docs/creating-templates-deid)
-3. In case of cross-regional data source or sink, grant the necessary permissions to the Dataflow service account.
 
 
 ## Troubleshooting
