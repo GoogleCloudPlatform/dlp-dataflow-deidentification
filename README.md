@@ -137,6 +137,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --dataset=${BQ_DATASET_NAME}   \
 --inspectTemplateName=${INSPECT_TEMPLATE_NAME} \
 --deidentifyTemplateName=${DEID_TEMPLATE_NAME} \
+--batchSize=200000 \
 --DLPMethod=INSPECT" 
 ```
 
@@ -152,12 +153,13 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --project=${PROJECT_ID} \
 --streaming --enableStreamingEngine \
 --tempLocation=gs://${PROJECT_ID}-demo-data/temp \
---numWorkers=1 --maxNumWorkers=2 \
+--numWorkers=2 --maxNumWorkers=3 \
 --runner=DataflowRunner \
 --filePattern=gs://${PROJECT_ID}-demo-data/*.csv \
 --dataset=${BQ_DATASET_NAME}   \
 --inspectTemplateName=${INSPECT_TEMPLATE_NAME} \
 --deidentifyTemplateName=${DEID_TEMPLATE_NAME} \
+--batchSize=200000\
 --DLPMethod=DEID" 
 ```
 
