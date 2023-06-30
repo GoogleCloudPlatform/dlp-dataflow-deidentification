@@ -370,7 +370,7 @@ public abstract class DLPReidentifyText
           }
         } catch (ApiException e) {
           LOG.error(
-              "DLP API returned error. Not able to insreidentifypect some records {}",
+              "DLP API returned error. Not able to reidentify some records {}",
               e.getMessage());
           retry = false;
         }
