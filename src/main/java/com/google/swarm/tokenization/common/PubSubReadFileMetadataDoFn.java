@@ -17,6 +17,7 @@ package com.google.swarm.tokenization.common;
 
 import com.google.common.io.Files;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
+import org.apache.beam.sdk.io.FileSystems;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -31,8 +32,6 @@ public class PubSubReadFileMetadataDoFn
     extends DoFn<PubsubMessage, Metadata> {
     public static final Logger LOG = LoggerFactory.getLogger(PubSubReadFileMetadataDoFn.class);
     private String filePattern;
-    private static final Set<String> ALLOWED_FILE_EXTENSIONS =
-        Arrays.asList("csv", "avro", "jsonl", "txt").stream().collect(Collectors.toUnmodifiableSet());
 
     public PubSubReadFileMetadataDoFn(String pattern) {
         this.filePattern = pattern;
@@ -58,10 +57,10 @@ public class PubSubReadFileMetadataDoFn
         LOG.info("Received " + filename + " " + bucketId + " " + extension + " " + gsUrl + " " + this.filePattern);
 
         try {
-            if (filename.endsWith("/") || !ALLOWED_FILE_EXTENSIONS.contains(extension)
+            if (filename.endsWith("/") || !Util.ALLOWED_FILE_EXTENSIONS.contains(extension)
                 || !matches(gsUrl, this.filePattern)) return;
             LOG.info("Processing " + filename + " " + bucketId + " " + extension);
-            Metadata fileMetadata = org.apache.beam.sdk.io.FileSystems.matchSingleFileSpec(gsUrl);
+            Metadata fileMetadata = FileSystems.matchSingleFileSpec(gsUrl);
             c.output(fileMetadata);
         } catch (IOException e) {
             LOG.error("GCS Failure retrieving {}: {}", gsUrl, e);
