@@ -177,7 +177,7 @@ in a BigQuery table to check the tokenized data.
 
 #### Re-identification from BigQuery
 
-1. Export the Standard SQL query to read data from BigQuery. The query is picking 10 records as sample to re-identify. For example:
+1. Export a SQL query to read data from BigQuery to re-identify. The sample provided below selects 10 records that match the query.
 
 ```
 export QUERY="select ID,Card_Number,Card_Holders_Name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.CCRecords_1564602828\` where safe_cast(Credit_Limit as int64)>100000 and safe_cast (Age as int64)>50 group by ID,Card_Number,Card_Holders_Name limit 10"
@@ -255,7 +255,7 @@ For sample commands for processing CSV files, see [Run the samples](#run-the-sam
 
 #### 2. TSV
 
-The pipeline supports TSV file format which uses TAB as the column delimiter. No additional changes are required in pipeline options.
+The pipeline supports TSV file format which uses TAB as the column delimiter. The pipeline options are similar to that of CSV files. The extension of the file name should be .tsv.
 ```
 gradle build ... -Pargs="... --filePattern=gs://<bucket_name>/small_file.tsv"
 
@@ -265,8 +265,6 @@ gradle build ... -Pargs="... --filePattern=gs://<bucket_name>/small_file.tsv"
 The pipeline supports JSONL file format where each line is a valid JSON object and newline character separate JSON objects. For a sample file, see the [test resources](src/test/resources/CCRecords_sample.jsonl). 
 To run the pipeline for JSONL files, the list of comma-separated headers also needs to be passed in the pipeline options. 
 ```
-// Copy the sample jsonl file to Cloud Storage
-gsutil cp ./src/test/resources/CCRecords_sample.jsonl gs://<bucket>/
 
 // Run the pipeline using following command
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" 
@@ -276,7 +274,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --tempLocation=gs://${PROJECT_ID}-demo-data/temp 
 --numWorkers=1 --maxNumWorkers=2 
 --runner=DataflowRunner 
---filePattern=gs://<path>.jsonl 
+--filePattern=gs://${PROJECT_ID}-demo-data/CCRecords_sample.jsonl
 --dataset=${BQ_DATASET_NAME}    
 --inspectTemplateName=${INSPECT_TEMPLATE_NAME}  
 --deidentifyTemplateName=${DEID_TEMPLATE_NAME}
@@ -290,7 +288,7 @@ the pipeline except updating the _filePattern_ parameter.
 
 #### 5. CSV files with custom delimiter 
 
-It is possible to provide CSV files with custom delimiter. The delimiter has to be passed in the pipeline option as "--columnDelimiter". 
+The pipeline supports CSV files with custom delimiter. The delimiter has to be passed in the pipeline option as "--columnDelimiter". 
 ```
 gradle build ... -Pargs="... --columnDelimiter=|"
 ```
@@ -389,14 +387,13 @@ For re-identification
 
 
 ## Advanced topics
-Dataflow templates allow you to package a Dataflow pipeline for deployment. Instead of having to build the pipeline everytime, you can create flex templates and deploy the template by using the Google Cloud console, the Google Cloud CLI, or REST API calls.
-For more details, refer [Dataflow templates](https://cloud.google.com/dataflow/docs/concepts/dataflow-templates) and [flex templates](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates).
+* Dataflow templates allow you to package a Dataflow pipeline for deployment. Instead of having to build the pipeline everytime, you can create flex templates and deploy the template by using the Google Cloud console, the Google Cloud CLI, or REST API calls.
+* For more details, refer [Dataflow templates](https://cloud.google.com/dataflow/docs/concepts/dataflow-templates) and [flex templates](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates).
 
 ## Some Considerations
 
-The behavior of the pipeline is dependent on factors such as the length of the record, the number of findings per record, the DLP API quota on the project, and other applications/pipelines generating DLP API traffic.
-Customers may need to adjust the parameters mentioned above and should refer to the troubleshooting section when they encounter errors.
-Most errors observed in the pipeline indicate that the parameters need to be adjusted.
-There may be error scenarios that the pipeline doesn't currently handle and may require code changes.
-Therefore, it is important not to assume that this solution is production-ready due to the reasons mentioned above.
-
+* The behavior of the pipeline is dependent on factors such as the length of the record, the number of findings per record, the DLP API quota on the project, and other applications/pipelines generating DLP API traffic.
+* Customers may need to adjust the parameters mentioned above and should refer to the troubleshooting section when they encounter errors.
+* Most errors observed in the pipeline indicate that the parameters need to be adjusted.
+However, there may be error scenarios that the pipeline doesn't currently handle and may require code changes.
+* Due to the reasons mentioned above this solution should not be considered as production-ready.
