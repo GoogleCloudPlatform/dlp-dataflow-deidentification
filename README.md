@@ -171,8 +171,91 @@ This command will trigger a streaming de-identification Dataflow pipeline that w
 demo-data GCS bucket (specify in _filePattern_ parameter). The de-identified results can be found in the BQ dataset 
 (_dataset_ parameter) tables with the same names as input files, respectively.
 
-You can run some quick [validations](https://web.archive.org/web/20220331191143/https://cloud.google.com/architecture/validating-de-identified-data-bigquery-re-identifying-pii-data) 
-in a BigQuery table to check the tokenized data.
+You can run some quick validations for a BigQuery table to check the tokenized data. Following steps use sample dataset 
+to validate de-identified results:
+
+1. In Cloud Shell, display the header row of the CSV file that you used to create the schema:
+```commandline
+gsutil cp gs://${PROJECT_ID}-demo-data/CCRecords_1564602825.csv - | head -1
+```
+
+2. In the Query editor of SQL workspace, run the following query to compare the schema to the header row of the CSV file:
+
+```commandline
+SELECT table_name, column_name
+FROM `<dataset_id>.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name="CCRecords_1564602825"
+```
+
+There are no spaces in the column names because the pipeline ensures that the column and table names only contains valid 
+characters according to the BigQuery naming standard.
+
+3. Validate that the number of rows in the input file and the output table are equal:
+
+Input records:
+```commandline
+echo $(($(gcloud storage cat gs://${PROJECT_ID}-demo-data/CCRecords_1564602825.csv | wc -l) - 1))
+```
+
+Output records:
+```commandline
+SELECT COUNT(*) as number_of_rows
+FROM `<dataset_id>.CCRecords_1564602825` LIMIT 1
+```
+
+4. Validate that the bucketing transformation is successfully applied to the JobTitle column:
+
+```commandline
+SELECT JobTitle, COUNT(*) AS number_of_records_found
+FROM `<dataset_id>.CCRecords_1564602825`
+GROUP BY JobTitle
+```
+
+n the output, the JobTitle values should be grouped into three generalized buckets: Executive, Engineer, and Manager.
+
+
+5. Validate that values in the Age column are grouped into six different buckets from 60 to 20:
+
+```commandline
+SELECT Age, COUNT(*) AS number_of_records_found
+FROM `<dataset_id>.CCRecords_1564602825`
+GROUP BY Age
+ORDER BY Age DESC
+```
+
+6. Validate the masking transformation for the SSN:
+
+```commandline
+SELECT SSN
+FROM `<dataset_id>.CCRecords_*`
+WHERE REGEXP_CONTAINS(SSN, "@*")
+```
+
+In the output, the first five digits for all SSN entries should be masked.
+
+7. Validate that the cryptographic transformation used deterministic encryption for the card_holders_name and 
+card_number and card_pin entries:
+
+```commandline
+SELECT Additional_Details
+FROM `<dataset_id>.CCRecords_*`
+WHERE REGEXP_CONTAINS(Additional_Details, r'(IBAN_CODE+)') or REGEXP_CONTAINS(Additional_Details, r'(EMAIL_ADDRESS+)')or regexp_contains(Additional_Details, r'(PHONE_NUMBER+)')or regexp_contains(Additional_Details, r'(ONLINE_USER_ID+)')
+```
+
+In the output, sensitive values should be replaced with placeholder values such as [IBAN_CODE], [EMAIL_ADDRESS], 
+[PHONE_NUMBER,] and [ONLINE_USER_ID].
+
+8. Query the de-identified copies of the dataset for the ID 76901:
+
+```commandline
+SELECT * FROM `<dataset_id>.CCRecords_1564602825` WHERE ID='76901'
+```
+
+9. In Cloud Shell, compare the output from the previous step with the original dataset in the CSV file for the ID 76901:
+
+```commandline
+gsutil cp gs://${PROJECT_ID}-demo-data/CCRecords_1564602825.csv - | awk -F "," '$1 == 76901'
+```
 
 
 #### Re-identification from BigQuery
