@@ -369,7 +369,11 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 #### 4. Avro
 
 The pipeline support similar working for Avro files as in case of CSV files. No additional changes are required to run 
-the pipeline except updating the _filePattern_ parameter.
+the pipeline except updating the "--filePattern" parameter. For example:
+
+```commandline
+--filePattern=gs://${PROJECT_ID}-demo-data/*.avro
+```
 
 #### 5. CSV files with custom delimiter 
 
