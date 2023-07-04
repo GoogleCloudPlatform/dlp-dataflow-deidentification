@@ -388,7 +388,9 @@ gradle build ... -Pargs="... --columnDelimiter=|"
 
 To use Amazon S3 as a source of input files, use AWS credentials as instructed below.
 
-Export the AWS access key, secret key, and credentials provider to environment variables. 
+1. Create AWS access key. Refer [here](https://docs.aws.amazon.com/keyspaces/latest/devguide/access.credentials.html#create.keypair).
+
+2. Export the AWS access key, secret key, and credentials provider to environment variables. 
 
 ```
 export AWS_ACCESS_KEY="<access_key>"
@@ -396,7 +398,7 @@ export AWS_SECRET_KEY="<secret_key>"
 export AWS_CRED="{\"@type\":\"AWSStaticCredentialsProvider\",\"awsAccessKeyId\":\"${AWS_ACCESS_KEY}\",\"awsSecretKey\":\"${AWS_SECRET_KEY}\"}"
 ```
 
-Use Gradle to build and run the job to perform DLP operations on a CSV file stored in Amazon S3. The results will be written to BigQuery.
+3. Use Gradle to build and run the job to perform DLP operations on a CSV file stored in Amazon S3. The results will be written to BigQuery.
 
 ```
 gradle build
