@@ -211,7 +211,7 @@ FROM `<dataset_id>.CCRecords_1564602825`
 GROUP BY JobTitle
 ```
 
-n the output, the JobTitle values should be grouped into three generalized buckets: Executive, Engineer, and Manager.
+In the output, the JobTitle values should be grouped into three generalized buckets: Executive, Engineer, and Manager.
 
 
 5. Validate that values in the Age column are grouped into six different buckets from 60 to 20:
@@ -476,8 +476,8 @@ For re-identification
 
 
 ## Advanced topics
-* Dataflow templates allow you to package a Dataflow pipeline for deployment. Instead of having to build the pipeline everytime, you can create flex templates and deploy the template by using the Google Cloud console, the Google Cloud CLI, or REST API calls.
-* For more details, refer [Dataflow templates](https://cloud.google.com/dataflow/docs/concepts/dataflow-templates) and [flex templates](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates).
+* Dataflow templates allow you to package a Dataflow pipeline for deployment. Instead of having to build the pipeline everytime, you can create Flex Templates and deploy the template by using the Google Cloud console, the Google Cloud CLI, or REST API calls.
+* For more details, refer [Dataflow templates](https://cloud.google.com/dataflow/docs/concepts/dataflow-templates) and [Flex Templates](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates).
 
 ## Some Considerations
 
