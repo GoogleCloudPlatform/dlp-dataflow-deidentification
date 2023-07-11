@@ -370,7 +370,7 @@ The pipeline support similar working for Avro files as in case of CSV files. No 
 the pipeline except updating the "--filePattern" parameter. For example:
 
 ```commandline
---filePattern=gs://${PROJECT_ID}-demo-data/*.avro
+gradle build ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.avro"
 ```
 
 #### 5. CSV files with custom delimiter 
@@ -398,6 +398,7 @@ export AWS_CRED="{\"@type\":\"AWSStaticCredentialsProvider\",\"awsAccessKeyId\":
 
 3. Use Gradle to build and run the job to perform DLP operations on a CSV file stored in Amazon S3. The results will be written to BigQuery.
 
+    Update the `filePattern` and `awsRegion` parameters with appropriate values in the following command.
 ```
 gradle build
 
