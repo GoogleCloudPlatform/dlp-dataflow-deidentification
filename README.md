@@ -340,7 +340,7 @@ For sample commands for processing CSV files, see [Run the samples](#run-the-sam
 
 The pipeline supports TSV file format which uses TAB as the column delimiter. The pipeline options are similar to that of CSV files. The extension of the file name should be .tsv.
 ```
-gradle build ... -Pargs="... --filePattern=gs://<bucket_name>/small_file.tsv"
+gradle run ... -Pargs="... --filePattern=gs://<bucket_name>/small_file.tsv"
 
 ```
 #### 3. JSONL
@@ -348,21 +348,7 @@ gradle build ... -Pargs="... --filePattern=gs://<bucket_name>/small_file.tsv"
 The pipeline supports JSONL file format where each line is a valid JSON object and newline character separate JSON objects. For a sample file, see the [test resources](src/test/resources/CCRecords_sample.jsonl). 
 To run the pipeline for JSONL files, the list of comma-separated headers also needs to be passed in the pipeline options. 
 ```
-
-// Run the pipeline using following command
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" 
---region=${REGION} 
---project=${PROJECT_ID} 
---streaming --enableStreamingEngine 
---tempLocation=gs://${PROJECT_ID}-demo-data/temp 
---numWorkers=1 --maxNumWorkers=2 
---runner=DataflowRunner 
---filePattern=gs://${PROJECT_ID}-demo-data/CCRecords_sample.jsonl
---dataset=${BQ_DATASET_NAME}    
---inspectTemplateName=${INSPECT_TEMPLATE_NAME}  
---deidentifyTemplateName=${DEID_TEMPLATE_NAME}
---DLPMethod=DEID 
---headers=<comma_separated_list_of_headers>"
+gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/CCRecords_sample.jsonl --headers=<comma_separated_list_of_headers>"
 ```
 #### 4. Avro
 
@@ -370,14 +356,14 @@ The pipeline support similar working for Avro files as in case of CSV files. No 
 the pipeline except updating the "--filePattern" parameter. For example:
 
 ```commandline
-gradle build ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.avro"
+gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.avro"
 ```
 
 #### 5. CSV files with custom delimiter 
 
 The pipeline supports CSV files with custom delimiter. The delimiter has to be passed in the pipeline option as "--columnDelimiter". 
 ```
-gradle build ... -Pargs="... --columnDelimiter=|"
+gradle run ... -Pargs="... --columnDelimiter=|"
 ```
 
 
