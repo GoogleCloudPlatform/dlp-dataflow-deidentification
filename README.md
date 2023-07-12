@@ -140,7 +140,8 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --inspectTemplateName=${INSPECT_TEMPLATE_NAME} \
 --deidentifyTemplateName=${DEID_TEMPLATE_NAME} \
 --batchSize=200000 \
---DLPMethod=INSPECT" 
+--DLPMethod=INSPECT \
+--serviceAccount=$SERVICE_ACCOUNT_EMAIL" 
 ```
 
 This command will trigger a streaming inspection Dataflow pipeline that will process all the CSV files in the demo-data 
@@ -163,8 +164,9 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --dataset=${BQ_DATASET_NAME}   \
 --inspectTemplateName=${INSPECT_TEMPLATE_NAME} \
 --deidentifyTemplateName=${DEID_TEMPLATE_NAME} \
---batchSize=200000\
---DLPMethod=DEID" 
+--batchSize=200000 \
+--DLPMethod=DEID \
+--serviceAccount=$SERVICE_ACCOUNT_EMAIL" 
 ```
 
 This command will trigger a streaming de-identification Dataflow pipeline that will process all the CSV files in the 
@@ -294,7 +296,8 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --deidentifyTemplateName=${REID_TEMPLATE_NAME} 
 --DLPMethod=REID 
 --keyRange=1024 
---queryPath=gs://${REID_QUERY_BUCKET}/reid_query.sql"
+--queryPath=gs://${REID_QUERY_BUCKET}/reid_query.sql 
+--serviceAccount=$SERVICE_ACCOUNT_EMAIL"
 ```
 
 This command will trigger a batch re-identification Dataflow pipeline that will process all the records from the query 
@@ -401,7 +404,8 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --inspectTemplateName=${INSPECT_TEMPLATE_NAME}  
 --deidentifyTemplateName=${DEID_TEMPLATE_NAME}
 --awsRegion=<aws_region> 
---awsCredentialsProvider=${AWS_CRED}"
+--awsCredentialsProvider=${AWS_CRED} 
+--serviceAccount=$SERVICE_ACCOUNT_EMAIL"
 ```
 
 #### Parameters
