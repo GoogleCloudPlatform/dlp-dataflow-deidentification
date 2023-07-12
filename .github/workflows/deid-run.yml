@@ -1,0 +1,106 @@
+name: Java CI with Gradle
+
+on:
+  push:
+    branches:
+      - ci-workflow-testing
+
+env:
+  PROJECT_ID: "muskan-dlp-test-local3"
+  DATASET_ID: "gh_test_2"
+  GCS_BUCKET: "muskan-dlp-test-local3-demo-data"
+  TABLE_ID_1: "CCRecords_1564602825"
+  TABLE_ID_2: "CCRecords_1564602826"
+  TABLE_ID_3: "CCRecords_1564602828"
+  TABLE_ID_4: "CCRecords_1564602829"
+  TABLE_ID_5: "CCRecords_1564602830"
+  INSPECT_TEMPLATE_PATH: "projects/muskan-dlp-test-local3/locations/global/inspectTemplates/dlp-demo-inspect-latest-1680688062701"
+  DEID_TEMPLATE_PATH: "projects/muskan-dlp-test-local3/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1680688062701"
+
+jobs:
+  run-and-verify:
+    runs-on:
+      - self-hosted
+      - gh-test-2
+
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Run DLP Pipeline
+        run: |
+          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --region=us-central1 \
+                --project=${{env.PROJECT_ID}} \
+                --streaming \
+                --enableStreamingEngine \
+                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+                --numWorkers=2 \
+                --maxNumWorkers=3 \
+                --runner=DataflowRunner \
+                --filePattern=gs://${{env.GCS_BUCKET}}/*.csv \
+                --dataset=${{env.DATASET_ID}} \
+                --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
+                --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
+                --batchSize=200000 \
+                --DLPMethod=DEID"
+
+      - name: Verify BQ tables
+        run: |
+          table_count_orig=$(gsutil du gs://${{env.GCS_BUCKET}}/*.csv | wc -l)
+          not_verified=true
+          table_count=0
+          while $not_verified; do
+            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__'  | wc -l ) -1))
+            if [[ "$table_count" == "$table_count_orig" ]]; then
+              echo "PASSED"; 
+              not_verified=false;
+            else
+              sleep 5m
+            fi
+          done
+          echo "# CSV files in demo-data bucket is: $table_count_orig."
+          echo "Verified number of tables in BQ: $table_count ."
+
+      - name: Verify distinct rows
+        run: |
+          rc_orig1=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.TABLE_ID_1}}.csv | wc -l ) -1))
+          rc_orig2=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.TABLE_ID_2}}.csv | wc -l ) -1))
+          rc_orig3=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.TABLE_ID_3}}.csv | wc -l ) -1))
+          rc_orig4=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.TABLE_ID_4}}.csv | wc -l ) -1))
+          rc_orig5=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.TABLE_ID_5}}.csv | wc -l ) -1))
+          not_verified=true
+          rc1=0
+          rc2=0
+          rc3=0
+          rc4=0
+          rc5=0
+          while $not_verified; do
+            row_count=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.TABLE_ID_1}}`')
+            rc1=$(echo "$row_count" | jq -r '.[].f0_')
+            row_count=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.TABLE_ID_2}}`')
+            rc2=$(echo "$row_count" | jq -r '.[].f0_')
+            row_count=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.TABLE_ID_3}}`')
+            rc3=$(echo "$row_count" | jq -r '.[].f0_')
+            row_count=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.TABLE_ID_4}}`')
+            rc4=$(echo "$row_count" | jq -r '.[].f0_')
+            row_count=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.TABLE_ID_5}}`')
+            rc5=$(echo "$row_count" | jq -r '.[].f0_')
+            if [[ "$rc1" == "$rc_orig1" && "$rc2" == "$rc_orig2" && "$rc3" == "$rc_orig3" && "$rc4" == "$rc_orig4" && "$rc5" == "$rc_orig5" ]]; then 
+              echo "PASSED"; 
+              not_verified=false;
+            else
+              sleep 5m
+            fi
+          done
+          echo "# records in input CSV files are: $rc_orig1, $rc_orig2, $rc_orig3, $rc_orig4, $rc_orig5."
+          echo "Verified number of rows in CCRecords_1564602825: $rc1 , $rc2 , $rc3 , $rc4 , $rc5 ."
