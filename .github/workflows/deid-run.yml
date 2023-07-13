@@ -53,7 +53,8 @@ jobs:
                 --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=DEID \
-                --serviceAccount=${SERVICE_ACCOUNT_EMAIL}"
+                --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
+                --timeout=1800"
 
       - name: Verify BQ tables
         run: |
