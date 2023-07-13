@@ -6,16 +6,17 @@ on:
       - ci-workflow-testing
 
 env:
-  PROJECT_ID: "muskan-dlp-test-local3"
-  DATASET_ID: "gh_test_2"
-  GCS_BUCKET: "muskan-dlp-test-local3-demo-data"
+  PROJECT_ID: "dlp-dataflow-deid-ci-392604"
+  DATASET_ID: "demo_dataset"
+  GCS_BUCKET: "dlp-dataflow-deid-ci-392604-demo-data"
   TABLE_ID_1: "CCRecords_1564602825"
   TABLE_ID_2: "CCRecords_1564602826"
   TABLE_ID_3: "CCRecords_1564602828"
   TABLE_ID_4: "CCRecords_1564602829"
   TABLE_ID_5: "CCRecords_1564602830"
-  INSPECT_TEMPLATE_PATH: "projects/muskan-dlp-test-local3/locations/global/inspectTemplates/dlp-demo-inspect-latest-1680688062701"
-  DEID_TEMPLATE_PATH: "projects/muskan-dlp-test-local3/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1680688062701"
+  INSPECT_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
+  DEID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
+  SERVICE_ACCOUNT_EMAIL: "demo-service-account@dlp-dataflow-deid-ci-392604.iam.gserviceaccount.com"
 
 jobs:
   run-and-verify:
@@ -51,7 +52,8 @@ jobs:
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
                 --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
                 --batchSize=200000 \
-                --DLPMethod=DEID"
+                --DLPMethod=DEID \
+                --serviceAccount=${SERVICE_ACCOUNT_EMAIL}"
 
       - name: Verify BQ tables
         run: |
