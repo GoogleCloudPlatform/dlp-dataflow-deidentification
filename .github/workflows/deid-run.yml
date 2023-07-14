@@ -22,6 +22,7 @@ jobs:
   run-and-verify:
     runs-on:
       - self-hosted
+      - test-runner-chitara01
 
     timeout-minutes: 30
 
