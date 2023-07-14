@@ -41,8 +41,6 @@ jobs:
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=us-central1 \
                 --project=${{env.PROJECT_ID}} \
-                --streaming \
-                --enableStreamingEngine \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
                 --numWorkers=2 \
                 --maxNumWorkers=3 \
@@ -53,8 +51,7 @@ jobs:
                 --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=DEID \
-                --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
-                --timeout=1800"
+                --serviceAccount=${SERVICE_ACCOUNT_EMAIL}"
 
       - name: Verify BQ tables
         run: |
