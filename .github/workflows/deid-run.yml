@@ -12,10 +12,12 @@ env:
   TABLE_ID: "CCRecords_1564602825"
   INSPECT_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
   DEID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
+  REID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-reid-latest-1689137435622"
   SERVICE_ACCOUNT_EMAIL: "demo-service-account@dlp-dataflow-deid-ci-392604.iam.gserviceaccount.com"
+  PUBSUB_TOPIC_NAME: "demo-topic"
 
 jobs:
-  run-and-verify:
+  de-identification:
     runs-on:
       - self-hosted
       - test-runner-chitara01
@@ -42,7 +44,7 @@ jobs:
                 --numWorkers=2 \
                 --maxNumWorkers=3 \
                 --runner=DataflowRunner \
-                --filePattern=gs://${{env.GCS_BUCKET}}/*.csv \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.TABLE_ID}}.csv \
                 --dataset=${{env.DATASET_ID}} \
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
                 --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
@@ -82,3 +84,92 @@ jobs:
           done
           echo "# records in input CSV file are: $rc_orig."
           echo "Verified number of rows in ${{env.TABLE_ID}}: $row_count."
+
+  re-identification:
+    needs: de-identification
+
+    runs-on:
+      - self-hosted
+      - test-runner-chitara01
+
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Store query in GCS bucket
+        run: |
+          export QUERY="SELECT ID, Card_Number, Card_Holders_Name FROM \`${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.TABLE_ID}}\` WHERE SAFE_CAST(Credit_Limit AS INT64)>100000 AND SAFE_CAST(Age AS INT64)>50 GROUP BY ID, Card_Number, Card_Holders_Name LIMIT 10"
+          cat << EOF | gsutil cp - gs://${GCS_BUCKET}/reid_query.sql
+          ${QUERY}
+          EOF
+
+      - name: Create a PubSub topic
+        run: |
+          if [[ $(gcloud pubsub topics list --filter="name:${{env.PUBSUB_TOPIC_NAME}}") ]]; then
+           echo "Topic already created!"
+          else
+             gcloud pubsub topics create ${{env.PUBSUB_TOPIC_NAME}}
+             echo "Created a new topic!"
+          fi
+
+      - name: Run DLP Pipeline
+        run: |
+          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --region=us-central1 \
+                --project=${{env.PROJECT_ID}} \
+                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+                --numWorkers=1 \
+                --maxNumWorkers=2 \
+                --runner=DataflowRunner \
+                --tableRef=${{env.PROJECT_ID}}:${{env.DATASET_ID}}.${{env.TABLE_ID}} \
+                --dataset=${{env.DATASET_ID}} \
+                --topic=projects/${{env.PROJECT_ID}}/topics/${{env.PUBSUB_TOPIC_NAME}} \
+                --autoscalingAlgorithm=THROUGHPUT_BASED \
+                --workerMachineType=n1-highmem-4 \
+                --deidentifyTemplateName=${{env.REID_TEMPLATE_PATH}} \
+                --DLPMethod=REID \
+                --keyRange=1024 \
+                --queryPath=gs://${GCS_BUCKET}/reid_query.sql \
+                --serviceAccount=${SERVICE_ACCOUNT_EMAIL}"
+
+      - name: Verify BQ table
+        run: |
+          not_verified=true
+          table_count=0
+          while $not_verified; do
+            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.TABLE_ID}}_re_id"'  | wc -l ) -1))
+            if [[ "$table_count" == "1" ]]; then
+              echo "PASSED"; 
+              not_verified=false;
+            else
+              sleep 2m
+            fi
+          done
+          echo "Verified number of tables in BQ with id ${{env.TABLE_ID}}_re_id: $table_count ."
+
+      - name: Verify distinct rows
+        run: |
+          rc_orig=$(($(bq query --nouse_legacy_sql --format=csv "$(gsutil cat gs://muskan-dlp-test-local3-demo-data/reid_query.sql)" | wc -l) - 1))
+          not_verified=true
+          row_count=0
+          while $not_verified; do
+            row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(ID) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.TABLE_ID}}_re_id`')
+            row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
+            if [[ "$row_count" == "$rc_orig" ]]; then 
+              echo "PASSED"; 
+              not_verified=false;
+            else
+              sleep 5m
+            fi
+          done
+          echo "# records in input query are: $rc_orig."
+          echo "Verified number of rows in ${{env.TABLE_ID}}_re_id: $row_count."
