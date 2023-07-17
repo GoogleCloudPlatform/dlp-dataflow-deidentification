@@ -245,7 +245,10 @@ jobs:
           echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}_re_id: $row_count."
 
   clean-up:
-    needs: de-identification
+    needs:
+      - inspection
+      - de-identification
+      - re-identification
 
     runs-on:
       - self-hosted
