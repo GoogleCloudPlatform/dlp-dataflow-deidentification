@@ -177,7 +177,7 @@ jobs:
 
       - name: Store query in GCS bucket
         run: |
-          export QUERY="SELECT ID, Card_Number, Card_Holders_Name FROM \`${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}\` WHERE SAFE_CAST(Credit_Limit AS INT64)>100000 AND SAFE_CAST(Age AS INT64)>50 GROUP BY ID, Card_Number, Card_Holders_Name LIMIT 10"
+          export QUERY="SELECT ID, Card_Number, Card_Holders_Name FROM \`${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}\`"
           cat << EOF | gsutil cp - gs://${GCS_BUCKET}/${{env.REIDENTIFICATION_QUERY_FILE}}
           ${QUERY}
           EOF
@@ -269,6 +269,6 @@ jobs:
 
       - name: Clean-up BQ dataset
         run: |
-          bq query --nouse_legacy_sql 'DROP TABLE `${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}`'
-          bq query --nouse_legacy_sql 'DROP TABLE `${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}_re_id`'
-          bq query --nouse_legacy_sql 'DROP TABLE `${{env.DATASET_ID}}.${{env.INSPECTION_TABLE_ID}}`'
+          bq rm -t -f ${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}
+          bq rm -t -f ${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}_re_id
+          bq rm -t -f ${{env.DATASET_ID}}.${{env.INSPECTION_TABLE_ID}}
