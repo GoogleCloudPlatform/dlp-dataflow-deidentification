@@ -245,6 +245,7 @@ jobs:
           echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}_re_id: $row_count."
 
   clean-up:
+    if: ${{ always() }}
     needs:
       - inspection
       - de-identification
@@ -258,14 +259,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-
-      - name: Setup Java
-        uses: actions/setup-java@v1
-        with:
-          java-version: 11
-
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
 
       - name: Clean-up BQ dataset
         run: |
