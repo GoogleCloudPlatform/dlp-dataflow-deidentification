@@ -228,7 +228,7 @@ jobs:
 
       - name: Verify distinct rows
         run: |
-          rc_orig=$(($(bq query --nouse_legacy_sql --format=csv "$(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}})" | wc -l) - 1))
+          rc_orig=$(($(bq query --nouse_legacy_sql --format=csv "$(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.REIDENTIFICATION_QUERY_FILE}})" | wc -l) - 1))
           not_verified=true
           row_count=0
           while $not_verified; do
