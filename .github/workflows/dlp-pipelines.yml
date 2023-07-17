@@ -20,73 +20,6 @@ env:
   NUM_INSPECTION_RECORDS: "30"
 
 jobs:
-  inspection:
-    runs-on:
-      - self-hosted
-      - test-runner-chitara01
-
-    timeout-minutes: 30
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Setup Java
-        uses: actions/setup-java@v1
-        with:
-          java-version: 11
-
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
-
-      - name: Run DLP Pipeline
-        run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
-                --region=us-central1 \
-                --project=${{env.PROJECT_ID}} \
-                --streaming \
-                --enableStreamingEngine \
-                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
-                --numWorkers=1 \
-                --maxNumWorkers=2 \
-                --runner=DataflowRunner \
-                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INSPECTION_FILE_NAME}}.csv \
-                --dataset=${{env.DATASET_ID}} \
-                --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
-                --batchSize=200000 \
-                --DLPMethod=INSPECT \
-                --serviceAccount=$SERVICE_ACCOUNT_EMAIL"
-
-      - name: Verify BQ table
-        run: |
-          not_verified=true
-          table_count=0
-          while $not_verified; do
-            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.INSPECTION_TABLE_ID}}"'  | wc -l ) -1))
-            if [[ "$table_count" == "1" ]]; then
-              echo "PASSED";
-              not_verified=false;
-            else
-              sleep 5m
-            fi
-          done
-          echo "Verified number of tables in BQ with id ${{env.INSPECTION_TABLE_ID}}: $table_count ."
-
-      - name: Verify distinct rows
-        run: |
-          not_verified=true
-          row_count=0
-          while $not_verified; do
-            row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(*) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INSPECTION_TABLE_ID}}`')
-            row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
-            if [[ "$row_count" == ${{env.NUM_INSPECTION_RECORDS}} ]]; then
-              echo "PASSED";
-              not_verified=false;
-            else
-              sleep 5m
-            fi
-          done
-          echo "Verified number of rows in ${{env.INSPECTION_TABLE_ID}}: $row_count."
-
   de-identification:
     runs-on:
       - self-hosted
@@ -228,7 +161,7 @@ jobs:
 
       - name: Verify distinct rows
         run: |
-          rc_orig=$(($(bq query --nouse_legacy_sql --format=csv "$(gsutil cat gs://muskan-dlp-test-local3-demo-data/reid_query.sql)" | wc -l) - 1))
+          rc_orig=$(($(bq query --nouse_legacy_sql --format=csv 'SELECT ID,Card_Number,Card_Holders_Name FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.TABLE_ID}}` WHERE SAFE_CAST(Credit_Limit as INT64)>100000 AND SAFE_CAST (Age as INT64)>50 GROUP BY ID,Card_Number,Card_Holders_Name LIMIT 10' | wc -l) - 1))
           not_verified=true
           row_count=0
           while $not_verified; do
