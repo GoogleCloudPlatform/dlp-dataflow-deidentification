@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [ opened, reopened, synchronize ]
   schedule:
-    - cron: '0 9 * * *'
+    - cron: '4 9 * * *'
 
 env:
   PROJECT_ID: "dlp-dataflow-deid-ci-392604"
@@ -52,6 +52,7 @@ jobs:
                 --runner=DataflowRunner \
                 --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv \
                 --dataset=${{env.DATASET_ID}} \
+                --workerMachineType=n1-highmem-4 \
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=INSPECT \
@@ -117,6 +118,7 @@ jobs:
                 --runner=DataflowRunner \
                 --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv \
                 --dataset=${{env.DATASET_ID}} \
+                --workerMachineType=n1-highmem-4 \
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
                 --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
                 --batchSize=200000 \
