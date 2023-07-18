@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [ opened, reopened, synchronize ]
   schedule:
-    - cron: '4 9 * * *'
+    - cron: '30 9 * * *'
 
 env:
   PROJECT_ID: "dlp-dataflow-deid-ci-392604"
