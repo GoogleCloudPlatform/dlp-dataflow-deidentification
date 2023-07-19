@@ -1,8 +1,8 @@
 name: Java CI with Gradle
 
 on:
-  pull_request:
-    types: [ opened, reopened, synchronize ]
+#  pull_request:
+#    types: [ opened, reopened, synchronize ]
   schedule:
     - cron: '30 9 * * *'
 
