@@ -196,9 +196,8 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
     public InputLocation create(PipelineOptions options) {
        if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getFilePattern().startsWith("gs://"))  
         return InputLocation.GCS;
-       else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getFilePattern().startsWith("s3://"))
-        return InputLocation.S3;
-       throw new IllegalArgumentException("Data needs to be ingested either from GCS Bucket or S3 Bucket");
+       else
+        return InputLocation.NOT_GCS;
     }
   }
 
@@ -209,9 +208,9 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   void setInputProviderType(InputLocation input);
 
   @Description("Topic to use for GCS Pub/Sub")
-  String getGCSNotificationTopic();
+  String getGcsNotificationTopic();
 
-  void setGCSNotificationTopic(String topic);
+  void setGcsNotificationTopic(String topic);
 
   @Description("Flag to process existing files")
   @Default.Boolean(true)

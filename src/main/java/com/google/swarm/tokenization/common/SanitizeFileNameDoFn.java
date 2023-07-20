@@ -77,6 +77,10 @@ public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, Readable
       lastModified = Instant.now().getMillis();
     }
     String fileName = sanitizeFileName(file.getMetadata().resourceId().getFilename());
+    /* For files whose metadata is coming through pub/sub notification and being read,
+     * the last modified timestamp would be older than the current window time and hence
+     * these files are windowed with timestamp when the file is actually being processed.
+     */
     if (this.inputProviderType == InputLocation.GCS)
       c.outputWithTimestamp(KV.of(fileName, file), Instant.ofEpochMilli(Instant.now().getMillis()));
     else

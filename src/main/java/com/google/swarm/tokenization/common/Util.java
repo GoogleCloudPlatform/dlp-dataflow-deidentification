@@ -85,8 +85,8 @@ public class Util {
   }
 
   public enum InputLocation {
-    S3,
-    GCS
+    GCS,
+    NOT_GCS
   }
 
   public static final Gson gson = new Gson();

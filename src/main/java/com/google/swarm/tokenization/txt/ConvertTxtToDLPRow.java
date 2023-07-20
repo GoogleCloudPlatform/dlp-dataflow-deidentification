@@ -47,40 +47,38 @@ public class ConvertTxtToDLPRow extends DoFn<KV<String, String>, KV<String, Tabl
 
   @ProcessElement
   public void processElement(ProcessContext context) throws IOException {
-    try {
-        Table.Row.Builder rowBuilder = Table.Row.newBuilder();
-        String input = Objects.requireNonNull(context.element().getValue());
-        Map<String, List<String>> headers = context.sideInput(header);
-        String fileName = context.element().getKey();
-        List<String> csvHeader = headers.get(fileName);
-        if (csvHeader == null) {
-          throw new RuntimeException(
+
+    Table.Row.Builder rowBuilder = Table.Row.newBuilder();
+    String input = Objects.requireNonNull(context.element().getValue());
+    Map<String, List<String>> headers = context.sideInput(header);
+    String fileName = context.element().getKey();
+
+    List<String> csvHeader = headers.get(fileName);
+    if (csvHeader == null) {
+        throw new RuntimeException(
               "Unable to find header row for fileName: "
                   + fileName
                   + ". The side input only contains header for "
                   + headers.keySet());
-        }
+    }
+
+    if (columnDelimiter != null) {
     
-        if (columnDelimiter != null) {
-    
-          List<String> values = Util.parseLine(input, columnDelimiter, '"');
-          if (values.size() == csvHeader.size()) {
+        List<String> values = Util.parseLine(input, columnDelimiter, '"');
+        if (values.size() == csvHeader.size()) {
             values.forEach(
                 value -> rowBuilder.addValues(Value.newBuilder().setStringValue(value).build()));
             context.output(KV.of(fileName, rowBuilder.build()));
     
-          } else {
+        } else {
             LOG.warn(
                 "Rows must have the same number of items {} as there are headers {}",
                 values.size(),
                 csvHeader.size());
-          }
-        } else {
-          rowBuilder.addValues(Value.newBuilder().setStringValue(input).build());
-          context.output(KV.of(fileName, rowBuilder.build()));
         }
-    } catch (IllegalArgumentException e) {
-        LOG.info(e.getMessage());
+    } else {
+        rowBuilder.addValues(Value.newBuilder().setStringValue(input).build());
+        context.output(KV.of(fileName, rowBuilder.build()));
     }
   }
 }

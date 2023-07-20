@@ -28,8 +28,8 @@ import com.google.swarm.tokenization.common.CSVFileReaderSplitDoFn;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.ExtractColumnNamesTransform;
 import com.google.swarm.tokenization.common.FilePollingTransform;
-import com.google.swarm.tokenization.common.SanitizeFileNameDoFn;
-import com.google.swarm.tokenization.common.PubSubReadFileMetadataDoFn;
+import com.google.swarm.tokenization.common.ReadExistingFilesTransform;
+import com.google.swarm.tokenization.common.ReadNewFilesPubSubTransform;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
 import com.google.swarm.tokenization.common.PubSubMessageConverts;
 import com.google.swarm.tokenization.common.Util;
@@ -46,7 +46,6 @@ import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.FileIO;
-import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -108,34 +107,25 @@ public class DLPTextToBigQueryStreamingV2 {
   private static void runInspectAndDeidPipeline(
       Pipeline p, DLPTextToBigQueryStreamingV2PipelineOptions options) {
     PCollection<KV<String, ReadableFile>> inputFiles;
+    boolean usePubSub = options.getGcsNotificationTopic() != null;
 
-    if (options.getInputProviderType() == InputLocation.GCS && options.getGCSNotificationTopic() == null
-        && !options.getProcessExistingFiles())
+    if (options.getInputProviderType() == InputLocation.GCS && !usePubSub && !options.getProcessExistingFiles())
         throw new IllegalArgumentException("Either --processExistingFiles or --gcsNotificationTopic should be provided");
 
     if (options.getInputProviderType() == InputLocation.GCS) {
-        PCollection<KV<String, ReadableFile>> allFiles;
+        PCollection<KV<String, ReadableFile>> newFiles = p.apply("Read New Files", ReadNewFilesPubSubTransform.newBuilder()
+                                                          .setFilePattern(options.getFilePattern())
+                                                          .setUsePubSub(usePubSub)
+                                                          .setPubSubTopic(options.getGcsNotificationTopic())
+                                                          .build());
 
-        PCollection<KV<String, ReadableFile>> existingFiles = p.apply("CreateEmptyExistingFileSet",
-                                                                      Create.empty(KvCoder.of(StringUtf8Coder.of(),
-                                                                                              ReadableFileCoder.of())));
-        if (options.getProcessExistingFiles())
-            existingFiles = p.apply("MatchExistingFiles", FileIO.match().filepattern(options.getFilePattern()))
-                             .apply("ReadExistingFiles", FileIO.readMatches())
-                             .apply("SanitizeFileNameExistingFiles", ParDo.of(new SanitizeFileNameDoFn(options.getInputProviderType())));
+        PCollection<KV<String, ReadableFile>> existingFiles = p.apply("Read Existing Files", ReadExistingFilesTransform.newBuilder()
+                                                               .setFilePattern(options.getFilePattern())
+                                                               .setProcessExistingFiles(options.getProcessExistingFiles())
+                                                               .build());
 
-        PCollection<KV<String, ReadableFile>> newFiles = p.apply("CreateEmptyNewFileSet",
-                                                                Create.empty(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of())));
-        if (options.getGCSNotificationTopic() != null)
-            newFiles = p.apply("ReadFromTopic", PubsubIO.readMessagesWithAttributes().fromTopic(options.getGCSNotificationTopic()))
-                        .apply("ReadFileMetadataFromMessage", ParDo.of(new PubSubReadFileMetadataDoFn(options.getFilePattern())))
-                        .apply("ReadNewFiles", FileIO.readMatches())
-                        .apply("SanitizeFileNameNewFiles", ParDo.of(new SanitizeFileNameDoFn(options.getInputProviderType())));
-
-        allFiles = PCollectionList.of(newFiles).and(existingFiles)
+        inputFiles = PCollectionList.of(newFiles).and(existingFiles)
                         .apply(Flatten.<KV<String, ReadableFile>>pCollections());
-
-        inputFiles = allFiles;
     } else {
         inputFiles = p.apply(FilePollingTransform.newBuilder().setFilePattern(options.getFilePattern())
                             .setInterval(DEFAULT_POLL_INTERVAL).build());
@@ -150,6 +140,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setFileType(options.getFileType())
                 .setHeaders(options.getHeaders())
                 .setColumnDelimiter(options.getColumnDelimiter())
+                .setPubSubGcs(usePubSub)
                 .build());
 
     PCollection<KV<String, Table.Row>> records;
