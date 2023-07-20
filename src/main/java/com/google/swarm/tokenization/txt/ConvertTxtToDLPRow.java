@@ -55,30 +55,30 @@ public class ConvertTxtToDLPRow extends DoFn<KV<String, String>, KV<String, Tabl
 
     List<String> csvHeader = headers.get(fileName);
     if (csvHeader == null) {
-        throw new RuntimeException(
-              "Unable to find header row for fileName: "
-                  + fileName
-                  + ". The side input only contains header for "
-                  + headers.keySet());
+      throw new RuntimeException(
+        "Unable to find header row for fileName: "
+            + fileName
+            + ". The side input only contains header for "
+            + headers.keySet());
     }
 
     if (columnDelimiter != null) {
-    
-        List<String> values = Util.parseLine(input, columnDelimiter, '"');
-        if (values.size() == csvHeader.size()) {
-            values.forEach(
-                value -> rowBuilder.addValues(Value.newBuilder().setStringValue(value).build()));
-            context.output(KV.of(fileName, rowBuilder.build()));
-    
-        } else {
-            LOG.warn(
-                "Rows must have the same number of items {} as there are headers {}",
-                values.size(),
-                csvHeader.size());
-        }
-    } else {
-        rowBuilder.addValues(Value.newBuilder().setStringValue(input).build());
+
+      List<String> values = Util.parseLine(input, columnDelimiter, '"');
+      if (values.size() == csvHeader.size()) {
+        values.forEach(
+            value -> rowBuilder.addValues(Value.newBuilder().setStringValue(value).build()));
         context.output(KV.of(fileName, rowBuilder.build()));
+
+      } else {
+        LOG.warn(
+            "Rows must have the same number of items {} as there are headers {}",
+            values.size(),
+            csvHeader.size());
+      }
+    } else {
+      rowBuilder.addValues(Value.newBuilder().setStringValue(input).build());
+      context.output(KV.of(fileName, rowBuilder.build()));
     }
   }
 }
