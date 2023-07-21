@@ -24,7 +24,6 @@ jobs:
   inspection:
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 30
 
@@ -92,7 +91,6 @@ jobs:
   de-identification:
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 30
 
@@ -163,7 +161,6 @@ jobs:
 
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 30
 
@@ -256,7 +253,6 @@ jobs:
 
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 30
 
