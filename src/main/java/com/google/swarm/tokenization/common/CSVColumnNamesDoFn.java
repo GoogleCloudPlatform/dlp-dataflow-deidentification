@@ -56,7 +56,6 @@ public class CSVColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, KV<String
               });
 
       String fileName = c.element().getKey();
-
       c.output(KV.of(fileName, columnNames));
 
     } catch (IOException e) {

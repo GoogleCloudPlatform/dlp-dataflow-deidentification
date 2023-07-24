@@ -57,8 +57,8 @@ public abstract class ExtractColumnNamesTransform
     public abstract ExtractColumnNamesTransform.Builder setColumnDelimiter(
         Character columnDelimiter);
 
-        public abstract ExtractColumnNamesTransform.Builder setPubSubGcs(
-            Boolean pubSubGcs);
+    public abstract ExtractColumnNamesTransform.Builder setPubSubGcs(
+        Boolean pubSubGcs);
 
     public abstract ExtractColumnNamesTransform build();
   }
