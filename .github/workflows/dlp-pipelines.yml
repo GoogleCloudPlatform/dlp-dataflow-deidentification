@@ -1,13 +1,10 @@
 name: Java CI with Gradle
 
 on:
-#  pull_request:
-#    types: [ opened, reopened, synchronize ]
+  pull_request:
+    types: [ opened, reopened, synchronize ]
   schedule:
     - cron: '30 9 * * *'
-  push:
-    branches:
-      - ci-workflow-testing
 
 env:
   PROJECT_ID: "dlp-dataflow-deid-ci-392604"
@@ -54,7 +51,6 @@ jobs:
 
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 5
 
@@ -72,7 +68,6 @@ jobs:
 
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 30
 
@@ -152,7 +147,6 @@ jobs:
 
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 30
 
@@ -234,7 +228,6 @@ jobs:
 
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 30
 
@@ -338,7 +331,6 @@ jobs:
 
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 30
 
