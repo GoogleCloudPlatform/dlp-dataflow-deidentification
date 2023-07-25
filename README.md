@@ -189,6 +189,8 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --batchSize=200000 \
 --DLPMethod=INSPECT \
 --serviceAccount=$SERVICE_ACCOUNT_EMAIL \
+--gcsNotificationTopic=projects/$PROJECT_ID/topics/$GCS_NOTIFICATION_TOPIC
+--processExistingFiles=false"
 ```
 
 This command will trigger a streaming inspection Dataflow pipeline that will process the CSV files that were are added/streamed in the demo-data GCS bucket (specify in _filePattern_ parameter) after the pipeline was triggered.
@@ -419,7 +421,7 @@ dataset (_dataset_ parameter) table with the name of input table as suffix.
 | `inspectTemplateName`            | DLP inspect template name                                                                                                                                                                                                                                          | INSPECT/DEID        | 
 | `deidentifyTemplateName`         | DLP de-identify template name                                                                                                                                                                                                                                      | All                 |
 | `DLPMethod`                      | Type of DLP operation to perform - INSPECT/DEID/REID                                                                                                                                                                                                               | All                 |
-| `processExistingFiles`           | If set to false then the existing files in GCS bucket before pipeline is triggered will not be processed(by default always true and set)                                                                                                                                                                                                               | INSPECT/DEID                 |
+| `processExistingFiles`           | If set to false then the existing files in GCS bucket before pipeline is triggered will not be processed(default value is true)                                                                                                                                                                                                               | INSPECT/DEID                 |
 | `gcsNotificationTopic`           | Name of Pub/Sub topic through which new files ingested in GCS bucket will be notified(should be provided in the form projects/$PROJECT_ID>/topics/$GCS_TOPIC_NAME)                                                                                                                                                                                                               | INSPECT/DEID                 |
 | `batchSize`                      | (Optional) Batch size for the DLP API, default is 500K                                                                                                                                                                                                             | All                 |
 | `dataset`                        | BigQuery dataset to write the inspection or de-identification results to or to read from in case of re-identification                                                                                                                                              | All                 |
