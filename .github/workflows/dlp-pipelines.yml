@@ -351,11 +351,18 @@ jobs:
         run: |
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
 
-      - name: Cancel Dataflow Jobs
+      - name: Cancel Inspection Job
         env:
           INSPECT_JOB_NAME: ${{ needs.generate-uuid.outputs.output2 }}
-          DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output3 }}
-          REID_JOB_NAME: ${{ needs.generate-uuid.outputs.output4 }}
         run: |
-          gcloud dataflow jobs list --project ${{env.PROJECT_ID}} --status active --format text --filter="name=${{env.INSPECT_JOB_NAME}}" | while read id; do gcloud dataflow jobs cancel $id --project ${{env.PROJECT_ID}}; done
-          gcloud dataflow jobs list --project ${{env.PROJECT_ID}} --status active --format text --filter="name=${{env.DEID_JOB_NAME}}" | while read id; do gcloud dataflow jobs cancel $id --project ${{env.PROJECT_ID}}; done
+          inspect_job_data=$(gcloud dataflow jobs list --project ${{env.PROJECT_ID}} --status active --format json --filter="name=${{env.INSPECT_JOB_NAME}}")
+          inspect_job_id=$(echo "$inspect_job_data" | jq -r '.[].id')
+          gcloud dataflow jobs cancel $inspect_job_id --project ${{env.PROJECT_ID}}
+
+      - name: Cancel De-identification Job
+        env:
+          DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output3 }}
+        run: |
+          deid_job_data=$(gcloud dataflow jobs list --project ${{env.PROJECT_ID}} --status active --format json --filter="name=${{env.DEID_JOB_NAME}}")
+          deid_job_id=$(echo "$deid_job_data" | jq -r '.[].id')
+          gcloud dataflow jobs cancel $deid_job_id --project ${{env.PROJECT_ID}}
