@@ -21,10 +21,53 @@ env:
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
 
 jobs:
-  inspection:
+  generate-uuid:
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 5
+
+    outputs:
+      output1: ${{ steps.gen-uuid.outputs.uuid }}
+      output2: ${{ steps.gen-uuid.outputs.inpect_job_name }}
+      output3: ${{ steps.gen-uuid.outputs.deid_job_name }}
+      output4: ${{ steps.gen-uuid.outputs.reid_job_name }}
+      output5: ${{ steps.gen-uuid.outputs.dataset_id }}
+
+    steps:
+      - name: Generate UUID for workflow
+        id: gen-uuid
+        run: |
+          new_uuid=$(uuidgen)
+          modified_uuid=$(echo "$new_uuid" | tr '-' '_')
+          echo "uuid=$new_uuid" >> "$GITHUB_OUTPUT"
+          echo "inpect_job_name=inspect-$new_uuid" >> "$GITHUB_OUTPUT"
+          echo "deid_job_name=deid-$new_uuid" >> "$GITHUB_OUTPUT"
+          echo "reid_job_name=reid-$new_uuid" >> "$GITHUB_OUTPUT"
+          echo "dataset_id=${{ env.DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
+
+  create-dataset:
+    needs:
+      - generate-uuid
+
     runs-on:
       - self-hosted
-      - test-runner-chitara01
+
+    timeout-minutes: 5
+
+    steps:
+      - name: Create BQ dataset
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
+        run: |
+          bq --location=US mk -d --description "GitHub CI workflow dataset" ${{ env.DATASET_ID }}
+
+  inspection:
+    needs:
+      - generate-uuid
+      - create-dataset
+
+    runs-on:
+      - self-hosted
 
     timeout-minutes: 30
 
@@ -40,6 +83,9 @@ jobs:
         uses: gradle/gradle-build-action@v2
 
       - name: Run DLP Pipeline
+        env:
+          INSPECT_JOB_NAME: ${{ needs.generate-uuid.outputs.output2 }}
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=us-central1 \
@@ -56,9 +102,12 @@ jobs:
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=INSPECT \
-                --serviceAccount=$SERVICE_ACCOUNT_EMAIL"
+                --serviceAccount=$SERVICE_ACCOUNT_EMAIL \
+                --jobName=${{env.INSPECT_JOB_NAME}}"
 
       - name: Verify BQ table
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           not_verified=true
           table_count=0
@@ -74,6 +123,8 @@ jobs:
           echo "Verified number of tables in BQ with id ${{env.INSPECTION_TABLE_ID}}: $table_count ."
 
       - name: Verify distinct rows
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           not_verified=true
           row_count=0
@@ -90,9 +141,12 @@ jobs:
           echo "Verified number of rows in ${{env.INSPECTION_TABLE_ID}}: $row_count."
 
   de-identification:
+    needs:
+      - generate-uuid
+      - create-dataset
+
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 30
 
@@ -108,6 +162,9 @@ jobs:
         uses: gradle/gradle-build-action@v2
 
       - name: Run DLP Pipeline
+        env:
+          DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output3 }}
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=us-central1 \
@@ -123,16 +180,19 @@ jobs:
                 --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=DEID \
-                --serviceAccount=${SERVICE_ACCOUNT_EMAIL}"
+                --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
+                --jobName=${{env.DEID_JOB_NAME}}"
 
       - name: Verify BQ tables
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           not_verified=true
           table_count=0
           while $not_verified; do
             table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.INPUT_FILE_NAME}}"' | wc -l ) -1))
             if [[ "$table_count" == "1" ]]; then
-              echo "PASSED"; 
+              echo "PASSED";
               not_verified=false;
             else
               sleep 30s
@@ -141,6 +201,8 @@ jobs:
           echo "Verified number of tables in BQ with id ${{env.INPUT_FILE_NAME}}: $table_count ."
 
       - name: Verify distinct rows
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv | wc -l ) -1))
           not_verified=true
@@ -148,8 +210,8 @@ jobs:
           while $not_verified; do
             row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}`')
             row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
-            if [[ "$row_count" == "$rc_orig" ]]; then 
-              echo "PASSED"; 
+            if [[ "$row_count" == "$rc_orig" ]]; then
+              echo "PASSED";
               not_verified=false;
             else
               sleep 30s
@@ -159,11 +221,13 @@ jobs:
           echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}: $row_count."
 
   re-identification:
-    needs: de-identification
+    needs:
+      - generate-uuid
+      - create-dataset
+      - de-identification
 
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 30
 
@@ -179,6 +243,8 @@ jobs:
         uses: gradle/gradle-build-action@v2
 
       - name: Store query in GCS bucket
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           export QUERY="SELECT ID, Card_Number, Card_Holders_Name FROM \`${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}\`"
           cat << EOF | gsutil cp - gs://${GCS_BUCKET}/${{env.REIDENTIFICATION_QUERY_FILE}}
@@ -195,6 +261,9 @@ jobs:
           fi
 
       - name: Run DLP Pipeline
+        env:
+          REID_JOB_NAME: ${{ needs.generate-uuid.outputs.output4 }}
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=us-central1 \
@@ -212,16 +281,19 @@ jobs:
                 --DLPMethod=REID \
                 --keyRange=1024 \
                 --queryPath=gs://${GCS_BUCKET}/${{env.REIDENTIFICATION_QUERY_FILE}} \
-                --serviceAccount=${SERVICE_ACCOUNT_EMAIL}"
+                --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
+                --jobName=${{env.REID_JOB_NAME}}"
 
       - name: Verify BQ table
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           not_verified=true
           table_count=0
           while $not_verified; do
             table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.INPUT_FILE_NAME}}_re_id"'  | wc -l ) -1))
             if [[ "$table_count" == "1" ]]; then
-              echo "PASSED"; 
+              echo "PASSED";
               not_verified=false;
             else
               sleep 30s
@@ -230,6 +302,8 @@ jobs:
           echo "Verified number of tables in BQ with id ${{env.INPUT_FILE_NAME}}_re_id: $table_count ."
 
       - name: Verify distinct rows
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           rc_orig=$(($(bq query --nouse_legacy_sql --format=csv "$(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.REIDENTIFICATION_QUERY_FILE}})" | wc -l) - 1))
           not_verified=true
@@ -237,8 +311,8 @@ jobs:
           while $not_verified; do
             row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(ID) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}_re_id`')
             row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
-            if [[ "$row_count" == "$rc_orig" ]]; then 
-              echo "PASSED"; 
+            if [[ "$row_count" == "$rc_orig" ]]; then
+              echo "PASSED";
               not_verified=false;
             else
               sleep 30s
@@ -250,13 +324,13 @@ jobs:
   clean-up:
     if: ${{ always() }}
     needs:
+      - generate-uuid
       - inspection
       - de-identification
       - re-identification
 
     runs-on:
       - self-hosted
-      - test-runner-chitara01
 
     timeout-minutes: 30
 
@@ -264,7 +338,23 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Clean-up BQ dataset
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          bq rm -t -f ${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}
-          bq rm -t -f ${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}_re_id
-          bq rm -t -f ${{env.DATASET_ID}}.${{env.INSPECTION_TABLE_ID}}
+          bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
+
+      - name: Cancel Inspection Job
+        env:
+          INSPECT_JOB_NAME: ${{ needs.generate-uuid.outputs.output2 }}
+        run: |
+          inspect_job_data=$(gcloud dataflow jobs list --project ${{env.PROJECT_ID}} --status active --format json --filter="name=${{env.INSPECT_JOB_NAME}}")
+          inspect_job_id=$(echo "$inspect_job_data" | jq -r '.[].id')
+          gcloud dataflow jobs cancel $inspect_job_id --project ${{env.PROJECT_ID}}
+
+      - name: Cancel De-identification Job
+        env:
+          DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output3 }}
+        run: |
+          deid_job_data=$(gcloud dataflow jobs list --project ${{env.PROJECT_ID}} --status active --format json --filter="name=${{env.DEID_JOB_NAME}}")
+          deid_job_id=$(echo "$deid_job_data" | jq -r '.[].id')
+          gcloud dataflow jobs cancel $deid_job_id --project ${{env.PROJECT_ID}}
