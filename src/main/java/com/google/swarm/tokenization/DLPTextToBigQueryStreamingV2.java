@@ -113,7 +113,8 @@ public class DLPTextToBigQueryStreamingV2 {
             "Extract Column Names",
             ExtractColumnNamesTransform.newBuilder()
                 .setFileType(options.getFileType())
-                .setHeaders(options.getHeaders())
+//                commenting out setHeaders method to introduce error in the pipeline and test CI workflows
+//                .setHeaders(options.getHeaders())
                 .setColumnDelimiter(options.getColumnDelimiter())
                 .build());
 
