@@ -1,4 +1,4 @@
-name: Java CI with Gradle
+name: Test INSPECT, DEID & REID
 
 on:
   pull_request:
@@ -349,7 +349,11 @@ jobs:
         run: |
           inspect_job_data=$(gcloud dataflow jobs list --project ${{env.PROJECT_ID}} --status active --format json --filter="name=${{env.INSPECT_JOB_NAME}}")
           inspect_job_id=$(echo "$inspect_job_data" | jq -r '.[].id')
-          gcloud dataflow jobs cancel $inspect_job_id --project ${{env.PROJECT_ID}}
+          if !$inspect_job_id; then
+            echo "No job found with name: $inspect_job_id."
+          else
+            gcloud dataflow jobs cancel $inspect_job_id --project ${{env.PROJECT_ID}}
+          fi
 
       - name: Cancel De-identification Job
         env:
@@ -357,4 +361,8 @@ jobs:
         run: |
           deid_job_data=$(gcloud dataflow jobs list --project ${{env.PROJECT_ID}} --status active --format json --filter="name=${{env.DEID_JOB_NAME}}")
           deid_job_id=$(echo "$deid_job_data" | jq -r '.[].id')
-          gcloud dataflow jobs cancel $deid_job_id --project ${{env.PROJECT_ID}}
+          if !$deid_job_id; then
+            echo "No job found with name: $deid_job_id."
+          else
+            gcloud dataflow jobs cancel $deid_job_id --project ${{env.PROJECT_ID}}
+          fi
