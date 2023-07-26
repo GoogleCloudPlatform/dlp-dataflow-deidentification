@@ -1,132 +1,479 @@
-# Migrate Sensitive Data in BigQuery Using Dataflow & Cloud DLP  
- This repo contains a reference implementation of an end to end data tokenization solution designed to migrate sensitive data in BigQuery. Please check out the links below for reference guides: 
 
-1. [Concept & Overview](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp).
-2. [Create & Manage Cloud DLP Configurations](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset).  
-3. [Automated Dataflow Pipeline to De-identify PII Dataset](https://cloud.google.com/solutions/running-automated-dataflow-pipeline-de-identify-pii-dataset).   
-4. [Validate Dataset in BigQuery and Re-identify using Dataflow](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data).   
+# Inspect, de-identify and re-identify sensitive data using Cloud DLP and Dataflow
+> This repo contains a reference implementation of an end to end data tokenization solution. The solution is designed to migrate sensitive data to BigQuery after passing it through inspection/de-identification/re-identification Dataflow pipelines implemented using Cloud DLP. Please check out the links below for reference guides.
 
-## Table of Contents  
-* [Quick Start](#quick-start).  
-	 
-	* [Reference Architecture](#reference-architecture).  
-	* [Quick Start- Setup Data Tokenization Demo](#quick-start).    	
+## Table of Contents
 
-* [V2 Solution By Using In Built Java Beam Transform](#v2-solution-by-using-in-built-java-beam-transform).  
-   
+* [Architecture](#architecture)
 
-## Reference Architecture
-![Reference Architecture](diagrams/ref_arch_solution.png)	   	
+* [Concepts](#concepts)
 
-## Quick Start
-[![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git)
+* [Costs](#costs)
 
-  Run the following commands to trigger an automated deployment in your GCP project. Script handles following topics:   
- 
- * Create a bucket ({project-id}-demo-data) in us-central1 and [uploads a sample dataset](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset#downloading_the_sample_files) with <b>mock</b> PII data.  
- 
- * Create a BigQuery dataset in US (demo_dataset) to store the tokenized data.  
- 
- * Create a [KMS wrapped key(KEK)](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset#creating_a_key_encryption_key_kek) by creating an automatic [TEK](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp#token_encryption_keys) (Token Encryption Key). 
-  
- * Create DLP [inspect and re-identification template](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset#creating_the_cloud_dlp_templates) with the KEK and crypto based transformations identified in this [section of the guide](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp#determining_transformation_type)
-  
- * Trigger an [automated Dataflow pipeline](https://cloud.google.com/dataflow/docs/guides/templates/provided-streaming#data-maskingtokenization-using-cloud-dlp-from-cloud-storage-to-bigquery-stream) by passing all the required [parameters](https://cloud.google.com/solutions/running-automated-dataflow-pipeline-de-identify-pii-dataset#reviewing_the_pipeline_parameters) e.g: data, configuration & dataset name.  
- 
- * Please allow 5-10 mins for the deployment to be completed.
+* [Tutorial](#tutorial)
+
+  * [Prerequisites](#pre-requisites)
+  * [Compile the code](#compile-the-code)
+  * [Run the samples](#run-the-samples)
+    * [Inspection](#inspection)
+    * [De-identification](#de-identification)
+    * [Re-identification](#re-identification-from-bigquery)
+  * [Pipeline parameters](#pipeline-parameters)
+  * [Supported file formats](#supported-file-formats)
+  * [Amazon S3 scanner](#amazon-s3-scanner)
+
+* [Adapt this pipeline for your use cases](#adapt-this-pipeline-for-your-use-cases)
+
+* [Troubleshooting](#troubleshooting)
+
+* [Dataflow DAG](#dataflow-dag)
+
+* [Advanced topics](#advanced-topics)
+
+* [Disclaimer](#disclaimer)
+
+
+## Architecture
+The solution comprises two types of pipelines (based on the DLP transformation type). To view a job graph of the pipeline, see [Dataflow DAG](#dataflow-dag).
+1. Inspection and de-identification
+2. Re-identification
+
+### Inspection and De-identification
+![Reference Architecture](diagrams/inspect-deid-architecture.png)
+
+The pipeline can be used for CSV, TSV, Avro, and JSONL files stored in either Cloud Storage or Amazon S3 bucket. It uses State and Timer API for efficient batching to process the files in optimal manner.
+The results of the inspection or de-identification is written to a BigQuery table
+
+### Re-identification
+![Reference Architecture](diagrams/reid-architecture.png)
+
+The pipeline for re-identification workflow is used to read data from BigQuery table and publish the re-identified data in a secure pub sub topic.
+
+## Concepts
+
+Please refer to the following list of resources to understand key concepts related to Cloud DLP and Dataflow.
+
+1. [Cloud Data Loss Prevention - Quick Start & Guides](https://cloud.google.com/dlp/docs/dlp-bigquery)
+2. [De-identification and re-identification of PII in large-scale datasets using Cloud DLP](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp).
+3. [Cloud DLP templates](https://cloud.google.com/dlp/docs/concepts-templates).
+4. [Automated Dataflow Pipeline to De-identify PII Dataset](https://cloud.google.com/dataflow/docs/guides/templates/provided/dlp-text-to-bigquery).
+5. [Validate Dataset in BigQuery and Re-identify using Dataflow](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data).
+6. [Inspecting storage and databases for sensitive data](https://cloud.google.com/dlp/docs/inspecting-storage)
+7. [Dataflow Pipeline Options](https://cloud.google.com/dataflow/docs/reference/pipeline-options)
+8. [Cloud DLP Quotas and Limits](https://cloud.google.com/dlp/limits)
+
+## Costs
+
+This tutorial uses billable components of Google Cloud, including the following:
+
+* [Dataflow](https://cloud.google.com/dataflow/pricing)
+* [Cloud Storage](https://cloud.google.com/storage/pricing)
+* [Cloud Data Loss Prevention](https://cloud.google.com/dlp/pricing)
+* [Cloud KMS](https://cloud.google.com/kms/pricing)
+* [BigQuery](https://cloud.google.com/bigquery/pricing)
+
+Use the [pricing calculator](https://cloud.google.com/products/calculator) to generate a cost estimate based on your
+projected usage.
+
+## Tutorial
+
+### Prerequisites
+
+1. [Create a Google Cloud project](https://console.cloud.google.com/projectselector2/home/dashboard).
+
+2. Make sure that [billing is enabled](https://support.google.com/cloud/answer/6293499#enable-billing) for your Google
+   Cloud project.
+
+3. Use the link below to open Cloud Shell.
+
+   [![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/GoogleCloudPlatform/dlp-dataflow-deidentification.git)
+
+4. Run the following commands to set up the data tokenization solution in your Google Cloud project. 
+
+    ```
+    gcloud config set project <project_id>
+    sh setup-data-tokeninzation-solution-v2.sh
+    ```
+
+    Script (setup-data-tokenization-solution-v2.sh) handles following tasks:
+
+     * Creates a bucket ({project-id}-demo-data) in us-central1 region and [uploads a sample dataset](http://storage.googleapis.com/dataflow-dlp-solution-sample-data/sample_data_scripts.tar.gz) with <b>mock</b> PII data.
+
+     * Creates a BigQuery dataset (demo_dataset) in US multi-region to store the tokenized data.
+
+     * Creates a [KMS wrapped key(KEK)](https://cloud.google.com/kms/docs/envelope-encryption) by creating an automatic [TEK](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp#token_encryption_keys) (Token Encryption Key).
+
+     * Creates DLP [inspect, de-identification and re-identification templates](https://cloud.google.com/solutions/creating-cloud-dlp-de-identification-transformation-templates-pii-dataset#creating_the_cloud_dlp_templates) with the KEK and crypto-based transformations identified in this [section of the guide](https://cloud.google.com/solutions/de-identification-re-identification-pii-using-cloud-dlp#determining_transformation_type)
+
+     * Creates a service account for running the DLP pipeline (creates a custom role).
+
+     * Emits a set_env.sh, which you can use to set temporary environment variables while triggering the DLP pipelines.
+
+5. Run set_env.sh
+    ```
+    source set_env.sh
+    ```
+
+
+### Compile the code
 
 ```
-gcloud config set project <project_id>
-sh deploy-data-tokeninzation-solution.sh
-```
-
- You can run some quick [validations](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data#validating_the_de-identified_dataset_in_bigquery) in BigQuery table to check on tokenized data.  
-
-For re-identification (getting back the original data in a Pub/Sub topic), please follow this instruction [here](https://cloud.google.com/solutions/validating-de-identified-data-bigquery-re-identifying-pii-data#re-identifying_the_dataset_from_bigquery).  
-
-## V2 Solution By Using In Built Java Beam Transform
-This part of the repo provides a reference implementation to process large scale files for  any DLP transformation like Inspect, Deidentify or ReIdentify.  Solution can be used for CSV / Avro / [JSONL](https://jsonlines.org) files stored in either GCS or AWS S3 bucket. It uses State and Timer API for efficient batching to process the files in optimal manner. 
-
-## Build and Run
-```
-gradle spotlessApply
-
 gradle build
-
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" --region=<region> --project=<projct_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=gs://<path>.csv --dataset=<name>   --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --DLPMethod=DEID"
 ```
-## S3 Scanner
+
+### Run the samples
+
+#### Inspection
+
+Run following command to trigger the inspection pipeline: 
+
+```
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
+-Pargs=" --region=${REGION} \
+--project=${PROJECT_ID} \
+--streaming --enableStreamingEngine \
+--tempLocation=gs://${PROJECT_ID}-demo-data/temp \
+--numWorkers=1 --maxNumWorkers=2 \
+--runner=DataflowRunner \
+--filePattern=gs://${PROJECT_ID}-demo-data/*.csv \
+--dataset=${BQ_DATASET_NAME}   \
+--inspectTemplateName=${INSPECT_TEMPLATE_NAME} \
+--deidentifyTemplateName=${DEID_TEMPLATE_NAME} \
+--batchSize=200000 \
+--DLPMethod=INSPECT \
+--serviceAccount=$SERVICE_ACCOUNT_EMAIL" 
+```
+
+This command will trigger a streaming inspection Dataflow pipeline that will process all the CSV files in the demo-data 
+GCS bucket (specify in _filePattern_ parameter). The inspection findings can be found in the BQ dataset (_dataset_ 
+parameter) table.
+
+#### De-Identification
+
+Run following command to trigger the de-identification pipeline:
+
+```
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
+-Pargs=" --region=${REGION} \
+--project=${PROJECT_ID} \
+--streaming --enableStreamingEngine \
+--tempLocation=gs://${PROJECT_ID}-demo-data/temp \
+--numWorkers=2 --maxNumWorkers=3 \
+--runner=DataflowRunner \
+--filePattern=gs://${PROJECT_ID}-demo-data/*.csv \
+--dataset=${BQ_DATASET_NAME}   \
+--inspectTemplateName=${INSPECT_TEMPLATE_NAME} \
+--deidentifyTemplateName=${DEID_TEMPLATE_NAME} \
+--batchSize=200000 \
+--DLPMethod=DEID \
+--serviceAccount=$SERVICE_ACCOUNT_EMAIL" 
+```
+
+This command will trigger a streaming de-identification Dataflow pipeline that will process all the CSV files in the 
+demo-data GCS bucket (specify in _filePattern_ parameter). The de-identified results can be found in the BQ dataset 
+(_dataset_ parameter) tables with the same names as input files, respectively.
+
+You can run some quick validations for a BigQuery table to check the tokenized data. Following steps use sample dataset 
+to validate de-identified results:
+
+1. In Cloud Shell, display the header row of the CSV file that you used to create the schema:
+```commandline
+gsutil cp gs://${PROJECT_ID}-demo-data/CCRecords_1564602825.csv - | head -1
+```
+
+2. In the Query editor of SQL workspace, run the following query to compare the schema to the header row of the CSV file:
+
+```commandline
+SELECT table_name, column_name
+FROM `<dataset_id>.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name="CCRecords_1564602825"
+```
+
+There are no spaces in the column names because the pipeline ensures that the column and table names only contains valid 
+characters according to the BigQuery naming standard.
+
+3. Validate that the number of rows in the input file and the output table are equal:
+
+Input records:
+```commandline
+echo $(($(gcloud storage cat gs://${PROJECT_ID}-demo-data/CCRecords_1564602825.csv | wc -l) - 1))
+```
+
+Output records:
+```commandline
+SELECT COUNT(*) as number_of_rows
+FROM `<dataset_id>.CCRecords_1564602825` LIMIT 1
+```
+
+4. Validate that the bucketing transformation is successfully applied to the JobTitle column:
+
+```commandline
+SELECT JobTitle, COUNT(*) AS number_of_records_found
+FROM `<dataset_id>.CCRecords_1564602825`
+GROUP BY JobTitle
+```
+
+In the output, the JobTitle values should be grouped into three generalized buckets: Executive, Engineer, and Manager.
+
+
+5. Validate that values in the Age column are grouped into six different buckets from 60 to 20:
+
+```commandline
+SELECT Age, COUNT(*) AS number_of_records_found
+FROM `<dataset_id>.CCRecords_1564602825`
+GROUP BY Age
+ORDER BY Age DESC
+```
+
+6. Validate the masking transformation for the SSN:
+
+```commandline
+SELECT SSN
+FROM `<dataset_id>.CCRecords_*`
+WHERE REGEXP_CONTAINS(SSN, "@*")
+```
+
+In the output, the first five digits for all SSN entries should be masked.
+
+7. Validate that the cryptographic transformation used deterministic encryption for the card_holders_name and 
+card_number and card_pin entries:
+
+```commandline
+SELECT Additional_Details
+FROM `<dataset_id>.CCRecords_*`
+WHERE REGEXP_CONTAINS(Additional_Details, r'(IBAN_CODE+)') or REGEXP_CONTAINS(Additional_Details, r'(EMAIL_ADDRESS+)')or regexp_contains(Additional_Details, r'(PHONE_NUMBER+)')or regexp_contains(Additional_Details, r'(ONLINE_USER_ID+)')
+```
+
+In the output, sensitive values should be replaced with placeholder values such as [IBAN_CODE], [EMAIL_ADDRESS], 
+[PHONE_NUMBER,] and [ONLINE_USER_ID].
+
+8. Query the de-identified copies of the dataset for the ID 76901:
+
+```commandline
+SELECT * FROM `<dataset_id>.CCRecords_1564602825` WHERE ID='76901'
+```
+
+9. In Cloud Shell, compare the output from the previous step with the original dataset in the CSV file for the ID 76901:
+
+```commandline
+gsutil cp gs://${PROJECT_ID}-demo-data/CCRecords_1564602825.csv - | awk -F "," '$1 == 76901'
+```
+
+
+#### Re-identification from BigQuery
+
+1. Export a SQL query to read data from BigQuery to re-identify. The sample provided below selects 10 records that match the query.
+
+```
+export QUERY="select ID,Card_Number,Card_Holders_Name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.CCRecords_1564602828\` where safe_cast(Credit_Limit as int64)>100000 and safe_cast (Age as int64)>50 group by ID,Card_Number,Card_Holders_Name limit 10"
+```
+
+2. Create a Cloud Storage file with the following query:
+
+```
+export REID_QUERY_BUCKET=<name>
+cat << EOF | gsutil cp - gs://${REID_QUERY_BUCKET}/reid_query.sql
+${QUERY}
+EOF
+```
+
+3. Create a Pub/Sub topic. For more information, see [create a topic](https://cloud.google.com/pubsub/docs/create-topic#create_a_topic)
+
+4. Run the pipeline by passing the required parameters:
+
+```
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 
+-Pargs="--region=${REGION} 
+--project=${PROJECT_ID} 
+--tempLocation=gs://${PROJECT_ID}-demo-data/temp 
+--numWorkers=1 --maxNumWorkers=2 
+--runner=DataflowRunner 
+--tableRef=${PROJECT_ID}:${BQ_DATASET_NAME}.<table> 
+--dataset=${BQ_DATASET_NAME} 
+--topic=projects/${PROJECT_ID}/topics/<topic_name> 
+--autoscalingAlgorithm=THROUGHPUT_BASED 
+--workerMachineType=n1-highmem-4 
+--deidentifyTemplateName=${REID_TEMPLATE_NAME} 
+--DLPMethod=REID 
+--keyRange=1024 
+--queryPath=gs://${REID_QUERY_BUCKET}/reid_query.sql 
+--serviceAccount=$SERVICE_ACCOUNT_EMAIL"
+```
+
+This command will trigger a batch re-identification Dataflow pipeline that will process all the records from the query 
+stored in _reid_query.sql_. The re-identified results can be found in the BQ 
+dataset (_dataset_ parameter) table with the name of input table as suffix.
+
+
+### Pipeline Parameters
+
+| Pipeline Option                  | Description                                                                                                                                                                                                                                                        | Used in Operations  |
+|----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
+| `region`                         | Specifies a regional endpoint for deploying your Dataflow jobs.                                                                                                                                                                                                    | All                 |
+| `project`                        | The project ID for your Google Cloud project.                                                                                                                                                                                                                      | All                 |
+| `streaming`                      | true if streaming pipeline                                                                                                                                                                                                                                         | INSPECT/DEID        |
+| `enableStreamingEngine`          | Specifies whether Dataflow Streaming Engine is enabled or disabled                                                                                                                                                                                                 | INSPECT/DEID        |
+| `tempLocation`                   | Cloud Storage path for temporary files. Must be a valid Cloud Storage URL                                                                                                                                                                                          | All                 |
+| `numWorkers`                     | (Optional) The initial number of Compute Engine instances to use when executing your pipeline. This option determines how many workers the Dataflow service starts up when your job begins.                                                                        | All                 |
+| `maxNumWorkers`                  | (Optional) The maximum number of Compute Engine instances to be made available to your pipeline during execution. This value can be higher than the initial number of workers (specified by numWorkers) to allow your job to scale up, automatically or otherwise. | All                 |
+| `runner`                         | DataflowRunner                                                                                                                                                                                                                                                     | All                 |
+| `inspectTemplateName`            | DLP inspect template name                                                                                                                                                                                                                                          | INSPECT/DEID        | 
+| `deidentifyTemplateName`         | DLP de-identify template name                                                                                                                                                                                                                                      | All                 |
+| `DLPMethod`                      | Type of DLP operation to perform - INSPECT/DEID/REID                                                                                                                                                                                                               | All                 |
+| `batchSize`                      | (Optional) Batch size for the DLP API, default is 500K                                                                                                                                                                                                             | All                 |
+| `dataset`                        | BigQuery dataset to write the inspection or de-identification results to or to read from in case of re-identification                                                                                                                                              | All                 |
+| `recordDelimiter`                | (Optional) Record delimiter                                                                                                                                                                                                                                        | INSPECT/DEID        |
+| `columnDelimiter`                | Column Delimiter - only required in case of custom delimiter                                                                                                                                                                                                       | INSPECT/DEID        | 
+| `tableRef`                       | BigQuery table to export from in the form `<project>:<dataset>.<table>`                                                                                                                                                                                            | REID                |
+| `queryPath`                      | Query file for re-identification                                                                                                                                                                                                                                   | REID                |
+| `headers`                        | DLP table headers- Required for JSONL file type                                                                                                                                                                                                                    | INSPECT/DEID        |
+| `numShardsPerDLPRequestBatching` | (Optional) Number of shards for DLP request batches. Can be used to control parallelism of DLP requests. Default value is 100                                                                                                                                      | All                 |
+| `numberOfWorkerHarnessThreads`   | (Optional) The number of threads per each worker harness process                                                                                                                                                                                                   | All                 |
+| `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API. Default value is 10                                                                                                                                                                           | All                 |
+| `initialBackoff`                 | (Optional) Initial backoff (in seconds) for retries with exponential backoff. Default is 5s                                                                                                                                                                        | All                 |
+
+For more details, see [Dataflow Pipeline Options](https://cloud.google.com/dataflow/docs/reference/pipeline-options).
+
+### Supported File Formats
+
+#### 1. CSV
+For sample commands for processing CSV files, see [Run the samples](#run-the-samples).
+
+#### 2. TSV
+
+The pipeline supports TSV file format which uses TAB as the column delimiter. The pipeline options are similar to that of CSV files. The extension of the file name should be .tsv.
+```
+gradle run ... -Pargs="... --filePattern=gs://<bucket_name>/small_file.tsv"
+
+```
+#### 3. JSONL
+
+The pipeline supports JSONL file format where each line is a valid JSON object and newline character separate JSON objects. For a sample file, see the [test resources](src/test/resources/CCRecords_sample.jsonl). 
+To run the pipeline for JSONL files, the list of comma-separated headers also needs to be passed in the pipeline options. 
+```
+gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/CCRecords_sample.jsonl --headers=<comma_separated_list_of_headers>"
+```
+#### 4. Avro
+
+The pipeline support similar working for Avro files as in case of CSV files. No additional changes are required to run 
+the pipeline except updating the "--filePattern" parameter. For example:
+
+```commandline
+gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.avro"
+```
+
+#### 5. CSV files with custom delimiter 
+
+The pipeline supports CSV files with custom delimiter. The delimiter has to be passed in the pipeline option as "--columnDelimiter". 
+```
+gradle run ... -Pargs="... --columnDelimiter=|"
+```
+
+
+
+### Amazon S3 Scanner
+
+To use Amazon S3 as a source of input files, use AWS credentials as instructed below.
+
+1. Create AWS access key. Refer [here](https://docs.aws.amazon.com/keyspaces/latest/devguide/access.credentials.html#create.keypair).
+
+2. Export the AWS access key, secret key, and credentials provider to environment variables. 
 
 ```
 export AWS_ACCESS_KEY="<access_key>"
 export AWS_SECRET_KEY="<secret_key>"
 export AWS_CRED="{\"@type\":\"AWSStaticCredentialsProvider\",\"awsAccessKeyId\":\"${AWS_ACCESS_KEY}\",\"awsSecretKey\":\"${AWS_SECRET_KEY}\"}"
 ```
-```
-gradle spotlessApply
 
+3. Use Gradle to build and run the job to perform DLP operations on a CSV file stored in Amazon S3. The results will be written to BigQuery.
+
+    Update the `filePattern` and `awsRegion` parameters with appropriate values in the following command.
+```
 gradle build
 
 // inspect is default as DLP Method; For deid: --DLPMethod=DEID
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=s3://<bucket>>/file.csv --dataset=<name>  --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --awsRegion=<aws_region> --awsCredentialsProvider=$AWS_CRED"
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="
+--region=${REGION}  
+--project=${PROJECT_ID}
+--streaming --enableStreamingEngine 
+--tempLocation=gs://${PROJECT_ID}-demo-data/temp 
+--numWorkers=1 --maxNumWorkers=2 
+--runner=DataflowRunner 
+--filePattern=s3://<bucket>/file.csv 
+--dataset=${BQ_DATASET_NAME}  
+--inspectTemplateName=${INSPECT_TEMPLATE_NAME}  
+--deidentifyTemplateName=${DEID_TEMPLATE_NAME}
+--awsRegion=<aws_region> 
+--awsCredentialsProvider=${AWS_CRED} 
+--serviceAccount=$SERVICE_ACCOUNT_EMAIL"
 ```
 
-## DeIdentification of JSONL files
-The pipeline supports JSONL file format where each line is a valid JSON Object and newline character is used to separate JSON objects. A sample file can be found in [test resources](src/test/resources/CCRecords_sample.jsonl).
-```
-// Copy the sample jsonl file to GCS
-gsutil cp ./src/test/resources/CCRecords_sample.jsonl gs://<bucket>/
+#### Parameters
 
-// Run the pipeline using following command
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" --region=<region> --project=<projct_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner --filePattern=gs://<path>.jsonl --dataset=<name>   --inspectTemplateName=<inspect_template> --deidentifyTemplateName=<deid_tmplate> --DLPMethod=DEID --headers=<comma_separated_list_of_headers>"
+* --awsRegion: The region where the AWS resources reside.
 
-```
+* --awsCredentialsProvider: The AWS credentials provider.
 
-## ReIdentification From BigQuery 
-You can. use the pipeline to read from BgQuery table and publish the re-identification data in a secure pub sub topic.
 
-Export the Standard SQL Query to read data from bigQuery
-One example from our solution guide:
-```
-export QUERY="select ID,Card_Number,Card_Holders_Name from \`${PROJECT_ID}.${BQ_DATASET_NAME}.100000CCRecords\` where safe_cast(Credit_Limit as int64)>100000 and safe_cast (Age as int64)>50 group by ID,Card_Number,Card_Holders_Name limit 10"
-```
-Create a gcs file with the query:
+## Adapt this pipeline for your use cases
+The DLP templates utilized in this tutorial are specifically tailored for inspecting, de-identifying, and re-identifying sample data containing simulated personally identifiable information (PII). It is important to note that when working with your own data, you should create custom DLP templates that align with the characteristics of the data being processed. Please refer to the links below to create your own templates.
+1. [Create your own inspection templates and run inspection on sample data](https://cloud.google.com/dlp/docs/creating-templates-inspect)
+2. [Create de-identification templates and run de-identification on sample data](https://cloud.google.com/dlp/docs/creating-templates-deid)
 
-```
-export GCS_REID_QUERY_BUCKET=<name>
-cat << EOF | gsutil cp - gs://${REID_QUERY_BUCKET}/reid_query.sql
-${QUERY}
-EOF
-```
-Run the pipeline by passing required parameters:
-```
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="--region=<region> --project=<project_id> --streaming --enableStreamingEngine --tempLocation=gs://<bucket>/temp --numWorkers=5 --maxNumWorkers=10 --runner=DataflowRunner --tableRef=<project_id>:<dataset>.<table> --dataset=<dataset> --topic=projects/<project_id>/topics/<name> --autoscalingAlgorithm=THROUGHPUT_BASED --workerMachineType=n1-highmem-4 --deidentifyTemplateName=projects/<project_id>/deidentifyTemplates/<name> --DLPMethod=REID --keyRange=1024 --queryPath=gs://<gcs_reid_query_bucket>/reid_query.sql"
 
-```
+## Troubleshooting
+
+Following are some issues/errors that one may encounter while running the pipeline, and the ways you can avoid or recover from them.
+
+* Duplicate rows: When writing data to a BigQuery table, Cloud DLP might write duplicate rows.
+
+    The project uses the Streaming Inserts API of BigQuery which by default enables best-effort deduplication mechanism. For a possible solution, see the knowledge base article, checkout [high number of duplicates in Dataflow pipeline streaming inserts to BigQuery](https://cloud.google.com/knowledge/kb/high-number-of-duplicates-in-dataflow-pipeline-streaming-inserts-to-bigquery-000004276?authuser=0).
+
+
+* Errors in DLPTransform step: 
+
+  (The detailed errors can be viewed in worker logs for the mentioned PTransform.)
+   
+    1. ```INVALID_ARGUMENT: Too many findings to de-identify. Retry with a smaller request.```
+
+       DLP has a max findings per request [limit](https://cloud.google.com/dlp/limits#content-redaction-limits) of 3000. Run the pipeline again with a smaller batch size.
+       
+    2. ```RESOURCE_EXHAUSTED: Quota exceeded for quota metric 'Number of requests' and limit 'Number of requests per minute' of service 'dlp.googleapis.com'```
+
+       This can happen if the Dataflow pipeline is being run with a small batch size. Re-run the pipeline with a larger batch size.
+
+       If increasing the batch size is not possible or if the issue persists even after reaching the maximum batch size, consider trying one of the following options:
+
+       * The pipeline incorporates a retry mechanism for DLP API calls, utilizing an exponential delay approach. To enhance the retry behavior, you can adjust the value of the `dlpApiRetryCount` parameter. For more information, please refer to the [pipeline parameters](#pipeline-parameters) section, specifically the `dlpApiRetryCount` and `initialBackoff` parameters.
+
+       * The pipeline includes a parameter called `numShardsPerDLPRequestBatching`. Decreasing this value below the default (100) will result in a lower number of concurrent requests sent to DLP.
+
+       * Verify if there are any other pipelines or clients generating DLP API requests.
+
+       * Consider submitting a request to increase the quota limit. Refer [increase dlp quota](https://cloud.google.com/dlp/limits#increases).
+
+
 ## Dataflow DAG
 
-For Deid and Inspect:
-
-![v2_dag_](diagrams/dlp_dag_new.png)	   	
-
-
-
-For Reid:
-
-![v2_dag_](diagrams/dlp_reid_dag.png)	   	
+For inspection and de-identification:
+![v2_dag_](diagrams/dlp_dag_new.png)
 
 
 
-## Trigger Pipeline Using Public Image
-You can use the gcloud command to trigger the pipeline using Dataflow flex template. Below is an example for de-identification transform from a S3 bucket.
+For re-identification
 
-```
-gcloud beta dataflow flex-template run "dlp-s3-scanner-deid-demo" --project=<project_id> \
---region=<region> --template-file-gcs-location=gs://dataflow-dlp-solution-sample-data/dynamic_template_dlp_v2.json \
---parameters=^~^streaming=true~enableStreamingEngine=true~tempLocation=gs://<path>/temp~numWorkers=5~maxNumWorkers=5~runner=DataflowRunner~filePattern=<s3orgcspath>/filename.csv~dataset=<bq_dataset>~autoscalingAlgorithm=THROUGHPUT_BASED~workerMachineType=n1-highmem-8~inspectTemplateName=<inspect_template>~deidentifyTemplateName=<deid_template>~awsRegion=ca-central-1~awsCredentialsProvider=$AWS_CRED~batchSize=100000~DLPMethod=DEID
-
-```
-## To Do
-- take out first row as header before processing 
+![v2_dag_](diagrams/dlp_reid_dag.png)
 
 
+
+## Advanced topics
+* Dataflow templates allow you to package a Dataflow pipeline for deployment. Instead of having to build the pipeline everytime, you can create Flex Templates and deploy the template by using the Google Cloud console, the Google Cloud CLI, or REST API calls.
+* For more details, refer [Dataflow templates](https://cloud.google.com/dataflow/docs/concepts/dataflow-templates) and [Flex Templates](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates).
+
+## Some Considerations
+
+* The behavior of the pipeline is dependent on factors such as the length of the record, the number of findings per record, the DLP API quota on the project, and other applications/pipelines generating DLP API traffic.
+* Customers may need to adjust the parameters mentioned above and should refer to the troubleshooting section when they encounter errors.
+* Most errors observed in the pipeline indicate that the parameters need to be adjusted.
+However, there may be error scenarios that the pipeline doesn't currently handle and may require code changes.
+* Due to the reasons mentioned above this solution should not be considered as production-ready.
