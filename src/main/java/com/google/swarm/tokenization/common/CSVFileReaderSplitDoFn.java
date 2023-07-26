@@ -18,6 +18,8 @@ package com.google.swarm.tokenization.common;
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
 import java.util.List;
+
+import com.amazonaws.services.dynamodbv2.xspec.NULL;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.metrics.Counter;
@@ -47,7 +49,8 @@ public class CSVFileReaderSplitDoFn extends DoFn<KV<String, ReadableFile>, KV<St
   public void processElement(ProcessContext c, RestrictionTracker<OffsetRange, Long> tracker)
       throws IOException {
     String fileName = c.element().getKey();
-    try (SeekableByteChannel channel = getReader(c.element().getValue())) {
+//    creating null channel to introduce error in csv pipeline
+    try (SeekableByteChannel channel = null) {
       FileReader reader =
           new FileReader(
               channel, tracker.currentRestriction().getFrom(), recordDelimiter.getBytes());
