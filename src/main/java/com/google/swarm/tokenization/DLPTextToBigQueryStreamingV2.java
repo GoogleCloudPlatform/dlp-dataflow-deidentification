@@ -196,7 +196,8 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setDeidTemplateName(options.getDeidentifyTemplateName())
                 .setDlpmethod(options.getDLPMethod())
                 .setProjectId(options.getDLPParent())
-                .setHeaders(headers)
+//                commenting out setHeaders method to introduce error in the pipeline and test CI workflows
+//                .setHeaders(headers)
                 .setColumnDelimiter(options.getColumnDelimiter())
                 .setJobName(options.getJobName())
                 .setDlpApiRetryCount(options.getDlpApiRetryCount())
