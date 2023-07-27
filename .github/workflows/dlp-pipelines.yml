@@ -341,6 +341,7 @@ jobs:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
+          bq rm -r -f -d ${{env.PROJECT_ID}}:"random_dataset_name"
 
       - name: Cancel Inspection Job
         if: "!cancelled()"
