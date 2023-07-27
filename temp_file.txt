@@ -1,5 +1,0 @@
-Jul 18, 2023 8:51:36 AM org.apache.beam.runners.dataflow.DataflowRunner run
-INFO: Submitted job: 2023-07-18_01_51_35-4569980570181694935
-Jul 18, 2023 8:51:36 AM org.apache.beam.runners.dataflow.DataflowRunner run
-INFO: To cancel the job using the 'gcloud' tool, run:
-> gcloud dataflow jobs --project=dlp-dataflow-deid-ci-392604 cancel --region=us-central1 2023-07-18_01_51_35-4569980570181694935
