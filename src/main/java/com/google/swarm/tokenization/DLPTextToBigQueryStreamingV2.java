@@ -110,7 +110,7 @@ public class DLPTextToBigQueryStreamingV2 {
     boolean usePubSub = options.getGcsNotificationTopic() != null;
 
     if (options.getInputProviderType() == InputLocation.GCS && !usePubSub && !options.getProcessExistingFiles())
-        throw new IllegalArgumentException("Either --processExistingFiles or --gcsNotificationTopic should be provided");
+        throw new IllegalArgumentException("Either --processExistingFiles should be set to true or --gcsNotificationTopic should be provided");
 
     if (options.getInputProviderType() == InputLocation.GCS) {
         PCollection<KV<String, ReadableFile>> newFiles = p.apply("Read New Files", ReadNewFilesPubSubTransform.newBuilder()

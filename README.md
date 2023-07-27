@@ -128,9 +128,9 @@ gradle build
 
 #### Inspection
 
-The Inspection pipeline can either be run to inspect only the existing files in a GCS bucket or inspect only the new files being streamed after the pipeline is triggered or do both.
+The Inspection pipeline can either be run to inspect only the existing files in a GCS bucket or inspect only the new files added to the bucket after the pipeline is triggered or do both.
 
-Run following command to trigger the inspection pipeline for both existing files in the GCS bucket and the new files that will be streamed after the pipeline is triggered: 
+Run following command to trigger the inspection pipeline for both existing files in the GCS bucket and the new files that will be added to the bucket after the pipeline is triggered:
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -150,7 +150,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --gcsNotificationTopic=projects/${PROJECT_ID}/topics/${GCS_NOTIFICATION_TOPIC}"
 ```
 
-Above command will trigger a streaming inspection Dataflow pipeline that will process all the CSV files in the demo-data GCS bucket (specify in _filePattern_ parameter) - both the existing files and the new files streamed in the bucket after triggering the pipeline.
+Above command will trigger a streaming inspection Dataflow pipeline that will process all the CSV files in the demo-data GCS bucket (specify in _filePattern_ parameter) - both the existing files and the new files added to the bucket after triggering the pipeline.
 
 Run following command to trigger the inspection pipeline to process only the existing files in the GCS bucket(files present before the pipeline is triggered):
 
@@ -172,7 +172,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 Above command will trigger a batch inspection Dataflow pipeline that will process only the CSV files that were present in the demo-data GCS bucket (specify in _filePattern_ parameter) before the pipeline was triggered.
 
-Run following command to trigger the inspection pipeline to process only the new files streamed in the GCS bucket(files added after the pipeline is triggered):
+Run following command to trigger the inspection pipeline to process only the new files added to the GCS bucket(files added after the pipeline is triggered):
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -193,18 +193,24 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --processExistingFiles=false"
 ```
 
-Above command will trigger a streaming inspection Dataflow pipeline that will process the CSV files that were are added/streamed in the demo-data GCS bucket (specify in _filePattern_ parameter) after the pipeline was triggered.
+Above command will trigger a streaming inspection Dataflow pipeline that will process the CSV files that were are added to the demo-data GCS bucket (specify in _filePattern_ parameter) after the pipeline was triggered.
 
 The inspection findings can be found in the BQ dataset (_dataset_  parameter) table.
 
-If --processExistingFiles is set to <i>false</i>(which is <i>true</i> by default and need not be set explicitly) and --gcsNotificationTopic is not provided, then the pipeline fails 
-with an error.
+If --processExistingFiles is set to <i>false</i> and --gcsNotificationTopic is also not provided, then the pipeline fails with error.
+```
+Exception in thread "main" java.lang.IllegalArgumentException: Either --processExistingFiles should be set to true or --gcsNotificationTopic should be provided
+        at com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2.runInspectAndDeidPipeline(DLPTextToBigQueryStreamingV2.java:113)
+        at com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2.run(DLPTextToBigQueryStreamingV2.java:93)
+        at com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2.main(DLPTextToBigQueryStreamingV2.java:84)
+```
+The details about defaults are captured in the table below.
 
 #### De-Identification
 
-The De-Identification pipeline can either be run to deidentify only the existing files in a GCS bucket or deidentify only the new files being streamed after the pipeline is triggered or do both.
+The De-Identification pipeline can either be run to deidentify only the existing files in a GCS bucket or deidentify only the new files being added to the bucket after the pipeline is triggered or do both.
 
-Run following command to trigger the de-identification pipeline for both existing files in the GCS bucket and the new files that will be streamed after the pipeline is triggered: 
+Run following command to trigger the de-identification pipeline for both existing files in the GCS bucket and the new files that will be added to the bucket after the pipeline is triggered:
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -224,7 +230,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --gcsNotificationTopic=projects/${PROJECT_ID}/topics/${GCS_NOTIFICATION_TOPIC}"
 ```
 
-Above command will trigger a streaming de-identification Dataflow pipeline that will process all the CSV files in the demo-data GCS bucket (specify in _filePattern_ parameter) - both the existing files and the new files streamed in the bucket after triggering the pipeline. 
+Above command will trigger a streaming de-identification Dataflow pipeline that will process all the CSV files in the demo-data GCS bucket (specify in _filePattern_ parameter) - both the existing files and the new files added to the bucket after triggering the pipeline.
 
 Run following command to trigger the de-identification pipeline to process only the existing files in the GCS bucket(files present before the pipeline is triggered):
 
@@ -246,7 +252,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 Above command will trigger a batch de-identification Dataflow pipeline that will process only the CSV files that were present in the demo-data GCS bucket (specify in _filePattern_ parameter) before the pipeline was triggered.
 
-Run following command to trigger the de-identification pipeline to process only the new files streamed in the GCS bucket(files added after the pipeline is triggered):
+Run following command to trigger the de-identification pipeline to process only the new files added to the GCS bucket(files added after the pipeline is triggered):
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -267,12 +273,18 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --processExistingFiles=false" 
 ```
 
-Above command will trigger a streaming de-identification Dataflow pipeline that will process the CSV files that were are added/streamed in the demo-data GCS bucket (specify in _filePattern_ parameter) after the pipeline was triggered.
+Above command will trigger a streaming de-identification Dataflow pipeline that will process the CSV files that were are added to the demo-data GCS bucket (specify in _filePattern_ parameter) after the pipeline was triggered.
  
 The de-identified results can be found in the BQ dataset (_dataset_ parameter) tables with the same names as input files, respectively.
 
-If --processExistingFiles is set to <i>false</i>(which is <i>true</i> by default and need not be set explicitly) and --gcsNotificationTopic is not provided, then the pipeline fails 
-with an error.
+If --processExistingFiles is set to <i>false</i> and --gcsNotificationTopic is also not provided, then the pipeline fails with error.
+```
+Exception in thread "main" java.lang.IllegalArgumentException: Either --processExistingFiles should be set to true or --gcsNotificationTopic should be provided
+        at com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2.runInspectAndDeidPipeline(DLPTextToBigQueryStreamingV2.java:113)
+        at com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2.run(DLPTextToBigQueryStreamingV2.java:93)
+        at com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2.main(DLPTextToBigQueryStreamingV2.java:84)
+```
+The details about defaults are captured in the table below.
 
 You can run some quick validations for a BigQuery table to check the tokenized data. Following steps use sample dataset 
 to validate de-identified results:
@@ -419,10 +431,11 @@ dataset (_dataset_ parameter) table with the name of input table as suffix.
 | `maxNumWorkers`                  | (Optional) The maximum number of Compute Engine instances to be made available to your pipeline during execution. This value can be higher than the initial number of workers (specified by numWorkers) to allow your job to scale up, automatically or otherwise. | All                 |
 | `runner`                         | DataflowRunner                                                                                                                                                                                                                                                     | All                 |
 | `inspectTemplateName`            | DLP inspect template name                                                                                                                                                                                                                                          | INSPECT/DEID        | 
+| `filePattern`            | The file pattern that will be used to scan the files to be processed by the job                                                                                                                                                                                                                                          | INSPECT/DEID        |
 | `deidentifyTemplateName`         | DLP de-identify template name                                                                                                                                                                                                                                      | All                 |
 | `DLPMethod`                      | Type of DLP operation to perform - INSPECT/DEID/REID                                                                                                                                                                                                               | All                 |
-| `processExistingFiles`           | If set to false then the existing files in GCS bucket before pipeline is triggered will not be processed (default value is true)                                                                                                                                                                                                               | INSPECT/DEID                 |
-| `gcsNotificationTopic`           | Name of Pub/Sub topic through which new files ingested in GCS bucket will be notified (should be provided in the form projects/$PROJECT_ID>/topics/$GCS_TOPIC_NAME)                                                                                                                                                                                                               | INSPECT/DEID                 |
+| `processExistingFiles`           | Files existing in the GCS bucket before the pipeline is started will not be processed when the value is set to false. The default value is true.                                                                                                                                                                                                               | INSPECT/DEID                 |
+| `gcsNotificationTopic`           | Pub/Sub topic to read notifications of new files added to the GCS bucket in filePattern (should be provided in the form projects/$PROJECT_ID>/topics/$GCS_TOPIC_NAME)                                                                                                                                                                                                               | INSPECT/DEID                 |
 | `batchSize`                      | (Optional) Batch size for the DLP API, default is 500K                                                                                                                                                                                                             | All                 |
 | `dataset`                        | BigQuery dataset to write the inspection or de-identification results to or to read from in case of re-identification                                                                                                                                              | All                 |
 | `recordDelimiter`                | (Optional) Record delimiter                                                                                                                                                                                                                                        | INSPECT/DEID        |
