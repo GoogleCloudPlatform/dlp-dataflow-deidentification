@@ -341,7 +341,6 @@ jobs:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
-          ech "fail"
 
       - name: Cancel Inspection Job
         if: "!cancelled()"
