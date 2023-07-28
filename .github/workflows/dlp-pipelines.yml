@@ -89,6 +89,7 @@ jobs:
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=us-central1 \
+                --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
                 --numWorkers=1 \
                 --maxNumWorkers=2 \
@@ -264,6 +265,7 @@ jobs:
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=us-central1 \
+                --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
                 --numWorkers=1 \
                 --maxNumWorkers=2 \
@@ -359,7 +361,7 @@ jobs:
           deid_job_data=$(gcloud dataflow jobs list --project ${{env.PROJECT_ID}} --status active --format json --filter="name=${{env.DEID_JOB_NAME}}")
           deid_job_id=$(echo "$deid_job_data" | jq -r '.[].id')
           if [[ "$deid_job_id" == "" ]]; then
-            echo "No job found with name: ${{env.INSPECT_JOB_NAME}}."
+            echo "No job found with name: ${{env.DEID_JOB_NAME}}."
           else
             gcloud dataflow jobs cancel $deid_job_id --project ${{env.PROJECT_ID}}
           fi
