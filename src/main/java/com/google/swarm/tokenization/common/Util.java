@@ -36,6 +36,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -83,6 +84,11 @@ public class Util {
     TSV
   }
 
+  public enum InputLocation {
+    GCS,
+    NOT_GCS
+  }
+
   public static final Gson gson = new Gson();
   private static final char DEFAULT_SEPARATOR = ',';
   private static final char DEFAULT_QUOTE = '"';
@@ -115,6 +121,9 @@ public class Util {
   public static final String BQ_DLP_INSPECT_TABLE_NAME = String.valueOf("dlp_inspection_result");
   public static final String BQ_ERROR_TABLE_NAME = String.valueOf("error_log");
   public static final String BQ_REID_TABLE_EXT = String.valueOf("re_id");
+
+  public static final Set<String> ALLOWED_FILE_EXTENSIONS =
+        Arrays.asList("csv", "avro", "jsonl", "txt").stream().collect(Collectors.toUnmodifiableSet());
 
   public static final DateTimeFormatter TIMESTAMP_FORMATTER =
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.io.FileIO;
+import org.apache.beam.sdk.transforms.Combine;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
@@ -44,6 +45,8 @@ public abstract class ExtractColumnNamesTransform
 
   public abstract Character columnDelimiter();
 
+  public abstract Boolean pubSubGcs();
+
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -53,6 +56,9 @@ public abstract class ExtractColumnNamesTransform
 
     public abstract ExtractColumnNamesTransform.Builder setColumnDelimiter(
         Character columnDelimiter);
+
+    public abstract ExtractColumnNamesTransform.Builder setPubSubGcs(
+        Boolean pubSubGcs);
 
     public abstract ExtractColumnNamesTransform build();
   }
@@ -89,6 +95,10 @@ public abstract class ExtractColumnNamesTransform
       default:
         throw new IllegalStateException("Unexpected value: " + fileType());
     }
-    return readHeader.apply("ViewAsList", View.asMap());
+    if (!pubSubGcs()) {
+        return readHeader.apply("ViewAsList", View.asMap());
+    }
+    return readHeader.apply(Combine.<String, List<String>, List<String>>perKey(new ResolveDuplicatesCombineFn()))
+                     .apply("ViewAsList", View.asMap());
   }
 }

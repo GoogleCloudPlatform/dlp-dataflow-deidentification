@@ -28,9 +28,12 @@ import com.google.swarm.tokenization.common.CSVFileReaderSplitDoFn;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.ExtractColumnNamesTransform;
 import com.google.swarm.tokenization.common.FilePollingTransform;
+import com.google.swarm.tokenization.common.ReadExistingFilesTransform;
+import com.google.swarm.tokenization.common.ReadNewFilesPubSubTransform;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
 import com.google.swarm.tokenization.common.PubSubMessageConverts;
 import com.google.swarm.tokenization.common.Util;
+import com.google.swarm.tokenization.common.Util.InputLocation;
 import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
 import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
 import com.google.swarm.tokenization.txt.ConvertTxtToDLPRow;
@@ -42,6 +45,7 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
+import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -49,6 +53,7 @@ import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Sample;
 import org.apache.beam.sdk.transforms.View;
+import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
@@ -57,6 +62,7 @@ import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.TupleTagList;
+import org.apache.beam.sdk.io.FileSystems;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +81,6 @@ public class DLPTextToBigQueryStreamingV2 {
 
     DLPTextToBigQueryStreamingV2PipelineOptions options =
         PipelineOptionsFactory.fromArgs(args).as(DLPTextToBigQueryStreamingV2PipelineOptions.class);
-
     run(options);
   }
 
@@ -101,13 +106,33 @@ public class DLPTextToBigQueryStreamingV2 {
 
   private static void runInspectAndDeidPipeline(
       Pipeline p, DLPTextToBigQueryStreamingV2PipelineOptions options) {
-    PCollection<KV<String, ReadableFile>> inputFiles =
-        p.apply(
-                FilePollingTransform.newBuilder()
-                    .setFilePattern(options.getFilePattern())
-                    .setInterval(DEFAULT_POLL_INTERVAL)
-                    .build())
-            .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+    PCollection<KV<String, ReadableFile>> inputFiles;
+    boolean usePubSub = options.getGcsNotificationTopic() != null;
+
+    if (options.getInputProviderType() == InputLocation.GCS && !usePubSub && !options.getProcessExistingFiles())
+        throw new IllegalArgumentException("Either --processExistingFiles should be set to true or --gcsNotificationTopic should be provided");
+
+    if (options.getInputProviderType() == InputLocation.GCS) {
+        PCollection<KV<String, ReadableFile>> newFiles = p.apply("Read New Files", ReadNewFilesPubSubTransform.newBuilder()
+                                                          .setFilePattern(options.getFilePattern())
+                                                          .setUsePubSub(usePubSub)
+                                                          .setPubSubTopic(options.getGcsNotificationTopic())
+                                                          .build());
+
+        PCollection<KV<String, ReadableFile>> existingFiles = p.apply("Read Existing Files", ReadExistingFilesTransform.newBuilder()
+                                                               .setFilePattern(options.getFilePattern())
+                                                               .setProcessExistingFiles(options.getProcessExistingFiles())
+                                                               .build());
+
+        inputFiles = PCollectionList.of(newFiles).and(existingFiles)
+                        .apply(Flatten.<KV<String, ReadableFile>>pCollections());
+    } else {
+        inputFiles = p.apply(FilePollingTransform.newBuilder().setFilePattern(options.getFilePattern())
+                            .setInterval(DEFAULT_POLL_INTERVAL).build());
+    }
+ 
+    inputFiles = inputFiles.apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+
     final PCollectionView<Map<String, List<String>>> headers =
         inputFiles.apply(
             "Extract Column Names",
@@ -115,6 +140,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setFileType(options.getFileType())
                 .setHeaders(options.getHeaders())
                 .setColumnDelimiter(options.getColumnDelimiter())
+                .setPubSubGcs(usePubSub)
                 .build());
 
     PCollection<KV<String, Table.Row>> records;
