@@ -89,7 +89,6 @@ jobs:
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=us-central1 \
-#                --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
                 --numWorkers=1 \
                 --maxNumWorkers=2 \
@@ -265,7 +264,6 @@ jobs:
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=us-central1 \
-#                --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
                 --numWorkers=1 \
                 --maxNumWorkers=2 \
