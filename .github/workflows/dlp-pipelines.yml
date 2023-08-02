@@ -18,7 +18,7 @@ env:
   SERVICE_ACCOUNT_EMAIL: "demo-service-account@dlp-dataflow-deid-ci-392604.iam.gserviceaccount.com"
   PUBSUB_TOPIC_NAME: "demo-topic"
   INSPECTION_TABLE_ID: "dlp_inspection_result"
-  NUM_INSPECTION_RECORDS: "60"
+  NUM_INSPECTION_RECORDS: "120"
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
 
 jobs:
@@ -203,7 +203,7 @@ jobs:
           not_verified=true
           table_count=0
           while $not_verified; do
-            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.INPUT_FILE_NAME}}*"' | wc -l ) -1))
+            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id LIKE "${{env.INPUT_FILE_NAME}}%"' | wc -l ) -1))
             if [[ "$table_count" == "2" ]]; then
               echo "PASSED";
               not_verified=false;
