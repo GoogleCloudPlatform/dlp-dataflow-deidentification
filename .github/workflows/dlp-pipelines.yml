@@ -201,7 +201,7 @@ jobs:
           not_verified=true
           table_count=0
           while $not_verified; do
-            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.INPUT_FILE_NAME}}"' | wc -l ) -1))
+            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.INPUT_FILE_NAME}}*"' | wc -l ) -1))
             if [[ "$table_count" == "2" ]]; then
               echo "PASSED";
               not_verified=false;
