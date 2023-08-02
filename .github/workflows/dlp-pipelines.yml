@@ -10,6 +10,7 @@ env:
   PROJECT_ID: "dlp-dataflow-deid-ci-392604"
   DATASET_ID: "demo_dataset"
   GCS_BUCKET: "dlp-dataflow-deid-ci-392604-demo-data"
+  GCS_NOTIFICATION_TOPIC: "projects/dlp-dataflow-deid-ci-392604/topics/dlp-dataflow-deid-ci-gcs-notification-topic"
   INPUT_FILE_NAME: "tiny_csv"
   INSPECT_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
   DEID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
@@ -88,20 +89,24 @@ jobs:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --streaming --enableStreamingEngine \
                 --region=us-central1 \
                 --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
                 --numWorkers=1 \
                 --maxNumWorkers=2 \
                 --runner=DataflowRunner \
-                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}*.csv \
                 --dataset=${{env.DATASET_ID}} \
                 --workerMachineType=n1-highmem-4 \
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=INSPECT \
                 --serviceAccount=$SERVICE_ACCOUNT_EMAIL \
-                --jobName=${{env.INSPECT_JOB_NAME}}"
+                --jobName=${{env.INSPECT_JOB_NAME}} \
+                --gcsNotificationTopic=${{env.GCS_NOTIFICATION_TOPIC}}"
+          sleep 30s
+          gsutil cp gs://${{env.GCS_BUCKET}}/temp/csv/tiny_csv_pub_sub.csv gs://${{env.GCS_BUCKET}}
 
       - name: Verify BQ table
         env:
@@ -111,7 +116,7 @@ jobs:
           table_count=0
           while $not_verified; do
             table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.INSPECTION_TABLE_ID}}"'  | wc -l ) -1))
-            if [[ "$table_count" == "1" ]]; then
+            if [[ "$table_count" == "2" ]]; then
               echo "PASSED";
               not_verified=false;
             else
@@ -165,13 +170,14 @@ jobs:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --streaming --enableStreamingEngine \
                 --region=us-central1 \
                 --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
                 --numWorkers=2 \
                 --maxNumWorkers=3 \
                 --runner=DataflowRunner \
-                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}*.csv \
                 --dataset=${{env.DATASET_ID}} \
                 --workerMachineType=n1-highmem-4 \
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
@@ -179,7 +185,14 @@ jobs:
                 --batchSize=200000 \
                 --DLPMethod=DEID \
                 --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
-                --jobName=${{env.DEID_JOB_NAME}}"
+                --jobName=${{env.DEID_JOB_NAME}} \
+                --gcsNotificationTopic=${{env.GCS_NOTIFICATION_TOPIC}}"
+          sleep 30s
+          if gsutil stat gs://$BUCKET_NAME/$FILE_NAME; then
+            echo "Pub Sub CSV File exists hence need not copy anymore"
+          else
+            gsutil cp gs://${{env.GCS_BUCKET}}/temp/csv/tiny_csv_pub_sub.csv gs://${{env.GCS_BUCKET}}
+          fi
 
       - name: Verify BQ tables
         env:
@@ -189,7 +202,7 @@ jobs:
           table_count=0
           while $not_verified; do
             table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.INPUT_FILE_NAME}}"' | wc -l ) -1))
-            if [[ "$table_count" == "1" ]]; then
+            if [[ "$table_count" == "2" ]]; then
               echo "PASSED";
               not_verified=false;
             else
