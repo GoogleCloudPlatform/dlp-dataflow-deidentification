@@ -214,7 +214,7 @@ jobs:
           done
           echo "Verified number of tables in BQ with id ${{env.INPUT_FILE_NAME}}*: $table_count ."
 
-      - name: Verify distinct rows
+      - name: Verify distinct rows of existing file
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
@@ -232,6 +232,12 @@ jobs:
             fi
             echo "Got number of rows in ${{env.INPUT_FILE_NAME}}: $row_count."
           done
+          echo "# records in input CSV file are: $rc_orig."
+          echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}: $row_count."
+      - name: Verify distinct rows of newly added file
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
+        run: |
           rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv | wc -l ) -1))
           not_verified=true
           row_count=0
