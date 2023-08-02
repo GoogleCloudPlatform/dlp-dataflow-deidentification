@@ -122,6 +122,7 @@ jobs:
             else
               sleep 30s
             fi
+            echo "Got number of tables in BQ with id ${{env.INSPECTION_TABLE_ID}}: $table_count ."
           done
           echo "Verified number of tables in BQ with id ${{env.INSPECTION_TABLE_ID}}: $table_count ."
 
@@ -140,6 +141,7 @@ jobs:
             else
               sleep 30s
             fi
+            echo "Got number of rows in ${{env.INSPECTION_TABLE_ID}}: $row_count."
           done
           echo "Verified number of rows in ${{env.INSPECTION_TABLE_ID}}: $row_count."
 
@@ -208,8 +210,9 @@ jobs:
             else
               sleep 30s
             fi
+            echo "Got number of tables in BQ with id ${{env.INPUT_FILE_NAME}}*: $table_count ."
           done
-          echo "Verified number of tables in BQ with id ${{env.INPUT_FILE_NAME}}: $table_count ."
+          echo "Verified number of tables in BQ with id ${{env.INPUT_FILE_NAME}}*: $table_count ."
 
       - name: Verify distinct rows
         env:
@@ -227,6 +230,7 @@ jobs:
             else
               sleep 30s
             fi
+            echo "Got number of rows in ${{env.INPUT_FILE_NAME}}: $row_count."
           done
           rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv | wc -l ) -1))
           not_verified=true
@@ -240,6 +244,7 @@ jobs:
             else
               sleep 30s
             fi
+            echo "Got number of rows in ${{env.INPUT_FILE_NAME}}_pub_sub: $row_count."
           done
           echo "# records in input CSV file are: $rc_orig."
           echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}: $row_count."
