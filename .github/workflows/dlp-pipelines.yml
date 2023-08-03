@@ -18,7 +18,7 @@ env:
   SERVICE_ACCOUNT_EMAIL: "demo-service-account@dlp-dataflow-deid-ci-392604.iam.gserviceaccount.com"
   PUBSUB_TOPIC_NAME: "demo-topic"
   INSPECTION_TABLE_ID: "dlp_inspection_result"
-  NUM_INSPECTION_RECORDS: "120"
+  NUM_INSPECTION_RECORDS: "129"
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
 
 jobs:
@@ -252,7 +252,7 @@ jobs:
             echo "Got number of rows in ${{env.INPUT_FILE_NAME}}_pub_sub: $row_count."
           done
           echo "# records in input CSV file are: $rc_orig."
-          echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}: $row_count."
+          echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}_pub_sub: $row_count."
 
   re-identification:
     needs:
@@ -374,7 +374,7 @@ jobs:
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          #bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
+          bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
           gsutil rm -f gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv
 
       - name: Cancel Inspection Job
