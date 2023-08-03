@@ -190,7 +190,7 @@ jobs:
                 --jobName=${{env.DEID_JOB_NAME}} \
                 --gcsNotificationTopic=${{env.GCS_NOTIFICATION_TOPIC}}"
           sleep 30s
-          if gsutil stat gs://$BUCKET_NAME/$FILE_NAME; then
+          if gsutil stat gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv; then
             echo "Pub Sub CSV File exists hence need not copy anymore"
           else
             gsutil cp gs://${{env.GCS_BUCKET}}/temp/csv/tiny_csv_pub_sub.csv gs://${{env.GCS_BUCKET}}
@@ -234,6 +234,7 @@ jobs:
           done
           echo "# records in input CSV file are: $rc_orig."
           echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}: $row_count."
+
       - name: Verify distinct rows of newly added file
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
