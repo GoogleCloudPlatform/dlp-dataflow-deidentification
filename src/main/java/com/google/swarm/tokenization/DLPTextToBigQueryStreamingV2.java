@@ -33,6 +33,7 @@ import com.google.swarm.tokenization.common.ReadNewFilesPubSubTransform;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
 import com.google.swarm.tokenization.common.PubSubMessageConverts;
 import com.google.swarm.tokenization.common.Util;
+import com.google.swarm.tokenization.common.WriteToGCS;
 import com.google.swarm.tokenization.common.Util.InputLocation;
 import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
 import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
@@ -45,8 +46,10 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
+import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.Flatten;
@@ -54,6 +57,7 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Sample;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
@@ -130,7 +134,7 @@ public class DLPTextToBigQueryStreamingV2 {
         inputFiles = p.apply(FilePollingTransform.newBuilder().setFilePattern(options.getFilePattern())
                             .setInterval(DEFAULT_POLL_INTERVAL).build());
     }
- 
+
     inputFiles = inputFiles.apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
 
     final PCollectionView<Map<String, List<String>>> headers =
@@ -213,7 +217,8 @@ public class DLPTextToBigQueryStreamingV2 {
         throw new IllegalArgumentException("Please validate FileType parameter");
     }
 
-    records
+    PCollectionTuple RecordDeid;
+    RecordDeid = records
         .apply(
             "DLPTransform",
             DLPTransform.newBuilder()
@@ -227,14 +232,25 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setJobName(options.getJobName())
                 .setDlpApiRetryCount(options.getDlpApiRetryCount())
                 .setInitialBackoff(options.getInitialBackoff())
-                .build())
-        .get(Util.inspectOrDeidSuccess)
-        .apply(
-            "StreamInsertToBQ",
-            BigQueryDynamicWriteTransform.newBuilder()
-                .setDatasetId(options.getDataset())
-                .setProjectId(options.getProject())
+                .setDataSinkType(options.getDataSinkType())
                 .build());
+
+
+    if(options.getDataSinkType() == Util.DataSinkType.GCS)
+      RecordDeid.get(Util.deidSuccess).apply("WriteToCSV",
+              WriteToGCS.newBuilder()
+                      .setOutputBucket(options.getOutputBucket())
+                      .build());
+    else if(options.getDataSinkType() == Util.DataSinkType.BigQuery)
+      RecordDeid.get(Util.inspectOrDeidSuccess)
+          .apply(
+              "StreamInsertToBQ",
+              BigQueryDynamicWriteTransform.newBuilder()
+                  .setDatasetId(options.getDataset())
+                  .setProjectId(options.getProject())
+                  .build());
+
+
   }
 
   private static void runReidPipeline(
