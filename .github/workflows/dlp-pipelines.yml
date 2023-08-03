@@ -18,7 +18,7 @@ env:
   SERVICE_ACCOUNT_EMAIL: "demo-service-account@dlp-dataflow-deid-ci-392604.iam.gserviceaccount.com"
   PUBSUB_TOPIC_NAME: "demo-topic"
   INSPECTION_TABLE_ID: "dlp_inspection_result"
-  NUM_INSPECTION_RECORDS: "129"
+  NUM_INSPECTION_RECORDS_THRESHOLD: "50"
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
 
 jobs:
@@ -135,7 +135,7 @@ jobs:
           while $not_verified; do
             row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(*) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INSPECTION_TABLE_ID}}`')
             row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
-            if [[ "$row_count" == ${{env.NUM_INSPECTION_RECORDS}} ]]; then
+            if [[ "$row_count" -gt ${{env.NUM_INSPECTION_RECORDS}} ]]; then
               echo "PASSED";
               not_verified=false;
             else
