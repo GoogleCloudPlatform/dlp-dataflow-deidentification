@@ -238,12 +238,17 @@ jobs:
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv | wc -l ) -1))
+          echo "DEBUG LOG 1"
+          rc_orig=$(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv | wc -l )
+          echo "DEBUG LOG 2 : $rc_orig"
           not_verified=true
-          row_count=0
+          echo "DEBUG LOG 3"
           while $not_verified; do
+            echo "DEBUG LOG LOOP 1"
             row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}_pub_sub`')
+            echo "DEBUG LOG LOOP 2 $row_count_json"
             row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
+            echo "DEBUG LOG LOOP 3 $row_count"
             if [[ "$row_count" == "$rc_orig" ]]; then
               echo "PASSED";
               not_verified=false;
