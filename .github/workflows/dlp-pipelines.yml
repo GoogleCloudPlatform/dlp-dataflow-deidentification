@@ -135,7 +135,7 @@ jobs:
           while $not_verified; do
             row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(*) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INSPECTION_TABLE_ID}}`')
             row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
-            if [[ "$row_count" -gt ${{env.NUM_INSPECTION_RECORDS}} ]]; then
+            if [[ "$row_count" -gt ${{env.NUM_INSPECTION_RECORDS_THRESHOLD}} ]]; then
               echo "PASSED";
               not_verified=false;
             else
