@@ -380,7 +380,7 @@ jobs:
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
+          #bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
           gsutil rm -f gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv
 
       - name: Cancel Inspection Job
