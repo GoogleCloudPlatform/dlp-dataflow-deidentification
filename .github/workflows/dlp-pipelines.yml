@@ -10,6 +10,7 @@ env:
   PROJECT_ID: "dlp-dataflow-deid-ci-392604"
   DATASET_ID: "demo_dataset"
   GCS_BUCKET: "dlp-dataflow-deid-ci-392604-demo-data"
+  GCS_NOTIFICATION_TOPIC: "projects/dlp-dataflow-deid-ci-392604/topics/dlp-dataflow-deid-ci-gcs-notification-topic"
   INPUT_FILE_NAME: "tiny_csv"
   INSPECT_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
   DEID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
@@ -17,7 +18,7 @@ env:
   SERVICE_ACCOUNT_EMAIL: "demo-service-account@dlp-dataflow-deid-ci-392604.iam.gserviceaccount.com"
   PUBSUB_TOPIC_NAME: "demo-topic"
   INSPECTION_TABLE_ID: "dlp_inspection_result"
-  NUM_INSPECTION_RECORDS: "30"
+  NUM_INSPECTION_RECORDS_THRESHOLD: "50"
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
 
 jobs:
@@ -88,20 +89,24 @@ jobs:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --streaming --enableStreamingEngine \
                 --region=us-central1 \
                 --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
                 --numWorkers=1 \
                 --maxNumWorkers=2 \
                 --runner=DataflowRunner \
-                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}*.csv \
                 --dataset=${{env.DATASET_ID}} \
                 --workerMachineType=n1-highmem-4 \
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=INSPECT \
                 --serviceAccount=$SERVICE_ACCOUNT_EMAIL \
-                --jobName=${{env.INSPECT_JOB_NAME}}"
+                --jobName=${{env.INSPECT_JOB_NAME}} \
+                --gcsNotificationTopic=${{env.GCS_NOTIFICATION_TOPIC}}"
+          sleep 30s
+          gsutil cp gs://${{env.GCS_BUCKET}}/temp/csv/tiny_csv_pub_sub.csv gs://${{env.GCS_BUCKET}}
 
       - name: Verify BQ table
         env:
@@ -117,6 +122,7 @@ jobs:
             else
               sleep 30s
             fi
+            echo "Got number of tables in BQ with id ${{env.INSPECTION_TABLE_ID}}: $table_count ."
           done
           echo "Verified number of tables in BQ with id ${{env.INSPECTION_TABLE_ID}}: $table_count ."
 
@@ -129,12 +135,13 @@ jobs:
           while $not_verified; do
             row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(*) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INSPECTION_TABLE_ID}}`')
             row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
-            if [[ "$row_count" == ${{env.NUM_INSPECTION_RECORDS}} ]]; then
+            if [[ "$row_count" -gt ${{env.NUM_INSPECTION_RECORDS_THRESHOLD}} ]]; then
               echo "PASSED";
               not_verified=false;
             else
               sleep 30s
             fi
+            echo "Got number of rows in ${{env.INSPECTION_TABLE_ID}}: $row_count."
           done
           echo "Verified number of rows in ${{env.INSPECTION_TABLE_ID}}: $row_count."
 
@@ -165,13 +172,14 @@ jobs:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --streaming --enableStreamingEngine \
                 --region=us-central1 \
                 --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
                 --numWorkers=2 \
                 --maxNumWorkers=3 \
                 --runner=DataflowRunner \
-                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}*.csv \
                 --dataset=${{env.DATASET_ID}} \
                 --workerMachineType=n1-highmem-4 \
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
@@ -179,7 +187,14 @@ jobs:
                 --batchSize=200000 \
                 --DLPMethod=DEID \
                 --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
-                --jobName=${{env.DEID_JOB_NAME}}"
+                --jobName=${{env.DEID_JOB_NAME}} \
+                --gcsNotificationTopic=${{env.GCS_NOTIFICATION_TOPIC}}"
+          sleep 30s
+          if gsutil stat gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv; then
+            echo "Pub Sub CSV File exists hence need not copy anymore"
+          else
+            gsutil cp gs://${{env.GCS_BUCKET}}/temp/csv/tiny_csv_pub_sub.csv gs://${{env.GCS_BUCKET}}
+          fi
 
       - name: Verify BQ tables
         env:
@@ -188,17 +203,18 @@ jobs:
           not_verified=true
           table_count=0
           while $not_verified; do
-            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.INPUT_FILE_NAME}}"' | wc -l ) -1))
-            if [[ "$table_count" == "1" ]]; then
+            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id LIKE "${{env.INPUT_FILE_NAME}}%"' | wc -l ) -1))
+            if [[ "$table_count" == "2" ]]; then
               echo "PASSED";
               not_verified=false;
             else
               sleep 30s
             fi
+            echo "Got number of tables in BQ with id ${{env.INPUT_FILE_NAME}}*: $table_count ."
           done
-          echo "Verified number of tables in BQ with id ${{env.INPUT_FILE_NAME}}: $table_count ."
+          echo "Verified number of tables in BQ with id ${{env.INPUT_FILE_NAME}}*: $table_count ."
 
-      - name: Verify distinct rows
+      - name: Verify distinct rows of existing file
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
@@ -214,9 +230,30 @@ jobs:
             else
               sleep 30s
             fi
+            echo "Got number of rows in ${{env.INPUT_FILE_NAME}}: $row_count."
           done
           echo "# records in input CSV file are: $rc_orig."
           echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}: $row_count."
+
+      - name: Verify distinct rows of newly added file
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
+        run: |
+          rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv | wc -l ) -1))
+          not_verified=true
+          while $not_verified; do
+            row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}_pub_sub`')
+            row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
+            if [[ "$row_count" == "$rc_orig" ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+            echo "Got number of rows in ${{env.INPUT_FILE_NAME}}_pub_sub: $row_count."
+          done
+          echo "# records in input CSV file are: $rc_orig."
+          echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}_pub_sub: $row_count."
 
   re-identification:
     needs:
@@ -333,12 +370,13 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Clean-up BQ dataset
+      - name: Clean-up BQ dataset and GCS Bucket
         if: "!cancelled()"
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
+          gsutil rm -f gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv
 
       - name: Cancel Inspection Job
         if: "!cancelled()"
