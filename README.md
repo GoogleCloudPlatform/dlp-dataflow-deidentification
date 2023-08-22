@@ -137,7 +137,7 @@ You can run the inspection pipeline to do one or both of the following:
 
 ##### Inspect new and existing files
 
-To trigger a streaming inspection Dataflow pipeline that processes all the CSV files in the `demo-data` bucket (specified in the `filePattern` parameter), run the following command:
+To trigger a streaming inspection Dataflow pipeline that processes all the CSV files in the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -159,7 +159,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 ##### Inspect only existing files
 
-To trigger a batch inspection Dataflow pipeline that processes only the CSV files that are currently present in the `demo-data` bucket (specified in the `filePattern` parameter), run the following command:
+To trigger a batch inspection Dataflow pipeline that processes only the CSV files that are currently present in the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -181,7 +181,7 @@ Any files that are added to the bucket after the pipeline was triggered are not 
 
 ##### Inspect only new files
 
-To trigger a streaming inspection Dataflow pipeline that processes new CSV files that are added to the `demo-data` bucket (specified in the `filePattern` parameter), run the following command:
+To trigger a streaming inspection Dataflow pipeline that processes new CSV files that are added to the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -228,7 +228,7 @@ You can run the de-identification pipeline to do one or both of the following:
 
 ##### De-identify new and existing files
 
-To trigger a streaming de-identification Dataflow pipeline that processes all the CSV files in the `demo-data` bucket (specified in the `filePattern` parameter), run the following command:
+To trigger a streaming de-identification Dataflow pipeline that processes all the CSV files in the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -250,7 +250,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 
 ##### De-identify only existing files
 
-To trigger a batch de-identification Dataflow pipeline that processes only the CSV files that are currently present in the `demo-data` bucket (specified in the `filePattern` parameter), run the following command:
+To trigger a batch de-identification Dataflow pipeline that processes only the CSV files that are currently present in the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -272,7 +272,7 @@ Any files that are added to the bucket after the pipeline was triggered are not 
 
 ##### De-identify only new files
 
-To trigger a streaming de-identification Dataflow pipeline that processes new CSV files that are added to the `demo-data` bucket (specified in the `filePattern` parameter), run the following command:
+To trigger a streaming de-identification Dataflow pipeline that processes new CSV files that are added to the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
