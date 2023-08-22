@@ -1,4 +1,4 @@
-# Inspect, de-identify and re-identify sensitive data using the Cloud DLP API and Dataflow
+# Inspect, de-identify, and re-identify sensitive data using the Cloud DLP API and Dataflow
 > This repo contains a reference implementation for an end-to-end data tokenization solution. This solution does the following:
 
 * Passes data through Dataflow pipelines that perform inspection, de-identification, and re-identification through the Cloud Data Loss Prevention API (DLP API).
@@ -37,15 +37,15 @@
 
 
 ## Architecture
-This solution comprises the following pipelines. To view the job graphs of these pipeline, see [Dataflow DAG](#dataflow-dag).
+This solution comprises the following pipelines. To view the job graphs of these pipelines, see [Dataflow DAG](#dataflow-dag).
 1. Inspection and de-identification
 2. Re-identification
 
 ### Inspection and de-identification
 ![Reference architecture](diagrams/inspect-deid-architecture.png)
 
-You can use this pipeline for CSV, TSV, Avro, and JSONL files stored or ingested in Cloud Storage or an Amazon S3 bucket. This pipeline uses the State and Timer APIs to batch and process the files in an optimal manner.
-The results of the inspection and de-identification processes are written to a BigQuery table.
+You can use this pipeline for CSV, TSV, Avro, and JSONL files stored or ingested in Cloud Storage or an Amazon S3 bucket. This pipeline uses the State and Timer APIs to batch and process the files optimally.
+The results of the inspection and de-identification processes are written in a BigQuery table.
 
 ### Re-identification
 ![Reference architecture](diagrams/reid-architecture.png)
@@ -181,7 +181,7 @@ Any files that are added to the bucket after the pipeline was triggered are not 
 
 ##### Inspect only new files
 
-To trigger a streaming inspection Dataflow pipeline that processes new CSV files that are added to the `demo-data` bucket (specified in `filePattern` parameter), run the following command:
+To trigger a streaming inspection Dataflow pipeline that processes new CSV files that are added to the `demo-data` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -272,7 +272,7 @@ Any files that are added to the bucket after the pipeline was triggered are not 
 
 ##### De-identify only new files
 
-To trigger a streaming de-identification Dataflow pipeline that processes new CSV files that are added to the `demo-data` bucket (specified in `filePattern` parameter), run the following command:
+To trigger a streaming de-identification Dataflow pipeline that processes new CSV files that are added to the `demo-data` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
 gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
@@ -299,7 +299,7 @@ Any files that were added to the bucket before the pipeline was triggered are no
 
 You can find the de-identification findings in the BigQuery dataset, specified in the `dataset` parameter, with the same names as the respective input files.
 
-If `--processExistingFiles` is set to `false` and `--gcsNotificationTopic` is not provided, then the pipeline fails with error similar to the following:
+If `--processExistingFiles` is set to `false` and `--gcsNotificationTopic` is not provided, then the pipeline fails with an error similar to the following:
 
 ```
 Exception in thread "main" java.lang.IllegalArgumentException: Either --processExistingFiles should be set to true or --gcsNotificationTopic should be provided
@@ -442,7 +442,7 @@ to validate de-identified results:
 
    This command triggers a batch re-identification Dataflow pipeline that processes all the records from the query
    stored in `reid_query.sql`. The re-identified results can be found in the BigQuery
-   dataset (`dataset` parameter) with the name of input table as the suffix.
+   dataset (`dataset` parameter) with the name of the input table as the suffix.
 
 
 ### Pipeline Parameters
@@ -461,19 +461,19 @@ to validate de-identified results:
 | `filePattern`                    | The file pattern that will be used to scan the files to be processed by the job.                                                                                                                                                                                   | INSPECT/DEID        |
 | `deidentifyTemplateName`         | DLP de-identify template name.                                                                                                                                                                                                                                     | All                 |
 | `DLPMethod`                      | Type of DLP operation to perform. Valid values are `INSPECT`, `DEID`, or `REID`.                                                                                                                                                                                   | All                 |
-| `processExistingFiles`           | Files existing in the Cloud Storage bucket before the pipeline is started will not be processed when the value is set to false. Default value is true.                                                                                                             | INSPECT/DEID        |
+| `processExistingFiles`           | Files existing in the Cloud Storage bucket before the pipeline is started will not be processed when the value is set to false. The default value is true.                                                                                                             | INSPECT/DEID        |
 | `gcsNotificationTopic`           | Pub/Sub topic for notifications of new files added to the Cloud Storage bucket in filePattern. Format: projects/$PROJECT_ID>/topics/$GCS_TOPIC_NAME.                                                                                                               | INSPECT/DEID        |
-| `batchSize`                      | (Optional) Batch size for the DLP API. Default is 500,000.                                                                                                                                                                                                         | All                 |
+| `batchSize`                      | (Optional) Batch size for the DLP API. The default is 500,000.                                                                                                                                                                                                         | All                 |
 | `dataset`                        | BigQuery dataset to write the inspection or de-identification results to or to read from in case of re-identification.                                                                                                                                             | All                 |
 | `recordDelimiter`                | (Optional) Record delimiter.                                                                                                                                                                                                                                       | INSPECT/DEID        |
 | `columnDelimiter`                | Column delimiter. Only required in case of a custom delimiter.                                                                                                                                                                                                     | INSPECT/DEID        | 
 | `tableRef`                       | BigQuery table to export from in the form `<project>:<dataset>.<table>`.                                                                                                                                                                                           | REID                |
 | `queryPath`                      | Query file for re-identification.                                                                                                                                                                                                                                  | REID                |
 | `headers`                        | DLP table headers. Required for the JSONL file type.                                                                                                                                                                                                               | INSPECT/DEID        |
-| `numShardsPerDLPRequestBatching` | (Optional) Number of shards for DLP request batches. Can be used to control parallelism of DLP requests. Default value is 100.                                                                                                                                     | All                 |
+| `numShardsPerDLPRequestBatching` | (Optional) Number of shards for DLP request batches. Can be used to control the parallelism of DLP requests. The default value is 100.                                                                                                                                     | All                 |
 | `numberOfWorkerHarnessThreads`   | (Optional) The number of threads per each worker harness process.                                                                                                                                                                                                  | All                 |
-| `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API. Default value is 10.                                                                                                                                                                          | All                 |
-| `initialBackoff`                 | (Optional) Initial backoff (in seconds) for retries with exponential backoff. Default is 5s.                                                                                                                                                                       | All                 |
+| `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API. The default value is 10.                                                                                                                                                                          | All                 |
+| `initialBackoff`                 | (Optional) Initial backoff (in seconds) for retries with exponential backoff. The default is 5s.                                                                                                                                                                       | All                 |
 
 For more details, see [Dataflow Pipeline Options](https://cloud.google.com/dataflow/docs/reference/pipeline-options).
 
@@ -512,7 +512,7 @@ gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.avro"
 
 #### 5. CSV files with custom delimiters
 
-The pipeline supports CSV files with custom delimiter. The delimiter has to be passed in the pipeline option as `--columnDelimiter`.
+The pipeline supports CSV files with a custom delimiter. The delimiter has to be passed in the pipeline option as `--columnDelimiter`.
 
 ```
 gradle run ... -Pargs="... --columnDelimiter=|"
@@ -565,9 +565,9 @@ To use Amazon S3 as a source of input files, use AWS credentials as instructed b
 
 ## Adapt this pipeline for your use cases
 
-The DLP templates used in this tutorial are specifically tailored for inspecting, de-identifying, and re-identifying sample data containing simulated personally identifiable information (PII). It is important to note that when working with your own data, you should create custom DLP templates that align with the characteristics of the data being processed. For information about creating your own templates, see the following:
+The DLP templates used in this tutorial are specifically tailored for inspecting, de-identifying, and re-identifying sample data containing simulated personally identifiable information (PII). It is important to note that when working with your data, you should create custom DLP templates that align with the characteristics of the data being processed. For information about creating your templates, see the following:
 
-1. [Create your own inspection templates and run inspection on sample data](https://cloud.google.com/dlp/docs/creating-templates-inspect)
+1. [Create your inspection templates and run the inspection on sample data](https://cloud.google.com/dlp/docs/creating-templates-inspect)
 2. [Create de-identification templates and run de-identification on sample data](https://cloud.google.com/dlp/docs/creating-templates-deid)
 
 
@@ -584,7 +584,7 @@ The following are issues you might encounter while running the pipeline, and the
 
     1. ```INVALID_ARGUMENT: Too many findings to de-identify. Retry with a smaller request.```
 
-       DLP has a max findings per request [limit](https://cloud.google.com/dlp/limits#content-redaction-limits) of 3000. Run the pipeline again with a smaller batch size.
+       DLP has a max finding per request [limit](https://cloud.google.com/dlp/limits#content-redaction-limits) of 3000. Run the pipeline again with a smaller batch size.
 
     2. ```RESOURCE_EXHAUSTED: Quota exceeded for quota metric 'Number of requests' and limit 'Number of requests per minute' of service 'dlp.googleapis.com'```
 
@@ -596,7 +596,7 @@ The following are issues you might encounter while running the pipeline, and the
 
         * The pipeline includes a parameter called `numShardsPerDLPRequestBatching`. Decreasing this value below the default (100) will result in a lower number of concurrent requests sent to DLP.
 
-        * Verify if there are any other pipelines or clients generating DLP API requests.
+        * Verify if any other pipelines or clients are generating DLP API requests.
 
         * Consider submitting a request to [increase the quota limit for Sensitive Data Protection](https://cloud.google.com/dlp/limits#increases).
 
@@ -613,7 +613,7 @@ The following are issues you might encounter while running the pipeline, and the
 
 ## Advanced topics
 
-* Dataflow templates allow you to package a Dataflow pipeline for deployment. Instead of having to build the pipeline everytime, you can create Flex Templates and deploy the template by using the Google Cloud console, the Google Cloud CLI, or REST API calls.
+* Dataflow templates allow you to package a Dataflow pipeline for deployment. Instead of having to build the pipeline every time, you can create Flex Templates and deploy the template by using the Google Cloud console, the Google Cloud CLI, or REST API calls.
 * For more details, see [Dataflow templates](https://cloud.google.com/dataflow/docs/concepts/dataflow-templates) and [Flex Templates](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates).
 
 ## Some considerations
@@ -621,4 +621,4 @@ The following are issues you might encounter while running the pipeline, and the
 * The behavior of the pipeline is dependent on factors such as the length of the record, the number of findings per record, the DLP API quota on the project, and other applications or pipelines generating DLP API traffic.
 * You may need to adjust the parameters mentioned above. If you encounter errors, see [Troubleshooting](#troubleshooting) on this page.
 * Most errors observed in the pipeline indicate that the parameters need to be adjusted. However, there may be error scenarios that the pipeline doesn't currently handle and these may require code changes.
-* Due to the reasons mentioned above, this solution should not be considered as production-ready.
+* Due to the reasons mentioned above, this solution should not be considered production-ready.
