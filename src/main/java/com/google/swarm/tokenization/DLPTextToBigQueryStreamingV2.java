@@ -217,9 +217,7 @@ public class DLPTextToBigQueryStreamingV2 {
         throw new IllegalArgumentException("Please validate FileType parameter");
     }
 
-    PCollectionTuple RecordDeid;
-    RecordDeid = records
-        .apply(
+    PCollectionTuple inspectDeidRecords = records.apply(
             "DLPTransform",
             DLPTransform.newBuilder()
                 .setBatchSize(options.getBatchSize())
@@ -235,14 +233,14 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setDataSinkType(options.getDataSinkType())
                 .build());
 
-
     if(options.getDataSinkType() == Util.DataSinkType.GCS)
-      RecordDeid.get(Util.deidSuccess).apply("WriteToCSV",
+      inspectDeidRecords.get(Util.deidSuccess).apply("WriteToGCS",
               WriteToGCS.newBuilder()
                       .setOutputBucket(options.getOutputBucket())
+                      .setFileType(options.getFileType())
                       .build());
     else if(options.getDataSinkType() == Util.DataSinkType.BigQuery)
-      RecordDeid.get(Util.inspectOrDeidSuccess)
+      inspectDeidRecords.get(Util.inspectOrDeidSuccess)
           .apply(
               "StreamInsertToBQ",
               BigQueryDynamicWriteTransform.newBuilder()

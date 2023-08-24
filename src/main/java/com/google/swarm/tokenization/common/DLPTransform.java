@@ -241,7 +241,7 @@ public abstract class DLPTransform
             throw new IllegalArgumentException(
                 "CSV file's header count must exactly match with data element count");
           }
-          List<String> stringRow = outputRow.getValuesList().stream().map(e -> e.getStringValue()).collect(Collectors.toList());
+//          List<String> stringRow = outputRow.getValuesList().stream().map(e -> e.getStringValue()).collect(Collectors.toList());
           if(this.dataSink == DataSinkType.BigQuery) {
             out.get(Util.inspectOrDeidSuccess)
               .output(
@@ -250,7 +250,7 @@ public abstract class DLPTransform
                       Util.createBqRow(outputRow, headers.toArray(new String[headers.size()]))));
           }
           else if(this.dataSink == DataSinkType.GCS){
-            out.get(Util.deidSuccess).output(KV.of(fileName, String.join(",", stringRow)));
+            out.get(Util.deidSuccess).output(KV.of(fileName,outputRow));
           }
         }
       }
