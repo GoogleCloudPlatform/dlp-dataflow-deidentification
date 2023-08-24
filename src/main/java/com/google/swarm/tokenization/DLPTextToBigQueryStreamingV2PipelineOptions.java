@@ -16,14 +16,11 @@
 package com.google.swarm.tokenization;
 
 import com.google.privacy.dlp.v2.LocationName;
-import com.google.swarm.tokenization.common.Util;
 import com.google.swarm.tokenization.common.Util.DLPMethod;
 import com.google.swarm.tokenization.common.Util.FileType;
 import com.google.swarm.tokenization.common.Util.DataSinkType;
 import com.google.swarm.tokenization.common.Util.InputLocation;
 import java.util.List;
-
-import org.apache.arrow.flatbuf.Null;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;

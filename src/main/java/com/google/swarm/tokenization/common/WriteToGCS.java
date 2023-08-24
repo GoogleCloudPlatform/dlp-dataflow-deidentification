@@ -71,7 +71,6 @@ public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table
         public @UnknownKeyFor @NonNull @Initialized String getFilename(@UnknownKeyFor @NonNull @Initialized BoundedWindow window, @UnknownKeyFor @NonNull @Initialized PaneInfo pane, @UnknownKeyFor @NonNull @Initialized int numShards, @UnknownKeyFor @NonNull @Initialized int shardIndex, @UnknownKeyFor @NonNull @Initialized Compression compression) {
             StringBuilder res = new StringBuilder(this.fileName);
             String numShardsStr = String.valueOf(numShards);
-            // A trillion shards per window per pane ought to be enough for everybody.
             DecimalFormat df =
                     new DecimalFormat("000000000000".substring(0, Math.max(5, numShardsStr.length())));
             res.append("-").append(df.format(shardIndex)).append("-of-").append(df.format(numShards));

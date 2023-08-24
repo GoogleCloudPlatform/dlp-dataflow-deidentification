@@ -16,7 +16,6 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.api.services.bigquery.model.TableRow;
-import com.google.api.services.dataflow.model.Sink;
 import com.google.auto.value.AutoValue;
 import com.google.privacy.dlp.v2.*;
 import com.google.swarm.tokenization.beam.DLPDeidentifyText;
@@ -241,7 +240,6 @@ public abstract class DLPTransform
             throw new IllegalArgumentException(
                 "CSV file's header count must exactly match with data element count");
           }
-//          List<String> stringRow = outputRow.getValuesList().stream().map(e -> e.getStringValue()).collect(Collectors.toList());
           if(this.dataSink == DataSinkType.BigQuery) {
             out.get(Util.inspectOrDeidSuccess)
               .output(
