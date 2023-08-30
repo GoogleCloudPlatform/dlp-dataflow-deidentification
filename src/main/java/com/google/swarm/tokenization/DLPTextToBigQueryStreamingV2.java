@@ -235,6 +235,7 @@ public class DLPTextToBigQueryStreamingV2 {
               WriteToGCS.newBuilder()
                       .setOutputBucket(options.getOutputBucket())
                       .setFileType(options.getFileType())
+                      .setColumnDelimiter(options.getColumnDelimiter())
                       .build());
     else if(options.getDataSinkType() == Util.DataSinkType.BigQuery)
       inspectDeidRecords.get(Util.inspectOrDeidSuccess)

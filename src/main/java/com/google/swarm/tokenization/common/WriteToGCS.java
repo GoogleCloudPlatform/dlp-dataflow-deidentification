@@ -31,6 +31,8 @@ public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table
 
     public abstract Util.FileType fileType();
 
+    public abstract Character columnDelimiter();
+
     public static Builder newBuilder() {
         return new AutoValue_WriteToGCS.Builder();
     }
@@ -41,13 +43,15 @@ public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table
 
         public abstract Builder setFileType(Util.FileType value);
 
+        public abstract Builder setColumnDelimiter(Character columnDelimiter);
+
         public abstract WriteToGCS build();
     }
 
     @Override
     public WriteFilesResult<String> expand(PCollection<KV<String, Table.Row>> input) {
 
-        return input.apply("ConvertTableRowToString",ParDo.of(new ConvertTableRowToString(fileType())))
+        return input.apply("ConvertTableRowToString",ParDo.of(new ConvertTableRowToString(fileType(),columnDelimiter())))
                 .apply("WriteFileToGCS", FileIO.<String, KV<String, String>>writeDynamic()
                     .by(KV::getKey)
                     .withDestinationCoder(StringUtf8Coder.of())
@@ -82,9 +86,11 @@ public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table
     public class ConvertTableRowToString extends DoFn<KV<String, Table.Row>, KV<String, String>> {
 
         public Util.FileType fileType;
+        public Character delimiter;
 
-        public ConvertTableRowToString(Util.FileType fileType) {
+        public ConvertTableRowToString(Util.FileType fileType, Character delimiter) {
             this.fileType = fileType;
+            this.delimiter = delimiter;
         }
 
         @ProcessElement
@@ -92,15 +98,13 @@ public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table
             String fileName = c.element().getKey();
             List<String> stringRow = c.element().getValue().getValuesList().stream().map(e -> e.getStringValue()).collect(Collectors.toList());
 
-            String delimiter = ",";
             switch (fileType){
                 case TSV:
-                    delimiter = "\t";
                 case TXT:
                 case JSONL:
                 case AVRO:
                 case CSV:
-                    c.output(KV.of(fileName, String.join(delimiter, stringRow)));
+                    c.output(KV.of(fileName, String.join(delimiter.toString(), stringRow)));
                     break;
             }
 
