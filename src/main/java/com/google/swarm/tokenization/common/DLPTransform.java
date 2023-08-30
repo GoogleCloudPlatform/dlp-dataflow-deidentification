@@ -150,7 +150,7 @@ public abstract class DLPTransform
                   "ConvertDeidResponse",
                   ParDo.of(new ConvertDeidResponse(dataSinkType()))
                       .withOutputTags(
-                          Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure).and(Util.deidSuccess)));
+                          Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure).and(Util.deidSuccessGCS)));
         }
       case REID:
         {
@@ -187,7 +187,7 @@ public abstract class DLPTransform
 
     @ProcessElement
     public void processElement(
-        @Element KV<String, ReidentifyContentResponse> element, MultiOutputReceiver out)  {
+        @Element KV<String, ReidentifyContentResponse> element, MultiOutputReceiver out) {
 
       String deidTableName = BigQueryHelpers.parseTableSpec(element.getKey()).getTableId();
       String tableName = String.format("%s_%s", deidTableName, Util.BQ_REID_TABLE_EXT);
@@ -251,7 +251,7 @@ public abstract class DLPTransform
                       Util.createBqRow(outputRow, headers.toArray(new String[headers.size()]))));
           }
           else if(this.dataSink == DataSinkType.GCS){
-            out.get(Util.deidSuccess).output(KV.of(fileName,outputRow));
+            out.get(Util.deidSuccessGCS).output(KV.of(fileName,outputRow));
           }
         }
       }

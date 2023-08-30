@@ -113,6 +113,9 @@ public class DLPTextToBigQueryStreamingV2 {
     if (options.getInputProviderType() == InputLocation.GCS && !usePubSub && !options.getProcessExistingFiles())
         throw new IllegalArgumentException("Either --processExistingFiles should be set to true or --gcsNotificationTopic should be provided");
 
+    if(options.getDataset()!= null && options.getOutputBucket()!=null)
+        throw new IllegalArgumentException("Please provide either BQ Dataset or GCS output bucket");
+
     if (options.getInputProviderType() == InputLocation.GCS) {
         PCollection<KV<String, ReadableFile>> newFiles = p.apply("Read New Files", ReadNewFilesPubSubTransform.newBuilder()
                                                           .setFilePattern(options.getFilePattern())
@@ -231,7 +234,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .build());
 
     if(options.getDataSinkType() == Util.DataSinkType.GCS)
-      inspectDeidRecords.get(Util.deidSuccess).apply("WriteToGCS",
+      inspectDeidRecords.get(Util.deidSuccessGCS).apply("WriteToGCS",
               WriteToGCS.newBuilder()
                       .setOutputBucket(options.getOutputBucket())
                       .setFileType(options.getFileType())

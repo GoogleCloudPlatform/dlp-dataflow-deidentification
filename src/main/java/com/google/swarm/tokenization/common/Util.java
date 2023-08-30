@@ -110,7 +110,7 @@ public class Util {
   public static final TupleTag<KV<String, TableRow>> inspectOrDeidSuccess =
       new TupleTag<KV<String, TableRow>>() {};
 
-  public static final TupleTag<KV<String, Table.Row>> deidSuccess =
+  public static final TupleTag<KV<String, Table.Row>> deidSuccessGCS =
           new TupleTag<KV<String, Table.Row>>() {};
 
   public static final TupleTag<KV<String, TableRow>> inspectOrDeidFailure =
