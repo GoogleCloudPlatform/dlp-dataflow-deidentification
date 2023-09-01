@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryOptions;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.Schema.Field;
 import org.apache.beam.sdk.schemas.Schema.FieldType;
@@ -387,11 +388,37 @@ public class Util {
             value -> {
               String checkedHeaderName =
                   Util.checkHeaderName(headers[headerIndex.getAndIncrement()].toString());
-              bqRow.set(checkedHeaderName, value.getStringValue());
-              cells.add(new TableCell().set(checkedHeaderName, value.getStringValue()));
+              String stringValue = value.getStringValue();
+              bqRow.set(checkedHeaderName, stringValue);
+              cells.add(new TableCell().set(checkedHeaderName, stringValue).setV(stringValue));
             });
     bqRow.setF(cells);
     return bqRow;
+  }
+
+  public static void validateBQStorageApiOptionsStreaming(BigQueryOptions options) {
+    if (options.getUseStorageWriteApi()
+        && !options.getUseStorageWriteApiAtLeastOnce()
+        && (options.getNumStorageWriteApiStreams() < 1
+            || options.getStorageWriteApiTriggeringFrequencySec() == null)) {
+      // the number of streams and triggering frequency are only required for exactly-once semantics
+      throw new IllegalArgumentException(
+          "When streaming with STORAGE_WRITE_API, the number of streams"
+              + " (numStorageWriteApiStreams) and triggering frequency"
+              + " (storageWriteApiTriggeringFrequencySec) must also be specified.");
+    }
+    validateStorageWriteApiAtLeastOnce(options);
+  }
+
+  private static void validateStorageWriteApiAtLeastOnce(BigQueryOptions options) {
+    if (options.getUseStorageWriteApiAtLeastOnce() && !options.getUseStorageWriteApi()) {
+      // Technically this is a no-op, since useStorageWriteApiAtLeastOnce is only checked by
+      // BigQueryIO when useStorageWriteApi is true, but it might be confusing to a user why
+      // useStorageWriteApiAtLeastOnce doesn't take effect.
+      throw new IllegalArgumentException(
+          "When at-least-once semantics (useStorageWriteApiAtLeastOnce) are enabled Storage Write"
+              + " API (useStorageWriteApi) must also be enabled.");
+    }
   }
 
   public static String getQueryFromGcs(String gcsPath) {

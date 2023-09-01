@@ -23,10 +23,12 @@ import com.google.auto.value.AutoValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.WriteDisposition;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryOptions;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryUtils;
 import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
 import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
@@ -74,12 +76,15 @@ public abstract class BigQueryDynamicWriteTransform
             .withWriteDisposition(WriteDisposition.WRITE_APPEND)
             .withoutValidation()
             .ignoreInsertIds()
-            .withMethod(Write.Method.STREAMING_INSERTS)
             .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED);
 
     if (input.getPipeline().getOptions().as(StreamingOptions.class).isStreaming()) {
       transform = transform.withAutoSharding();
     }
+
+    if (!input.getPipeline().getOptions().as(BigQueryOptions.class).getUseStorageWriteApi()) {
+        transform = transform.withMethod(Write.Method.STREAMING_INSERTS);
+      }
 
     return input.apply("BQ Write", transform);
   }

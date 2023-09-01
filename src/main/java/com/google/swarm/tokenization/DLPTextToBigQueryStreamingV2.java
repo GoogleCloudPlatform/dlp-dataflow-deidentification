@@ -21,6 +21,7 @@ import com.google.swarm.tokenization.avro.AvroReaderSplittableDoFn;
 import com.google.swarm.tokenization.avro.ConvertAvroRecordToDlpRowDoFn;
 import com.google.swarm.tokenization.avro.GenericRecordCoder;
 import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
+import com.google.swarm.tokenization.coders.DeterministicTableRowJsonCoder;
 import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
 import com.google.swarm.tokenization.common.BigQueryReadTransform;
 import com.google.swarm.tokenization.common.BigQueryTableHeaderDoFn;
@@ -81,11 +82,13 @@ public class DLPTextToBigQueryStreamingV2 {
 
     DLPTextToBigQueryStreamingV2PipelineOptions options =
         PipelineOptionsFactory.fromArgs(args).as(DLPTextToBigQueryStreamingV2PipelineOptions.class);
+    Util.validateBQStorageApiOptionsStreaming(options);
     run(options);
   }
 
   public static PipelineResult run(DLPTextToBigQueryStreamingV2PipelineOptions options) {
     Pipeline p = Pipeline.create(options);
+    p.getCoderRegistry().registerCoderForClass(TableRow.class, DeterministicTableRowJsonCoder.of());
 
     switch (options.getDLPMethod()) {
       case INSPECT:
@@ -230,7 +233,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .build())
         .get(Util.inspectOrDeidSuccess)
         .apply(
-            "StreamInsertToBQ",
+            "InsertToBQ",
             BigQueryDynamicWriteTransform.newBuilder()
                 .setDatasetId(options.getDataset())
                 .setProjectId(options.getProject())
