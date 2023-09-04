@@ -257,6 +257,7 @@ jobs:
   
   de-identification-streaming-write:
     needs:
+      - generate-uuid
       - create-dataset
 
     runs-on:
@@ -277,7 +278,6 @@ jobs:
 
       - name: Run DLP Pipeline for streaming write
         env:
-          DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output3 }}
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
