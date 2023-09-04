@@ -132,7 +132,8 @@ public abstract class BigQueryDynamicWriteTransform
           List<TableCell> cells = bqRow.getF();
           for (int i = 0; i < cells.size(); i++) {
             Map<String, Object> object = cells.get(i);
-            String header = object.keySet().iterator().next();
+            String header =
+            object.keySet().stream().filter(name -> !name.equals("v")).findFirst().get();
             /* currently all BQ data types are set to String */
             fields.add(
                 new TableFieldSchema().setName(Util.checkHeaderName(header)).setType("STRING"));
