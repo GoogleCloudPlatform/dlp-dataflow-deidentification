@@ -281,22 +281,15 @@ jobs:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
-                --region=us-central1 \
-                --project=${{env.PROJECT_ID}} \
-                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
-                --numWorkers=2 \
-                --maxNumWorkers=3 \
-                --runner=DataflowRunner \
-                --filePattern=gs://${{env.GCS_BUCKET}}/streaming_write.csv \
-                --dataset=${{env.DATASET_ID}} \
-                --workerMachineType=n1-highmem-4 \
-                --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
-                --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
-                --batchSize=200000 \
-                --DLPMethod=DEID \
-                --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
-                --useStorageWriteApi --storageWriteApiTriggeringFrequencySec=2 \
-                --numStorageWriteApiStreams=2"
+          --region=us-central1 --project=${{env.PROJECT_ID}} \
+          --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+          --numWorkers=1 --maxNumWorkers=2 --runner=DataflowRunner \
+          --filePattern=gs://${{env.GCS_BUCKET}}/streaming_write.csv --dataset=${{env.DATASET_ID}} \
+          --workerMachineType=n1-highmem-4 \
+          --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
+          --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
+          --batchSize=200000 --DLPMethod=DEID --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
+          --useStorageWriteApi --storageWriteApiTriggeringFrequencySec=2 --numStorageWriteApiStreams=2"
 
       - name: Verify BQ table for streaming write
         env:
