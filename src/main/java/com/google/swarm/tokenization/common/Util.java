@@ -388,8 +388,9 @@ public class Util {
             value -> {
               String checkedHeaderName =
                   Util.checkHeaderName(headers[headerIndex.getAndIncrement()].toString());
-              bqRow.set(checkedHeaderName, value.getStringValue());
-              cells.add(new TableCell().set(checkedHeaderName, value.getStringValue()));
+              String stringValue = value.getStringValue();
+              bqRow.set(checkedHeaderName, stringValue);
+              cells.add(new TableCell().set(checkedHeaderName, stringValue).setV(stringValue));
             });
     bqRow.setF(cells);
     return bqRow;
