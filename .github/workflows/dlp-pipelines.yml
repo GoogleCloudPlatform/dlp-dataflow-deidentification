@@ -444,6 +444,7 @@ jobs:
       - generate-uuid
       - inspection
       - de-identification
+      - de-identification-streaming-write
       - re-identification
 
     runs-on:
