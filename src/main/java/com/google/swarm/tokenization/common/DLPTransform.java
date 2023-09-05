@@ -25,6 +25,7 @@ import com.google.swarm.tokenization.beam.DLPDeidentifyText;
 import com.google.swarm.tokenization.beam.DLPInspectText;
 import com.google.swarm.tokenization.beam.DLPReidentifyText;
 import com.google.swarm.tokenization.common.Util.DLPMethod;
+import com.google.swarm.tokenization.common.Util.DataSinkType;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -72,6 +73,8 @@ public abstract class DLPTransform
 
   public abstract Integer initialBackoff();
 
+  public abstract DataSinkType dataSinkType();
+
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -94,6 +97,8 @@ public abstract class DLPTransform
     public abstract Builder setDlpApiRetryCount(Integer dlpApiRetryCount);
 
     public abstract Builder setInitialBackoff(Integer initialBackoff);
+
+    public abstract Builder setDataSinkType(DataSinkType dataSinkType);
 
     public abstract DLPTransform build();
   }
@@ -143,9 +148,9 @@ public abstract class DLPTransform
                       .build())
               .apply(
                   "ConvertDeidResponse",
-                  ParDo.of(new ConvertDeidResponse())
+                  ParDo.of(new ConvertDeidResponse(dataSinkType()))
                       .withOutputTags(
-                          Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)));
+                          Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure).and(Util.deidSuccessGCS)));
         }
       case REID:
         {
@@ -212,10 +217,13 @@ public abstract class DLPTransform
 
   static class ConvertDeidResponse
       extends DoFn<KV<String, DeidentifyContentResponse>, KV<String, TableRow>> {
-
+    private DataSinkType dataSink;
     private final Counter numberOfRowDeidentified =
         Metrics.counter(ConvertDeidResponse.class, "numberOfRowDeidentified");
 
+    public ConvertDeidResponse(DataSinkType dataSink) {
+      this.dataSink = dataSink;
+    }
     @ProcessElement
     public void processElement(
         @Element KV<String, DeidentifyContentResponse> element, MultiOutputReceiver out) {
@@ -235,11 +243,16 @@ public abstract class DLPTransform
             throw new IllegalArgumentException(
                 "CSV file's header count must exactly match with data element count");
           }
-          out.get(Util.inspectOrDeidSuccess)
+          if(this.dataSink == DataSinkType.BigQuery) {
+            out.get(Util.inspectOrDeidSuccess)
               .output(
                   KV.of(
                       fileName,
                       Util.createBqRow(outputRow, headers.toArray(new String[headers.size()]))));
+          }
+          else if(this.dataSink == DataSinkType.GCS){
+            out.get(Util.deidSuccessGCS).output(KV.of(fileName,outputRow));
+          }
         }
       }
     }

@@ -18,6 +18,7 @@ package com.google.swarm.tokenization;
 import com.google.privacy.dlp.v2.LocationName;
 import com.google.swarm.tokenization.common.Util.DLPMethod;
 import com.google.swarm.tokenization.common.Util.FileType;
+import com.google.swarm.tokenization.common.Util.DataSinkType;
 import com.google.swarm.tokenization.common.Util.InputLocation;
 import java.util.List;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
@@ -141,6 +142,28 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
    */
   void setInitialBackoff(int value);
 
+  @Description("Output bucket to write DEID output as csv file")
+  String getOutputBucket();
+
+  void setOutputBucket(String outputBucket);
+
+  class DataSinkFactory implements DefaultValueFactory<DataSinkType> {
+    @Override
+    public DataSinkType create(PipelineOptions options) {
+      if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getOutputBucket()!=null)
+        return DataSinkType.GCS;
+      else
+        return DataSinkType.BigQuery;
+    }
+  }
+
+  @Validation.Required
+  @Default.InstanceFactory(DataSinkFactory.class)
+  DataSinkType getDataSinkType();
+
+  void setDataSinkType(DataSinkType dataSinkType);
+
+
   class FileTypeFactory implements DefaultValueFactory<FileType> {
     @Override
     public FileType create(PipelineOptions options) {
@@ -194,7 +217,7 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   class InputPollingFactory implements DefaultValueFactory<InputLocation> {
     @Override
     public InputLocation create(PipelineOptions options) {
-       if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getFilePattern().startsWith("gs://"))  
+       if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getFilePattern().startsWith("gs://"))
         return InputLocation.GCS;
        else
         return InputLocation.NOT_GCS;
