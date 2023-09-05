@@ -34,6 +34,7 @@ import com.google.swarm.tokenization.common.ReadNewFilesPubSubTransform;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
 import com.google.swarm.tokenization.common.PubSubMessageConverts;
 import com.google.swarm.tokenization.common.Util;
+import com.google.swarm.tokenization.common.WriteToGCS;
 import com.google.swarm.tokenization.common.Util.InputLocation;
 import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
 import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
@@ -115,6 +116,9 @@ public class DLPTextToBigQueryStreamingV2 {
     if (options.getInputProviderType() == InputLocation.GCS && !usePubSub && !options.getProcessExistingFiles())
         throw new IllegalArgumentException("Either --processExistingFiles should be set to true or --gcsNotificationTopic should be provided");
 
+    if(options.getDataset()!= null && options.getOutputBucket()!=null)
+        throw new IllegalArgumentException("Please provide either BQ Dataset or GCS output bucket");
+
     if (options.getInputProviderType() == InputLocation.GCS) {
         PCollection<KV<String, ReadableFile>> newFiles = p.apply("Read New Files", ReadNewFilesPubSubTransform.newBuilder()
                                                           .setFilePattern(options.getFilePattern())
@@ -133,7 +137,7 @@ public class DLPTextToBigQueryStreamingV2 {
         inputFiles = p.apply(FilePollingTransform.newBuilder().setFilePattern(options.getFilePattern())
                             .setInterval(DEFAULT_POLL_INTERVAL).build());
     }
- 
+
     inputFiles = inputFiles.apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
 
     final PCollectionView<Map<String, List<String>>> headers =
@@ -216,8 +220,7 @@ public class DLPTextToBigQueryStreamingV2 {
         throw new IllegalArgumentException("Please validate FileType parameter");
     }
 
-    records
-        .apply(
+    PCollectionTuple inspectDeidRecords = records.apply(
             "DLPTransform",
             DLPTransform.newBuilder()
                 .setBatchSize(options.getBatchSize())
@@ -230,14 +233,25 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setJobName(options.getJobName())
                 .setDlpApiRetryCount(options.getDlpApiRetryCount())
                 .setInitialBackoff(options.getInitialBackoff())
-                .build())
-        .get(Util.inspectOrDeidSuccess)
-        .apply(
-            "InsertToBQ",
-            BigQueryDynamicWriteTransform.newBuilder()
-                .setDatasetId(options.getDataset())
-                .setProjectId(options.getProject())
                 .build());
+
+    if(options.getDataSinkType() == Util.DataSinkType.GCS)
+      inspectDeidRecords.get(Util.deidSuccessGCS).apply("WriteToGCS",
+              WriteToGCS.newBuilder()
+                      .setOutputBucket(options.getOutputBucket())
+                      .setFileType(options.getFileType())
+                      .setColumnDelimiter(options.getColumnDelimiter())
+                      .build());
+    else if(options.getDataSinkType() == Util.DataSinkType.BigQuery)
+      inspectDeidRecords.get(Util.inspectOrDeidSuccess)
+          .apply(
+              "InsertToBQ",
+              BigQueryDynamicWriteTransform.newBuilder()
+                  .setDatasetId(options.getDataset())
+                  .setProjectId(options.getProject())
+                  .build());
+
+
   }
 
   private static void runReidPipeline(
@@ -278,6 +292,7 @@ public class DLPTextToBigQueryStreamingV2 {
                     .setJobName(options.getJobName())
                     .setDlpApiRetryCount(options.getDlpApiRetryCount())
                     .setInitialBackoff(options.getInitialBackoff())
+                    .setDataSinkType(options.getDataSinkType())
                     .build())
             .get(Util.reidSuccess);
 
