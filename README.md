@@ -24,6 +24,7 @@
     * [Pipeline parameters](#pipeline-parameters)
     * [Supported file formats](#supported-file-formats)
     * [Amazon S3 scanner](#amazon-s3-scanner)
+    * [GCS as sink for DEID](#gcs-as-sink-for-deid)
 
 * [Adapt this pipeline for your use cases](#adapt-this-pipeline-for-your-use-cases)
 
