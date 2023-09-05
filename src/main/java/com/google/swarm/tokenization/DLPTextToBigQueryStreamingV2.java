@@ -233,6 +233,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setJobName(options.getJobName())
                 .setDlpApiRetryCount(options.getDlpApiRetryCount())
                 .setInitialBackoff(options.getInitialBackoff())
+                .setDataSinkType(options.getDataSinkType())
                 .build());
 
     if(options.getDataSinkType() == Util.DataSinkType.GCS)
