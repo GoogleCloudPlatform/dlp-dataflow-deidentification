@@ -20,11 +20,11 @@
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
     args: ['-c', 'sh create-kek.sh ${PROJECT_ID} ${_KEY_RING_NAME} ${_KEY_NAME} ${_TEK} ${_KEK} ${_API_KEY}']
-  - name: gcr.io/cloud-builders/curl
-    args: ['http://storage.googleapis.com/dataflow-dlp-solution-sample-data/sample_data_scripts.tar.gz', '-o', 'sample_data_scripts.tar.gz']
-  - name: 'gcr.io/cloud-builders/docker'
-    entrypoint: 'bash'
-    args: ['-c', 'tar -zxvf sample_data_scripts.tar.gz']
+#  - name: gcr.io/cloud-builders/curl
+#    args: ['http://storage.googleapis.com/dataflow-dlp-solution-sample-data/sample_data_scripts.tar.gz', '-o', 'sample_data_scripts.tar.gz']
+#  - name: 'gcr.io/cloud-builders/docker'
+#    entrypoint: 'bash'
+#    args: ['-c', 'tar -zxvf sample_data_scripts.tar.gz']
   - name: gcr.io/cloud-builders/gsutil
     args: ['cp', '${_KEK}', '${_GCS_BUCKET_NAME}']
   - name: gcr.io/cloud-builders/gsutil
