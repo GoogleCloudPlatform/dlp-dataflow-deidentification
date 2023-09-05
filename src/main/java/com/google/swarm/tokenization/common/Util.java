@@ -89,6 +89,10 @@ public class Util {
     NOT_GCS
   }
 
+  public enum DataSinkType {
+    GCS,
+    BigQuery
+  }
   public static final Gson gson = new Gson();
   private static final char DEFAULT_SEPARATOR = ',';
   private static final char DEFAULT_QUOTE = '"';
@@ -105,6 +109,10 @@ public class Util {
 
   public static final TupleTag<KV<String, TableRow>> inspectOrDeidSuccess =
       new TupleTag<KV<String, TableRow>>() {};
+
+  public static final TupleTag<KV<String, Table.Row>> deidSuccessGCS =
+          new TupleTag<KV<String, Table.Row>>() {};
+
   public static final TupleTag<KV<String, TableRow>> inspectOrDeidFailure =
       new TupleTag<KV<String, TableRow>>() {};
 
