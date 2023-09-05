@@ -28,4 +28,4 @@
   - name: gcr.io/cloud-builders/gsutil
     args: ['cp', '${_KEK}', '${_GCS_BUCKET_NAME}']
   - name: gcr.io/cloud-builders/gsutil
-    args: ['-m', 'cp', './solution-test/*', '${_GCS_BUCKET_NAME}']
+    args: ['cp', './solution-test/*', '${_GCS_BUCKET_NAME}']
