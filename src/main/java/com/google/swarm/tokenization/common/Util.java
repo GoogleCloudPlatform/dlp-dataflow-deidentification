@@ -403,7 +403,7 @@ public class Util {
             || options.getStorageWriteApiTriggeringFrequencySec() == null)) {
       // the number of streams and triggering frequency are only required for exactly-once semantics
       throw new IllegalArgumentException(
-          "When streaming with STORAGE_WRITE_API, the number of streams"
+          "When streaming with STORAGE_WRITE_API exactly-once semantics, the number of streams"
               + " (numStorageWriteApiStreams) and triggering frequency"
               + " (storageWriteApiTriggeringFrequencySec) must also be specified.");
     }
@@ -416,8 +416,8 @@ public class Util {
       // BigQueryIO when useStorageWriteApi is true, but it might be confusing to a user why
       // useStorageWriteApiAtLeastOnce doesn't take effect.
       throw new IllegalArgumentException(
-          "When at-least-once semantics (useStorageWriteApiAtLeastOnce) are enabled Storage Write"
-              + " API (useStorageWriteApi) must also be enabled.");
+        "When at-least-once semantics (useStorageWriteApiAtLeastOnce) is enabled, Storage Write"
+        + " API (useStorageWriteApi) must also be enabled.");
     }
   }
 
