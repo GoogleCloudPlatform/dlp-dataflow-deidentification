@@ -24,6 +24,7 @@
     * [Pipeline parameters](#pipeline-parameters)
     * [Supported file formats](#supported-file-formats)
     * [Amazon S3 scanner](#amazon-s3-scanner)
+    * [GCS as sink for DEID](#gcs-as-sink-for-deid)
 
 * [Adapt this pipeline for your use cases](#adapt-this-pipeline-for-your-use-cases)
 
@@ -474,6 +475,7 @@ to validate de-identified results:
 | `numberOfWorkerHarnessThreads`   | (Optional) The number of threads per each worker harness process.                                                                                                                                                                                                  | All                 |
 | `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API. The default value is 10.                                                                                                                                                                          | All                 |
 | `initialBackoff`                 | (Optional) Initial backoff (in seconds) for retries with exponential backoff. The default is 5s.                                                                                                                                                                       | All                 |
+| `outputBucket`                   | GCS path for storing the deidentified files                                                                                                                                                                       | DEID               |
 
 For more details, see [Dataflow Pipeline Options](https://cloud.google.com/dataflow/docs/reference/pipeline-options).
 
@@ -562,6 +564,29 @@ To use Amazon S3 as a source of input files, use AWS credentials as instructed b
 
 * --awsCredentialsProvider: The AWS credentials provider.
 
+### GCS as sink for DEID
+The pipeline offers GCS as a sink for the DEID workflow. Currently, it supports the deidentification of CSV files and outputs the files in CSV format.
+
+Following is the command to deidentify existing CSV files. Update `outputBucket` parameter with the correct GCS path for storing the deidentified files.
+
+```
+gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
+-Pargs=" --region=${REGION} \
+--project=${PROJECT_ID} \
+--tempLocation=gs://${DATA_STORAGE_BUCKET}/temp \
+--numWorkers=1 --maxNumWorkers=2 \
+--runner=DataflowRunner \
+--filePattern=gs://${DATA_STORAGE_BUCKET}/*.csv \
+--dataset=${BQ_DATASET_NAME}   \
+--inspectTemplateName=${INSPECT_TEMPLATE_NAME} \
+--deidentifyTemplateName=${DEID_TEMPLATE_NAME} \
+--batchSize=200000 \
+--DLPMethod=DEID \
+--outputBucket=gs://${DATA_STORAGE_BUCKET}/output \
+--serviceAccount=${SERVICE_ACCOUNT_EMAIL}"
+```
+#### Parameters
+* --outputBucket: The GCS path for storing the deidentified files
 
 ## Adapt this pipeline for your use cases
 
