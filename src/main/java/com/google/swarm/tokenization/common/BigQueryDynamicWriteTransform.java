@@ -27,6 +27,7 @@ import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.WriteDisposition;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryOptions;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryUtils;
 import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
 import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
@@ -74,12 +75,15 @@ public abstract class BigQueryDynamicWriteTransform
             .withWriteDisposition(WriteDisposition.WRITE_APPEND)
             .withoutValidation()
             .ignoreInsertIds()
-            .withMethod(Write.Method.STREAMING_INSERTS)
             .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED);
 
     if (input.getPipeline().getOptions().as(StreamingOptions.class).isStreaming()) {
       transform = transform.withAutoSharding();
     }
+
+    if (!input.getPipeline().getOptions().as(BigQueryOptions.class).getUseStorageWriteApi()) {
+        transform = transform.withMethod(Write.Method.STREAMING_INSERTS);
+      }
 
     return input.apply("BQ Write", transform);
   }
@@ -127,7 +131,8 @@ public abstract class BigQueryDynamicWriteTransform
           List<TableCell> cells = bqRow.getF();
           for (int i = 0; i < cells.size(); i++) {
             Map<String, Object> object = cells.get(i);
-            String header = object.keySet().iterator().next();
+            String header =
+            object.keySet().stream().filter(name -> !name.equals("v")).findFirst().get();
             /* currently all BQ data types are set to String */
             fields.add(
                 new TableFieldSchema().setName(Util.checkHeaderName(header)).setType("STRING"));
