@@ -15,9 +15,14 @@ service-account-key.json
 dlp_key.json
 
 # Datasets
-#*.csv
-#*.avro
-#*.avsc
+*.csv
+*.avro
+*.avsc
+
+# Don't ignore dataset under solution-test
+!solution-test/*.csv
+!solution-test/*.avsc
+!solution-test/*.avro
 
 # Package Files #
 *.jar

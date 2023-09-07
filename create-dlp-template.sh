@@ -40,21 +40,18 @@ DEID_TEMPLATE_API="${API_ROOT_URL}/v2/projects/${PROJECT_ID}/deidentifyTemplates
 INSPECT_TEMPLATE_API="${API_ROOT_URL}/v2/projects/${PROJECT_ID}/inspectTemplates"
 
 curl -X POST -H "Content-Type: application/json" \
- -H "X-Goog-User-Project: ${PROJECT_ID}" \
  -H "Authorization: Bearer ${API_KEY}" \
  "${DEID_TEMPLATE_API}"`` \
  -d "${DEID_CONFIG}"\
  -o "${DEID_TEMPLATE_OUTPUT}"
 
 curl -X POST -H "Content-Type: application/json" \
- -H "X-Goog-User-Project: ${PROJECT_ID}" \
  -H "Authorization: Bearer ${API_KEY}" \
  "${DEID_TEMPLATE_API}"`` \
  -d "${REID_CONFIG}"\
  -o "${REID_TEMPLATE_OUTPUT}"
 
 curl -X POST -H "Content-Type: application/json" \
- -H "X-Goog-User-Project: ${PROJECT_ID}" \
  -H "Authorization: Bearer ${API_KEY}" \
  "${INSPECT_TEMPLATE_API}"`` \
  -d "${INSPECT_CONFIG}"\
