@@ -20,9 +20,9 @@ dlp_key.json
 *.avsc
 
 # Don't ignore dataset under solution-test
-!solution-test/*.csv
-!solution-test/*.avsc
-!solution-test/*.avro
+!.github/mock-artifacts/*.csv
+!.github/mock-artifacts/*.avsc
+!.github/mock-artifacts/*.avro
 
 # Package Files #
 *.jar
