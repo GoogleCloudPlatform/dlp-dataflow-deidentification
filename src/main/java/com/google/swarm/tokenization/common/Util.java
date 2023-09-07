@@ -132,7 +132,7 @@ public class Util {
   public static final String BQ_REID_TABLE_EXT = String.valueOf("re_id");
 
   public static final Set<String> ALLOWED_FILE_EXTENSIONS =
-        Arrays.asList("csv", "avro", "jsonl", "txt").stream().collect(Collectors.toUnmodifiableSet());
+        Arrays.asList("csv", "avro", "jsonl", "txt", "tsv").stream().collect(Collectors.toUnmodifiableSet());
 
   public static final DateTimeFormatter TIMESTAMP_FORMATTER =
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
