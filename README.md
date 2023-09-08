@@ -577,7 +577,6 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 --numWorkers=1 --maxNumWorkers=2 \
 --runner=DataflowRunner \
 --filePattern=gs://${DATA_STORAGE_BUCKET}/*.csv \
---dataset=${BQ_DATASET_NAME}   \
 --inspectTemplateName=${INSPECT_TEMPLATE_NAME} \
 --deidentifyTemplateName=${DEID_TEMPLATE_NAME} \
 --batchSize=200000 \
