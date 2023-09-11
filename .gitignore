@@ -23,6 +23,7 @@ dlp_key.json
 !.github/mock-data/*.csv
 !.github/mock-data/*.avsc
 !.github/mock-data/*.avro
+!.github/mock-data/*.parquet
 
 # Package Files #
 *.jar
