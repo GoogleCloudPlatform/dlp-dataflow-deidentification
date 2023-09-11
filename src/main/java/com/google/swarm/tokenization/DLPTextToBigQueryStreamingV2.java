@@ -38,6 +38,7 @@ import com.google.swarm.tokenization.common.WriteToGCS;
 import com.google.swarm.tokenization.common.Util.InputLocation;
 import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
 import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
+import com.google.swarm.tokenization.parquet.ParquetReaderSplittableDoFn;
 import com.google.swarm.tokenization.txt.ConvertTxtToDLPRow;
 import com.google.swarm.tokenization.txt.ParseTextLogDoFn;
 import com.google.swarm.tokenization.txt.TxtReaderSplitDoFn;
@@ -215,6 +216,10 @@ public class DLPTextToBigQueryStreamingV2 {
                     "ConvertToDLPRow",
                     ParDo.of(new ConvertTxtToDLPRow(options.getColumnDelimiter(), headers))
                         .withSideInputs(headers));
+        break;
+      case PARQUET:
+        records = inputFiles
+                .apply(ParDo.of(new ParquetReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())));
         break;
       default:
         throw new IllegalArgumentException("Please validate FileType parameter");

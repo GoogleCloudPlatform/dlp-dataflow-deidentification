@@ -81,8 +81,8 @@ public class Util {
     AVRO,
     JSONL,
     TXT,
-
-    TSV
+    TSV,
+    PARQUET
   }
 
   public enum InputLocation {
@@ -132,7 +132,7 @@ public class Util {
   public static final String BQ_REID_TABLE_EXT = String.valueOf("re_id");
 
   public static final Set<String> ALLOWED_FILE_EXTENSIONS =
-        Arrays.asList("csv", "avro", "jsonl", "txt").stream().collect(Collectors.toUnmodifiableSet());
+        Arrays.asList("csv", "avro", "jsonl", "txt", "parquet").stream().collect(Collectors.toUnmodifiableSet());
 
   public static final DateTimeFormatter TIMESTAMP_FORMATTER =
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
@@ -386,6 +386,15 @@ public class Util {
     return result;
   }
 
+  public static String convertBqValue(Value value) {
+    if (value.hasIntegerValue()) {
+      return String.valueOf(value.getIntegerValue());
+    } else if (value.hasFloatValue()) {
+      return String.valueOf(value.getFloatValue());
+    }
+    return value.getStringValue();
+  }
+
   public static TableRow createBqRow(Table.Row tokenizedValue, String[] headers) {
     TableRow bqRow = new TableRow();
     AtomicInteger headerIndex = new AtomicInteger(0);
@@ -396,7 +405,7 @@ public class Util {
             value -> {
               String checkedHeaderName =
                   Util.checkHeaderName(headers[headerIndex.getAndIncrement()].toString());
-              String stringValue = value.getStringValue();
+              String stringValue = convertBqValue(value);
               bqRow.set(checkedHeaderName, stringValue);
               cells.add(new TableCell().set(checkedHeaderName, stringValue).setV(stringValue));
             });

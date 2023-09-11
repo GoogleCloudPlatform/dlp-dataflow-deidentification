@@ -188,6 +188,11 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
           .toLowerCase()
           .endsWith(".tsv")) {
         return FileType.TSV;
+      } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".parquet")) {
+       return FileType.PARQUET;
       } else {
         return FileType.CSV;
       }
