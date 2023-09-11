@@ -13,9 +13,10 @@ env:
   REGION: "us-central1"
   GCS_BUCKET: "dlp-dataflow-deid-ci-392604-demo-data"
   GCS_NOTIFICATION_TOPIC: "projects/dlp-dataflow-deid-ci-392604/topics/dlp-dataflow-deid-ci-gcs-notification-topic"
+  SAMPLE_DATA_DIR: "sample_data_for_ci_workflow"
   INPUT_FILE_NAME: "tiny_csv"
   INPUT_STREAMING_WRITE_FILE_NAME: "streaming_write"
-  INPUT_PARQUET_FILE_PATH: "gs://dlp-dataflow-deid-ci-392604-demo-data/sample_data_for_ci_workflow/tiny_parquet.parquet"
+  INPUT_PARQUET_FILE_NAME: "tiny_parquet"
   INSPECT_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
   DEID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
   REID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-reid-latest-1689137435622"
@@ -38,7 +39,8 @@ jobs:
       output4: ${{ steps.gen-uuid.outputs.reid_job_name }}
       output5: ${{ steps.gen-uuid.outputs.dataset_id }}
       output6: ${{ steps.gen-uuid.outputs.parquet_inspect_job_name }}
-      output7: ${{ steps.gen-uuid.outputs.parquet_dataset_id }}
+      output7: ${{ steps.gen-uuid.outputs.parquet_deid_job_name }}
+      output8: ${{ steps.gen-uuid.outputs.parquet_dataset_id }}
 
     steps:
       - name: Generate UUID for workflow
@@ -52,6 +54,7 @@ jobs:
           echo "reid_job_name=reid-$new_uuid" >> "$GITHUB_OUTPUT"
           echo "dataset_id=${{ env.DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
           echo "parquet_inspect_job_name=parquet-inspect-$new_uuid" >> "$GITHUB_OUTPUT"
+          echo "parquet_deid_job_name=parquet-deid-$new_uuid" >> "$GITHUB_OUTPUT"
           echo "parquet_dataset_id=${{ env.PARQUET_DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
 
   create-dataset:
@@ -67,7 +70,7 @@ jobs:
       - name: Create BQ dataset
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
-          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output7 }}
+          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
         run: |
           bq --location=US mk -d --description "GitHub CI workflow dataset" ${{ env.DATASET_ID }}
           bq --location=US mk -d --description "GitHub CI workflow dataset to store parquet results" ${{ env.PARQUET_DATASET_ID }}
@@ -112,7 +115,7 @@ jobs:
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=INSPECT \
-                --serviceAccount=$SERVICE_ACCOUNT_EMAIL \
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
                 --jobName=${{env.INSPECT_JOB_NAME}} \
                 --gcsNotificationTopic=${{env.GCS_NOTIFICATION_TOPIC}}"
           sleep 30s
@@ -180,25 +183,25 @@ jobs:
       - name: Run DLP Pipeline
         env:
           PARQUET_INSPECT_JOB_NAME: ${{ needs.generate-uuid.outputs.output6 }}
-          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output7 }}
+          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
-                --tempLocation=gs://${DATA_STORAGE_BUCKET}/temp \
+                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
                 --numWorkers=1 --maxNumWorkers=2 \
                 --runner=DataflowRunner \
-                --filePattern=${{env.INPUT_PARQUET_FILE_PATH}} \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_PARQUET_FILE_NAME}}*.parquet \
                 --dataset=${{env.PARQUET_DATASET_ID}}   \
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=INSPECT \
-                --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
                 --jobName=${{env.PARQUET_INSPECT_JOB_NAME}}"
 
       - name: Verify BQ table
         env:
-          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output7 }}
+          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
         run: |
           not_verified=true
           table_count=0
@@ -216,7 +219,7 @@ jobs:
 
       - name: Verify distinct rows
         env:
-          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output7 }}
+          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
         run: |
           not_verified=true
           row_count=0
@@ -274,7 +277,7 @@ jobs:
                 --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=DEID \
-                --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
                 --jobName=${{env.DEID_JOB_NAME}} \
                 --gcsNotificationTopic=${{env.GCS_NOTIFICATION_TOPIC}}"
           sleep 30s
@@ -343,6 +346,87 @@ jobs:
           echo "# records in input CSV file are: $rc_orig."
           echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}_pub_sub: $row_count."
 
+#  Deidentify only existing parquet files
+  deidentify-parquet-data:
+    needs:
+      - generate-uuid
+      - create-dataset
+
+    runs-on:
+      - self-hosted
+
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Run DLP Pipeline
+        env:
+          PARQUET_DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output7 }}
+          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
+        run: |
+          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --region=${{env.REGION}} \
+                --project=${{env.PROJECT_ID}} \
+                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+                --numWorkers=1 --maxNumWorkers=2 \
+                --runner=DataflowRunner \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_PARQUET_FILE_NAME}}.parquet \
+                --dataset=${{env.PARQUET_DATASET_ID}}   \
+                --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
+                --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
+                --batchSize=200000 \
+                --DLPMethod=DEID \
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
+                --jobName=${{env.PARQUET_DEID_JOB_NAME}}"
+
+      - name: Verify BQ tables
+        env:
+          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
+        run: |
+          not_verified=true
+          table_count=0
+          while $not_verified; do
+            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.PARQUET_DATASET_ID}}`.__TABLES__ WHERE table_id LIKE "${{env.INPUT_PARQUET_FILE_NAME}}%"' | wc -l ) -1))
+            if [[ "$table_count" == "1" ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+            echo "Got number of tables in BQ with id ${{env.INPUT_PARQUET_FILE_NAME}}*: $table_count ."
+          done
+          echo "Verified number of tables in BQ with id ${{env.INPUT_PARQUET_FILE_NAME}}*: $table_count ."
+
+      - name: Verify distinct rows of existing file
+        env:
+          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
+        run: |
+          rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_PARQUET_FILE_NAME}}.parquet | wc -l ) -1))
+          not_verified=true
+          row_count=0
+          while $not_verified; do
+            row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.PARQUET_DATASET_ID}}.${{env.INPUT_PARQUET_FILE_NAME}}`')
+            row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
+            if [[ "$row_count" == "$rc_orig" ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+            echo "Got number of rows in ${{env.INPUT_PARQUET_FILE_NAME}}: $row_count."
+          done
+          echo "# records in input Parquet file are: $rc_orig."
+          echo "Verified number of rows in ${{env.INPUT_PARQUET_FILE_NAME}}: $row_count."
+
   de-identification-streaming-write:
     needs:
       - generate-uuid
@@ -382,7 +466,7 @@ jobs:
           --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
           --batchSize=200000 \
           --DLPMethod=DEID \
-          --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
+          --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
           --useStorageWriteApi \
           --storageWriteApiTriggeringFrequencySec=2 \
           --numStorageWriteApiStreams=2"
@@ -487,7 +571,7 @@ jobs:
                 --DLPMethod=REID \
                 --keyRange=1024 \
                 --queryPath=gs://${GCS_BUCKET}/${{env.REIDENTIFICATION_QUERY_FILE}} \
-                --serviceAccount=${SERVICE_ACCOUNT_EMAIL} \
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
                 --jobName=${{env.REID_JOB_NAME}}"
 
       - name: Verify BQ table
@@ -547,7 +631,7 @@ jobs:
         if: "!cancelled()"
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
-          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output7 }}
+          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
         run: |
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.PARQUET_DATASET_ID}}
