@@ -618,6 +618,7 @@ jobs:
       - inspection
       - inspect-parquet-data
       - de-identification
+      - deidentify-parquet-data
       - de-identification-streaming-write
       - re-identification
 
