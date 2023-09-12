@@ -19,11 +19,13 @@ env:
   INPUT_PARQUET_FILE_NAME: "tiny_parquet"
   INSPECT_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
   DEID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
+  PARQUET_DEID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/parquet-dlp-demo-deid-latest-1689137435622"
   REID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-reid-latest-1689137435622"
   SERVICE_ACCOUNT_EMAIL: "demo-service-account@dlp-dataflow-deid-ci-392604.iam.gserviceaccount.com"
   PUBSUB_TOPIC_NAME: "demo-topic"
   INSPECTION_TABLE_ID: "dlp_inspection_result"
   NUM_INSPECTION_RECORDS_THRESHOLD: "50"
+  PARQUET_INSPECTION_RECORDS_THRESHOLD: "30"
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
 
 jobs:
@@ -226,7 +228,7 @@ jobs:
           while $not_verified; do
             row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(*) FROM `${{env.PROJECT_ID}}.${{env.PARQUET_DATASET_ID}}.${{env.INSPECTION_TABLE_ID}}`')
             row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
-            if [[ "$row_count" -gt ${{env.NUM_INSPECTION_RECORDS_THRESHOLD}} ]]; then
+            if [[ "$row_count" == ${{env.PARQUET_INSPECTION_RECORDS_THRESHOLD}} ]]; then
               echo "PASSED";
               not_verified=false;
             else
@@ -382,7 +384,7 @@ jobs:
                 --filePattern=gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_PARQUET_FILE_NAME}}.parquet \
                 --dataset=${{env.PARQUET_DATASET_ID}}   \
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
-                --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
+                --deidentifyTemplateName=${{env.PARQUET_DEID_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=DEID \
                 --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
@@ -410,7 +412,7 @@ jobs:
         env:
           PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
         run: |
-          rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_PARQUET_FILE_NAME}}.parquet | wc -l ) -1))
+          rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_FILE_NAME}}.csv | wc -l ) -1))
           not_verified=true
           row_count=0
           while $not_verified; do
