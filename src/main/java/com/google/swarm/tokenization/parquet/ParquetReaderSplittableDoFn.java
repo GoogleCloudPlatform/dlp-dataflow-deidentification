@@ -1,7 +1,6 @@
 package com.google.swarm.tokenization.parquet;
 
 import org.apache.avro.generic.GenericRecord;
-import org.apache.beam.sdk.io.Read;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.splittabledofn.OffsetRangeTracker;
 import org.apache.beam.sdk.values.KV;
@@ -15,16 +14,11 @@ import org.joda.time.Instant;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.channels.Channels;
 import java.util.List;
 import java.util.Objects;
-import org.apache.parquet.io.SeekableInputStream;
-import org.apache.parquet.io.InputFile;
-import org.apache.parquet.avro.AvroParquetReader;
-import org.apache.parquet.io.DelegatingSeekableInputStream;
-import org.apache.parquet.hadoop.ParquetReader;
-
 import com.google.privacy.dlp.v2.Table;
+import org.apache.parquet.avro.AvroParquetReader;
+import org.apache.parquet.hadoop.ParquetReader;
 
 import static org.apache.avro.file.DataFileConstants.SYNC_SIZE;
 
@@ -66,8 +60,6 @@ public class ParquetReaderSplittableDoFn extends DoFn<KV<String, ReadableFile>, 
                 GenericRecord record;
                 while ((record = fileReader.read()) != null) {
                     Table.Row tableRow = RecordFlattener.forGenericRecord().flatten(record);
-                    if (fileReader.getCurrentRowIndex() == 0)
-                        LOG.info("0th index: {}", tableRow.getValuesList());
                     c.outputWithTimestamp(KV.of(fileName, tableRow), Instant.now());
                     numberOfParquetRecordsIngested.inc();
                 }
@@ -93,6 +85,7 @@ public class ParquetReaderSplittableDoFn extends DoFn<KV<String, ReadableFile>, 
                                  @Restriction OffsetRange range,
                                  OutputReceiver<OffsetRange> out) {
         List<OffsetRange> splits = range.split(splitSize, splitSize);
+        LOG.info("Number of splits: {}", splits.size());
         for (final OffsetRange offsetRange:splits) {
             out.output(offsetRange);
         }
@@ -101,35 +94,5 @@ public class ParquetReaderSplittableDoFn extends DoFn<KV<String, ReadableFile>, 
     @NewTracker
     public OffsetRangeTracker newTracker(@Restriction OffsetRange range) {
         return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
-    }
-
-    private static class BeamParquetInputFile implements InputFile {
-
-        private SeekableByteChannel seekableByteChannel;
-
-        BeamParquetInputFile(SeekableByteChannel seekableByteChannel) {
-            this.seekableByteChannel = seekableByteChannel;
-        }
-
-        @Override
-        public long getLength() throws IOException {
-            return seekableByteChannel.size();
-        }
-
-        @Override
-        public SeekableInputStream newStream() {
-            return new DelegatingSeekableInputStream(Channels.newInputStream(seekableByteChannel)) {
-
-                @Override
-                public long getPos() throws IOException {
-                    return seekableByteChannel.position();
-                }
-
-                @Override
-                public void seek(long newPos) throws IOException {
-                    seekableByteChannel.position(newPos);
-                }
-            };
-        }
     }
 }

@@ -28,30 +28,11 @@ import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-/**
- * Flattens an AVRO {@link GenericRecord} into a map of flattened JSONPath key and value pairs.
- * Supports record and array type fields, does not support Map field.
- *
- * <p>example: <code>
- * { "name": "John Doe", "contacts": [ { "contact": { "type": "home", "number": "123-456-789" } }, {
- * "contact": { "type": "work", "number": "987-654-321" } }, { "null": null } ] }
- * </code> is converted as <code>
- * { $.name -> {string_value: "John Doe"}, $.contacts[0].contact.type -> {string_value: "home"},
- * $.contacts[0].contact.number -> {string_value: "123-456-789"}, $.contacts[1].contact.type ->
- * {string_value: "work"}, $.contacts[1].contact.number -> {string_value: "987-654-321"} }
- * </code>
- */
 public final class GenericRecordFlattener implements RecordFlattener<GenericRecord> {
-
-    public static Logger LOG = LoggerFactory.getLogger(GenericRecordFlattener.class);
-
     /**
      * Convenience static factory to instantiate a converter for a Generic Record.
-     *
-     * @param genericRecord the AVRO record to flatten.
+     * @param genericRecord the Parquet record to flatten.
      */
     @Override
     public Table.Row flatten(GenericRecord genericRecord) {
@@ -62,7 +43,7 @@ public final class GenericRecordFlattener implements RecordFlattener<GenericReco
         return new TypeFlattener(genericRecord).convertHeaders();
     }
 
-    /** Helper class to actually flatten an AVRO Record. */
+    /** Helper class to actually flatten a Parquet Record. */
     private static final class TypeFlattener {
 
         private final Schema schema;
@@ -70,20 +51,15 @@ public final class GenericRecordFlattener implements RecordFlattener<GenericReco
         private final List<Value> valueList;
         private final List<String> flattenedFieldNames;
 
-        private TypeFlattener(Schema schema, GenericRecord genericRecord) {
-            this.schema = schema;
+        private TypeFlattener(GenericRecord genericRecord) {
+            this.schema = genericRecord.getSchema();
             this.genericRecord = genericRecord;
             this.valueList = new ArrayList<>();
             this.flattenedFieldNames = new ArrayList<>();
         }
 
-        private TypeFlattener(GenericRecord genericRecord) {
-            this(genericRecord.getSchema(), genericRecord);
-        }
-
         /**
-         * Returns a field's key name suffixed with "/bytes" to help distinguish the type in unflatten
-         * stage.
+         * Returns a field's key name suffixed with "/bytes" to help distinguish the type in unflatten stage.
          */
         private static String makeByteFieldKey(String fieldKey) {
             return fieldKey + "/bytes";
@@ -105,23 +81,17 @@ public final class GenericRecordFlattener implements RecordFlattener<GenericReco
 
         /**
          * Flattens the provided value as per the type of item.
-         *
          * @param value the object/value to flatten, the type depends on fieldSchema type.
          * @param fieldSchema the schema of the object to be flattened.
          * @param parentKey the flat-field-key of the parent of this field.
          * @param fieldName the name of the field to be flattened.
          */
         private void processType(Object value, Schema fieldSchema, String parentKey, String fieldName) {
-//            LOG.info("fieldSchema for {}: {}", fieldName, fieldSchema.getType());
             switch (fieldSchema.getType()) {
                 case RECORD:
                     String recordFieldKey = isBlank(fieldName) ? parentKey : String.format("%s.[\"%s\"]", parentKey, fieldName);
                     convertRecord((GenericRecord) value, fieldSchema, recordFieldKey);
                     break;
-
-//                case ARRAY:
-//                    processArray(value, fieldSchema, parentKey);
-//                    break;
 
                 case ARRAY:
                     List<?> arrayValues = (List<?>) value;
@@ -185,24 +155,7 @@ public final class GenericRecordFlattener implements RecordFlattener<GenericReco
             for (Field field : fieldSchema.getFields()) {
                 String fieldName = field.name();
                 Object value = genericRecord.get(fieldName);
-//                LOG.info("convertRecord.parentKey: {}, convertRecord.fieldName: {}", parentKey, fieldName);
                 processType(value, field.schema(), parentKey, fieldName);
-            }
-        }
-
-        /**
-         * Process each element of array further
-         * @param value value of the current node
-         * @param fieldSchema schema of the current node
-         * @param fieldKey parent key or flattened key till current node (including)
-         */
-        private void processArray(Object value, Schema fieldSchema, String fieldKey) {
-            List<?> array = (List<?>) value;
-            for (int index = 0; index < array.size(); index++) {
-                processType(array.get(index),
-                            fieldSchema.getElementType(),
-                            String.format("%s[%s]", fieldKey, index),
-                            null);
             }
         }
 
@@ -239,7 +192,6 @@ public final class GenericRecordFlattener implements RecordFlattener<GenericReco
         private void putValue(String fieldKey, Value value) {
             valueList.add(value);
             flattenedFieldNames.add(fieldKey);
-//            LOG.info("flattenedFieldNames: {}", flattenedFieldNames);
         }
     }
 }

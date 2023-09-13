@@ -77,12 +77,12 @@ public class Util {
   }
 
   public enum FileType {
-    CSV,
     AVRO,
+    CSV,
     JSONL,
-    TXT,
+    PARQUET,
     TSV,
-    PARQUET
+    TXT
   }
 
   public enum InputLocation {
