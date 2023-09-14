@@ -97,10 +97,15 @@ dependencies {
     implementation group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
     implementation "com.google.auto.value:auto-value-annotations:1.10.1"
     implementation 'com.google.cloud:google-cloud-storage:2.20.1'
-    implementation group: 'org.apache.orc', name: 'orc-core', version: '1.3.2'
-//    implementation group: 'org.apache.hive', name: 'hive-exec', version: '2.3.0'
-    implementation group: 'org.apache.hive', name: 'hive-serde', version: '3.1.2'
-    implementation group: 'com.google.cloud.bigdataoss', name: 'gcs-connector', version: 'hadoop2-2.2.0'
+    implementation group: 'org.apache.orc', name: 'orc-core', version: '1.4.3'
+    implementation group: 'org.apache.hadoop', name: 'hadoop-hdfs-client', version: '3.1.2'
+//    implementation group: 'com.google.cloud.bigdataoss', name: 'gcs-connector', version: '1.7.0-hadoop2'
+//    implementation group: 'org.apache.hadoop', name: 'hadoop-mapreduce-client-core', version: '2.7.2'
+//    implementation group: 'org.apache.hadoop', name: 'hadoop-common', version: '2.7.2'
+//    implementation group: 'org.apache.orc', name: 'orc-mapreduce', version: '1.4.3'
+//    implementation group: 'com.google.cloud.bigdataoss', name: 'util', version: '1.7.0'
+//    implementation group: 'com.google.cloud.bigdataoss', name: 'gcsio', version: '1.7.0'
+//    implementation group: 'com.google.guava', name: 'guava', version: '20.0'
     annotationProcessor "com.google.auto.value:auto-value:1.10.1"
     implementation group: 'org.apache.commons', name: 'commons-csv', version: '1.10.0'
     testImplementation group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
