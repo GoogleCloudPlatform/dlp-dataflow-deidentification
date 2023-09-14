@@ -160,7 +160,7 @@ public class DLPTextToBigQueryStreamingV2 {
         inputFiles
                 .apply(
                     ParDo.of(
-                            new ORCReaderSplittableDoFn()));
+                            new ORCReaderSplittableDoFn(options.getProject(), options.getServiceAccount())));
         break;
       case AVRO:
         records =

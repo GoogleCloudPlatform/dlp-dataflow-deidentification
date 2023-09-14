@@ -2,6 +2,7 @@ package com.google.swarm.tokenization.orc;
 
 import com.google.privacy.dlp.v2.Table;
 import org.apache.beam.repackaged.direct_java.runners.core.construction.SplittableParDo;
+import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -36,9 +37,26 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+
 public class ORCReaderSplittableDoFn extends DoFn<KV<String, FileIO.ReadableFile>, String> {
 
     public static final Logger LOG = LoggerFactory.getLogger(ORCReaderSplittableDoFn.class);
+
+    private static final String FS_GS_IMPL_DEFAULT =
+            "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem";
+    private static final String FS_ABS_GS_IMPL_DEFAULT =
+            "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS";
+    private static final Integer FS_GS_BLOCK_SZ_DEFAULT = 67108864; // 64 MB
+
+    private final String projectId;
+
+    private final String serviceAccount;
+
+    public ORCReaderSplittableDoFn(String projectId, String serviceAccount) {
+        this.projectId = projectId;
+        this.serviceAccount = serviceAccount;
+    }
 
     @ProcessElement
     public void processElement(ProcessContext context, RestrictionTracker<OffsetRange, Long> tracker) throws IOException {
@@ -52,8 +70,21 @@ public class ORCReaderSplittableDoFn extends DoFn<KV<String, FileIO.ReadableFile
 
         if (tracker.tryClaim(end-1)) {
             Configuration conf = new Configuration();
-            conf.set("fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem");
-            conf.set("fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS");
+            conf.set("fs.gs.inputstream.fast.fail.on.not.found.enable", "true");
+            conf.set("fs.gs.impl", FS_GS_IMPL_DEFAULT);
+            conf.set("fs.AbstractFileSystem.gs.impl", FS_ABS_GS_IMPL_DEFAULT);
+            conf.set("fs.gs.project.id", projectId);
+            conf.setBoolean("google.cloud.auth.service.account.enable", true);
+            conf.setInt("fs.gs.block.size", FS_GS_BLOCK_SZ_DEFAULT);
+
+            String serviceAccountId = serviceAccount;
+            if (serviceAccountId == null)
+                throw new IllegalArgumentException(
+                        "Missing service account: "
+                                + "Either set environment variable GOOGLE_APPLICATION_CREDENTIALS or "
+                                + "application-default via gcloud.");
+
+            conf.set("google.cloud.auth.service.account.email", serviceAccountId);
 
 //            conf.setAllowNullValueProperties(true);
             Reader reader = OrcFile.createReader(new Path(filePath),
