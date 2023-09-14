@@ -638,7 +638,14 @@ jobs:
         run: |
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.PARQUET_DATASET_ID}}
-          gsutil rm -f gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv
+
+      - name: Clean up pub_sub file
+        run: |
+          if ($(gsutil rm -f gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv)); then
+            echo "Cleared pub_sub file!"
+          else
+            echo "pub_sub file not present in storage bucket."
+          fi
 
       - name: Cancel Inspection Job
         if: "!cancelled()"
