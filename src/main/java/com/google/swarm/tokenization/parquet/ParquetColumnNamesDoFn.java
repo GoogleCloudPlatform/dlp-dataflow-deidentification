@@ -31,7 +31,6 @@ public class ParquetColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, KV<St
         try (ParquetReader<GenericRecord> fileReader = builder.build()) {
             GenericRecord record = fileReader.read();
             List<String> flattenedFieldNames = RecordFlattener.forGenericRecord().flattenColumns(record);
-            LOG.info("Column names after flattening: ", flattenedFieldNames);
             c.output(KV.of(fileName, flattenedFieldNames));
         }
         seekableByteChannel.close();
