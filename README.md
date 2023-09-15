@@ -476,6 +476,7 @@ to validate de-identified results:
 | `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API. The default value is 10.                                                                                                                                                                          | All                 |
 | `initialBackoff`                 | (Optional) Initial backoff (in seconds) for retries with exponential backoff. The default is 5s.                                                                                                                                                                       | All                 |
 | `outputBucket`                   | GCS path for storing the deidentified files                                                                                                                                                                       | DEID               |
+| `DLPParent`                      | (Optional) The resource location for DLP templates. Format: `projects/<project-id>/locations/<region>`. By default,the location will be global.                                                                                                                    | ALL                |
 
 For more details, see [Dataflow Pipeline Options](https://cloud.google.com/dataflow/docs/reference/pipeline-options).
 
