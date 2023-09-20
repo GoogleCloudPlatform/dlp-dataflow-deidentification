@@ -1,43 +1,20 @@
 package com.google.swarm.tokenization.orc;
 
-import com.google.privacy.dlp.v2.Table;
-import org.apache.beam.repackaged.direct_java.runners.core.construction.SplittableParDo;
-import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
+import java.io.IOException;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.KV;
-import org.joda.time.Instant;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.ColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.DoubleColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.TimestampColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
 import org.apache.orc.RecordReader;
-import org.apache.orc.TypeDescription;
-import org.apache.orc.Writer;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.sql.Timestamp;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import org.joda.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ORCReaderSplittableDoFn extends DoFn<KV<String, FileIO.ReadableFile>, String> {
 
@@ -74,8 +51,10 @@ public class ORCReaderSplittableDoFn extends DoFn<KV<String, FileIO.ReadableFile
             conf.set("fs.gs.impl", FS_GS_IMPL_DEFAULT);
             conf.set("fs.AbstractFileSystem.gs.impl", FS_ABS_GS_IMPL_DEFAULT);
             conf.set("fs.gs.project.id", projectId);
-            conf.setBoolean("google.cloud.auth.service.account.enable", true);
+            // conf.setBoolean("google.cloud.auth.service.account.enable", true);
             conf.setInt("fs.gs.block.size", FS_GS_BLOCK_SZ_DEFAULT);
+            // conf.set("fs.gs.auth.type", "");
+            // conf.set("fs.defaultFS", "gs://orcdata");
 
             String serviceAccountId = serviceAccount;
             if (serviceAccountId == null)
