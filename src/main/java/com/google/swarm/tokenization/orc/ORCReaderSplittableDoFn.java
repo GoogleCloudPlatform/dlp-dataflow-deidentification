@@ -63,7 +63,7 @@ public class ORCReaderSplittableDoFn extends DoFn<KV<String, FileIO.ReadableFile
                                 + "Either set environment variable GOOGLE_APPLICATION_CREDENTIALS or "
                                 + "application-default via gcloud.");
 
-            conf.set("google.cloud.auth.service.account.email", serviceAccountId);
+            // conf.set("google.cloud.auth.service.account.email", serviceAccountId);
 
 //            conf.setAllowNullValueProperties(true);
             Reader reader = OrcFile.createReader(new Path(filePath),
