@@ -88,6 +88,9 @@ dependencies {
     implementation group: 'org.apache.beam', name: 'beam-runners-direct-java', version: dataflowBeamVersion
     implementation group: 'org.apache.beam', name: 'beam-sdks-java-extensions-ml', version: dataflowBeamVersion
     implementation group: 'org.apache.beam', name: 'beam-sdks-java-io-amazon-web-services', version: dataflowBeamVersion
+    implementation group: 'org.apache.parquet', name: 'parquet-avro', version: '1.13.1'
+    implementation group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.1'
+    implementation group: 'org.apache.beam', name: 'beam-sdks-java-io-parquet', version: '2.14.0'
     implementation group: 'org.slf4j', name: 'slf4j-jdk14', version: '2.0.6'
     implementation 'com.google.cloud:google-cloud-kms:2.15.0'
     implementation 'com.google.guava:guava:31.1-jre'
