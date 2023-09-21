@@ -159,6 +159,7 @@ public class DLPTextToBigQueryStreamingV2 {
         LOG.info(">> fileType: {}", options.getFileType());
         inputFiles
                 .apply(
+                    "ReadFromORCFilesAsOrcStruct",
                     ParDo.of(
                             new ORCReaderSplittableDoFn(options.getProject(), options.getServiceAccount())));
         break;
