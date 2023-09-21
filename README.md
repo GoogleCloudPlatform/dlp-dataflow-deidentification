@@ -600,29 +600,35 @@ The DLP templates used in this tutorial are specifically tailored for inspecting
 
 ## Run this pipeline outside Google Cloud shell
 
+Google Cloud Shell comes with a pre-configured development environment that includes many of the most popular tools and
+libraries, such as gcloud, gradle, java, git, vim, and more. This means that you don't have to spend time setting up 
+your own environment on your local machine. If you want to run this solution from your own machine, follow the 
+instructions given below.
+
 1. Create a new GCP project.
-2. [Set up Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc).
-3. Set the project in your active configuration:
+2. Set up the tools and libraries required to run the DLP Dataflow pipelines including gradle, java, git, etc.
+3. [Set up Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc).
+4. Set the project in your active configuration:
 ```commandline
 gcloud config set project <project_id>
 ```
-4. Acquire new user credentials to use for Application Default Credentials:
+5. Acquire new user credentials to use for Application Default Credentials:
 ```commandline
 gcloud auth application-default login
 ```
-5. Set project as quota project:
+6. Set project as quota project:
 ```commandline
 gcloud auth application-default set-quota-project <project_id>
 ```
-6. Run the shell script:
+7. Run the shell script:
 ```commandline
 sh setup-data-tokeninzation-solution-v2.sh
 ```
-7. Set env variables:
+8. Set env variables:
 ```commandline
 source set_env.sh
 ```
-8. Run the INSPECT/DEID/REID pipeline commands as given in [tutorial](#tutorial).
+9. Run the INSPECT/DEID/REID pipeline commands as given in [tutorial](#tutorial).
 
 
 ## Troubleshooting
