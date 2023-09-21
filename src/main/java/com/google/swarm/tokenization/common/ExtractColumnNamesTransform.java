@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.swarm.tokenization.avro.AvroColumnNamesDoFn;
 import com.google.swarm.tokenization.common.Util.FileType;
 import com.google.swarm.tokenization.json.JsonColumnNameDoFn;
+import com.google.swarm.tokenization.parquet.ParquetColumnNamesDoFn;
 import com.google.swarm.tokenization.txt.TxtColumnNameDoFn;
 import java.util.List;
 import java.util.Map;
@@ -90,6 +91,10 @@ public abstract class ExtractColumnNamesTransform
 
       case TXT:
         readHeader = input.apply("ReadHeader", ParDo.of(new TxtColumnNameDoFn(headers())));
+        break;
+
+      case PARQUET:
+        readHeader = input.apply("ReadHeader", ParDo.of(new ParquetColumnNamesDoFn()));
         break;
 
       default:
