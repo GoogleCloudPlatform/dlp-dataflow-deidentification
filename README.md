@@ -606,7 +606,8 @@ your own environment on your local machine. If you want to run this solution fro
 instructions given below.
 
 1. Create a new GCP project.
-2. Set up the tools and libraries required to run the DLP Dataflow pipelines including gradle, java, git, etc.
+2. Set up the tools and libraries required to run the DLP Dataflow pipelines including gradle (recommended version: 8.3),
+java (recommended version: 19.0.1), git, etc.
 3. [Set up Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc).
 4. Set the project in your active configuration:
 ```commandline
