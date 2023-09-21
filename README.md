@@ -28,6 +28,8 @@
 
 * [Adapt this pipeline for your use cases](#adapt-this-pipeline-for-your-use-cases)
 
+* [Run this pipeline outside Google Cloud shell](#run-this-pipeline-outside-google-cloud-shell)
+
 * [Troubleshooting](#troubleshooting)
 
 * [Dataflow DAG](#dataflow-dag)
@@ -594,6 +596,33 @@ The DLP templates used in this tutorial are specifically tailored for inspecting
 
 1. [Create your inspection templates and run the inspection on sample data](https://cloud.google.com/dlp/docs/creating-templates-inspect)
 2. [Create de-identification templates and run de-identification on sample data](https://cloud.google.com/dlp/docs/creating-templates-deid)
+
+
+## Run this pipeline outside Google Cloud shell
+
+1. Create a new GCP project.
+2. [Set up Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc).
+3. Set the project in your active configuration:
+```commandline
+gcloud config set project <project_id>
+```
+4. Acquire new user credentials to use for Application Default Credentials:
+```commandline
+gcloud auth application-default login
+```
+5. Set project as quota project:
+```commandline
+gcloud auth application-default set-quota-project <project_id>
+```
+6. Run the shell script:
+```commandline
+sh setup-data-tokeninzation-solution-v2.sh
+```
+7. Set env variables:
+```commandline
+source set_env.sh
+```
+8. Run the INSPECT/DEID/REID pipeline commands as given in [tutorial](#tutorial).
 
 
 ## Troubleshooting
