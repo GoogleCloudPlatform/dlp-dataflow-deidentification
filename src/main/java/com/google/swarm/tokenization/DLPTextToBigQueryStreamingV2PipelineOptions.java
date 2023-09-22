@@ -92,7 +92,7 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   void setTableRef(String tableRef);
 
   @Description("read method default, direct, export")
-  @Default.Enum("EXPORT")
+  @Default.Enum("DEFAULT")
   Method getReadMethod();
 
   void setReadMethod(Method method);

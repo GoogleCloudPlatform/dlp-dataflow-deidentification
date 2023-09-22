@@ -15,6 +15,7 @@
  */
 package com.google.swarm.tokenization.common;
 
+import autovalue.shaded.org.checkerframework.checker.nullness.qual.Nullable;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.auto.value.AutoValue;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
@@ -50,6 +51,7 @@ public abstract class BigQueryReadTransform
 
     public abstract Builder setKeyRange(Integer keyRange);
 
+    @Nullable
     public abstract Builder setQuery(String query);
 
     public abstract BigQueryReadTransform build();
@@ -64,23 +66,28 @@ public abstract class BigQueryReadTransform
 
     switch (readMethod()) {
       case DEFAULT:
-        return input
-            .apply(
-                "ReadFromBigQuery",
-                BigQueryIO.readTableRows()
-                    .fromQuery(query())
-                    .usingStandardSql()
-                    .withMethod(Method.DEFAULT))
-            .apply("AddTableNameAsKey", WithKeys.of(tableRef()));
+        if(query()!=null) {
+          return input
+                  .apply(
+                          "ReadFromBigQuery",
+                          BigQueryIO.readTableRows()
+                                  .fromQuery(query())
+                                  .usingStandardSql()
+                                  .withMethod(Method.DEFAULT))
+                  .apply("AddTableNameAsKey", WithKeys.of(tableRef()));
+        }
+        else {
+          return input
+                  .apply(
+                          "ReadFromBigQuery",
+                          BigQueryIO.readTableRows()
+                                  .from(tableRef())
+                                  .withMethod(Method.DEFAULT))
+                  .apply("AddTableNameAsKey", WithKeys.of(tableRef()));
+        }
+
       case EXPORT:
-        return input
-            .apply(
-                "ReadFromBigQuery",
-                BigQueryIO.readTableRows()
-                    .fromQuery(query())
-                    .usingStandardSql()
-                    .withMethod(Method.DEFAULT))
-            .apply("AddTableNameAsKey", WithKeys.of(tableRef()));
+        throw new IllegalArgumentException("Export method not supported");
 
       case DIRECT_READ:
         throw new IllegalArgumentException("Direct read not supported");
