@@ -28,6 +28,8 @@ public class ORCReaderSplittableDoFnTest {
 
     protected static final String PROJECT_ID = System.getenv("PROJECT_ID");
 
+    protected static final Integer splitSize = 1;
+
     @Test
     public void testORCReaderSplittableDoFn() throws IOException {
         Integer numRecords = 2;
@@ -39,7 +41,7 @@ public class ORCReaderSplittableDoFnTest {
                 .apply(FileIO.match().filepattern(testFilePath))
                 .apply(FileIO.readMatches().withCompression(Compression.AUTO))
                 .apply(WithKeys.of("some_key"))
-                .apply(ParDo.of(new ORCReaderSplittableDoFn(PROJECT_ID)))
+                .apply(ParDo.of(new ORCReaderSplittableDoFn(PROJECT_ID, splitSize)))
                 .apply(Values.create());
 
         PAssert.that(results).containsInAnyOrder(tableRows);

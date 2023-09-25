@@ -162,7 +162,7 @@ public class DLPTextToBigQueryStreamingV2 {
                 .apply(
                     "ReadFromORCFilesAsOrcStruct",
                     ParDo.of(
-                            new ORCReaderSplittableDoFn(options.getProject())));
+                            new ORCReaderSplittableDoFn(options.getProject(), options.getSplitSize())));
         break;
       case AVRO:
         records =
@@ -228,6 +228,7 @@ public class DLPTextToBigQueryStreamingV2 {
                         .withSideInputs(headers));
         break;
       case PARQUET:
+//        TODO: Remove KeyRange parameter, as it is unused
         records = inputFiles
                 .apply(ParDo.of(new ParquetReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())));
         break;
