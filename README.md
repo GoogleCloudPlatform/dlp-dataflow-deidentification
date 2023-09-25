@@ -476,6 +476,7 @@ to validate de-identified results:
 | `dlpApiRetryCount`               | (Optional) Number of retries in case of transient errors in DLP API. The default value is 10.                                                                                                                                                                          | All                 |
 | `initialBackoff`                 | (Optional) Initial backoff (in seconds) for retries with exponential backoff. The default is 5s.                                                                                                                                                                       | All                 |
 | `outputBucket`                   | GCS path for storing the deidentified files                                                                                                                                                                       | DEID               |
+| `DLPParent`                      | (Optional) The resource location for DLP templates. Format: `projects/<project-id>/locations/<region>`. By default,the location will be global.                                                                                                                    | ALL                |
 
 For more details, see [Dataflow Pipeline Options](https://cloud.google.com/dataflow/docs/reference/pipeline-options).
 
@@ -518,6 +519,18 @@ The pipeline supports CSV files with a custom delimiter. The delimiter has to be
 
 ```
 gradle run ... -Pargs="... --columnDelimiter=|"
+```
+
+#### 5. Parquet
+
+The inspection and de-identification pipelines support Parquet file format where data can be read from GCS storage 
+bucket and the results of DLP Dataflow pipeline will be written in BigQuery tables. For sample data in Parquet file 
+format, refer [mock-data](.github/mock-data).
+
+No additional changes are required to run the pipeline except updating the `--filePattern` parameter. For example:
+
+```commandline
+gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.parquet"
 ```
 
 ### Amazon S3 Scanner

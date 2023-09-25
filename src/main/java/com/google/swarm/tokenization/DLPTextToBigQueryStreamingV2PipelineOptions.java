@@ -189,9 +189,14 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
           .endsWith(".tsv")) {
         return FileType.TSV;
       } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
-              .getFilePattern()
-              .toLowerCase()
-              .endsWith(".orc")) {
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".parquet")) {
+        return FileType.PARQUET;
+      } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".orc")) {
         return FileType.ORC;
       } else {
         return FileType.CSV;
