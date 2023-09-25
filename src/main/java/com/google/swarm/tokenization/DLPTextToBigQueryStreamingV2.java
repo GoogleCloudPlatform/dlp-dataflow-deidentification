@@ -149,19 +149,19 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setHeaders(options.getHeaders())
                 .setColumnDelimiter(options.getColumnDelimiter())
                 .setPubSubGcs(usePubSub)
+                .setProjectId(options.getProject())
                 .build());
 
     PCollection<KV<String, Table.Row>> records;
-    LOG.info(">> fileType1: {}", options.getFileType());
 
     switch (options.getFileType()) {
       case ORC:
-        LOG.info(">> fileType: {}", options.getFileType());
-        inputFiles
+        records =
+            inputFiles
                 .apply(
                     "ReadFromORCFilesAsOrcStruct",
                     ParDo.of(
-                            new ORCReaderSplittableDoFn(options.getProject(), options.getServiceAccount())));
+                            new ORCReaderSplittableDoFn(options.getProject())));
         break;
       case AVRO:
         records =
@@ -230,39 +230,37 @@ public class DLPTextToBigQueryStreamingV2 {
         throw new IllegalArgumentException("Please validate FileType parameter");
     }
 
-//    PCollectionTuple inspectDeidRecords = records.apply(
-//            "DLPTransform",
-//            DLPTransform.newBuilder()
-//                .setBatchSize(options.getBatchSize())
-//                .setInspectTemplateName(options.getInspectTemplateName())
-//                .setDeidTemplateName(options.getDeidentifyTemplateName())
-//                .setDlpmethod(options.getDLPMethod())
-//                .setProjectId(options.getDLPParent())
-//                .setHeaders(headers)
-//                .setColumnDelimiter(options.getColumnDelimiter())
-//                .setJobName(options.getJobName())
-//                .setDlpApiRetryCount(options.getDlpApiRetryCount())
-//                .setInitialBackoff(options.getInitialBackoff())
-//                .setDataSinkType(options.getDataSinkType())
-//                .build());
-//
-//    if(options.getDataSinkType() == Util.DataSinkType.GCS)
-//      inspectDeidRecords.get(Util.deidSuccessGCS).apply("WriteToGCS",
-//              WriteToGCS.newBuilder()
-//                      .setOutputBucket(options.getOutputBucket())
-//                      .setFileType(options.getFileType())
-//                      .setColumnDelimiter(options.getColumnDelimiter())
-//                      .build());
-//    else if(options.getDataSinkType() == Util.DataSinkType.BigQuery)
-//      inspectDeidRecords.get(Util.inspectOrDeidSuccess)
-//          .apply(
-//              "InsertToBQ",
-//              BigQueryDynamicWriteTransform.newBuilder()
-//                  .setDatasetId(options.getDataset())
-//                  .setProjectId(options.getProject())
-//                  .build());
+    PCollectionTuple inspectDeidRecords = records.apply(
+            "DLPTransform",
+            DLPTransform.newBuilder()
+                .setBatchSize(options.getBatchSize())
+                .setInspectTemplateName(options.getInspectTemplateName())
+                .setDeidTemplateName(options.getDeidentifyTemplateName())
+                .setDlpmethod(options.getDLPMethod())
+                .setProjectId(options.getDLPParent())
+                .setHeaders(headers)
+                .setColumnDelimiter(options.getColumnDelimiter())
+                .setJobName(options.getJobName())
+                .setDlpApiRetryCount(options.getDlpApiRetryCount())
+                .setInitialBackoff(options.getInitialBackoff())
+                .setDataSinkType(options.getDataSinkType())
+                .build());
 
-
+    if(options.getDataSinkType() == Util.DataSinkType.GCS)
+      inspectDeidRecords.get(Util.deidSuccessGCS).apply("WriteToGCS",
+              WriteToGCS.newBuilder()
+                      .setOutputBucket(options.getOutputBucket())
+                      .setFileType(options.getFileType())
+                      .setColumnDelimiter(options.getColumnDelimiter())
+                      .build());
+    else if(options.getDataSinkType() == Util.DataSinkType.BigQuery)
+      inspectDeidRecords.get(Util.inspectOrDeidSuccess)
+          .apply(
+              "InsertToBQ",
+              BigQueryDynamicWriteTransform.newBuilder()
+                  .setDatasetId(options.getDataset())
+                  .setProjectId(options.getProject())
+                  .build());
   }
 
   private static void runReidPipeline(

@@ -1,50 +1,70 @@
 package com.google.swarm.tokenization.orc;
 
+import com.google.privacy.dlp.v2.Table;
+import com.google.privacy.dlp.v2.Value;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.KV;
+import org.apache.hadoop.hive.ql.exec.vector.*;
 import org.apache.orc.Reader;
 import org.apache.orc.RecordReader;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.ColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.DoubleColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.TimestampColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
-import org.apache.orc.OrcFile;
-
 import java.io.IOException;
-import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 
-public class ORCReaderSplittableDoFn extends DoFn<KV<String, FileIO.ReadableFile>, String> {
+public class ORCReaderSplittableDoFn extends DoFn<KV<String, FileIO.ReadableFile>, KV<String, Table.Row>> {
 
     public static final Logger LOG = LoggerFactory.getLogger(ORCReaderSplittableDoFn.class);
 
-    private static final String FS_GS_IMPL_DEFAULT =
-            "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem";
-    private static final String FS_ABS_GS_IMPL_DEFAULT =
-            "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS";
-    private static final Integer FS_GS_BLOCK_SZ_DEFAULT = 67108864; // 64 MB
-
     private final String projectId;
 
-    private final String serviceAccount;
+    private VectorizedRowBatch batch;
 
-    public ORCReaderSplittableDoFn(String projectId, String serviceAccount) {
+    public ORCReaderSplittableDoFn(String projectId) {
         this.projectId = projectId;
-        this.serviceAccount = serviceAccount;
+    }
+
+    public Value convertORCFieldToTableValue(Integer columnIndex, Integer rowIndex) {
+        ColumnVector.Type orcFieldType = batch.cols[columnIndex].type;
+        Value tableRowValue;
+        LOG.info("row: {}, col: {}, type: {}", rowIndex, columnIndex, orcFieldType);
+
+        switch (orcFieldType) {
+            case LONG:
+                long orcLongValue = ((LongColumnVector) batch.cols[columnIndex]).vector[rowIndex];
+                tableRowValue = Value.newBuilder().setIntegerValue(orcLongValue).build();
+                break;
+            case DOUBLE:
+                double orcDoubleValue = ((DoubleColumnVector) batch.cols[columnIndex]).vector[rowIndex];
+                tableRowValue = Value.newBuilder().setFloatValue(orcDoubleValue).build();
+                break;
+            case DECIMAL:
+            case DECIMAL_64:
+                String orcDecimalValue = ((DecimalColumnVector) batch.cols[columnIndex]).vector[rowIndex].toString();
+                tableRowValue = Value.newBuilder().setStringValue(orcDecimalValue).build();
+                break;
+            case NONE:    // Useful when the type of column vector has not been determined yet.
+            case BYTES:
+            case TIMESTAMP:
+            case INTERVAL_DAY_TIME:
+            case STRUCT:
+            case LIST:
+            case MAP:
+            case UNION:
+            case VOID:
+                String orcBytesValue = ((BytesColumnVector) batch.cols[columnIndex]).toString(rowIndex);
+                tableRowValue = Value.newBuilder().setStringValue(orcBytesValue).build();
+                break;
+            default:
+                throw new IllegalArgumentException("Incorrect ColumnVector type found for ORC field value.");
+        }
+        LOG.info("tableRowValue: {}", tableRowValue);
+
+        return tableRowValue;
     }
 
     @ProcessElement
@@ -52,48 +72,27 @@ public class ORCReaderSplittableDoFn extends DoFn<KV<String, FileIO.ReadableFile
         String fileName = context.element().getKey();
         FileIO.ReadableFile readableFile = context.element().getValue();
         String filePath = readableFile.getMetadata().resourceId().toString();
-        LOG.info(">> filePath: {}", filePath);
 
         long start = tracker.currentRestriction().getFrom();
         long end = tracker.currentRestriction().getTo();
 
         if (tracker.tryClaim(end-1)) {
-            LOG.info("Creating configuration to read orc...");
-            Configuration conf = new Configuration();
-            conf.set("fs.gs.inputstream.fast.fail.on.not.found.enable", "true");
-            conf.set("fs.gs.impl", FS_GS_IMPL_DEFAULT);
-            conf.set("fs.AbstractFileSystem.gs.impl", FS_ABS_GS_IMPL_DEFAULT);
-            conf.set("fs.gs.project.id", projectId);
-//            conf.set("fs.gs.system.bucket", "dlp-orc-support-398810-demo-data");
-//            conf.set("fs.gs.path.encoding", "uri-path");
-//            conf.set("fs.gs.working.dir", "/orc-sample-data/");
-//            conf.set("fs.gs.impl.disable.cache", "true");
-//            conf.setBoolean("google.cloud.auth.service.account.enable", true);
-            conf.setInt("fs.gs.block.size", FS_GS_BLOCK_SZ_DEFAULT);
-//            conf.set("google.cloud.auth.service.account.email", serviceAccount);
-//            conf.setAllowNullValueProperties(true);
-            LOG.info("Done creating configuration to read orc!");
-
-            LOG.info("Initiating reader for orc...");
-            Reader reader = OrcFile.createReader(new Path(filePath),
-                    OrcFile.readerOptions(conf));
-            LOG.info("Done initiating reader for orc...");
+            Reader reader = new ORCFileReader().createORCFileReader(filePath, projectId);
 
             RecordReader rows = reader.rows();
-            VectorizedRowBatch batch = reader.getSchema().createRowBatch();
-            LOG.info("schema:" + reader.getSchema());
-            LOG.info("numCols:" + batch.numCols);
+            batch = reader.getSchema().createRowBatch();
             ColumnVector.Type[] colsMap = new ColumnVector.Type[batch.numCols];
+            LOG.info("schema: {}", reader.getSchema());
 
             while (rows.nextBatch(batch)) {
-                for (int colIndex=0; colIndex<batch.numCols; colIndex++) {
-                    LOG.info("col[{}]: {}", colIndex, batch.cols[colIndex].toString());
+                for (int rowIndex = 0; rowIndex < batch.size; rowIndex++) {
+                    Table.Row.Builder tableRowBuilder = Table.Row.newBuilder();
+                    for (int colIndex = 0; colIndex < batch.numCols; colIndex++) {
+                        Value convertedValue = convertORCFieldToTableValue(colIndex, rowIndex);
+                        tableRowBuilder.addValues(convertedValue);
+                    }
+                    context.outputWithTimestamp(KV.of(fileName, tableRowBuilder.build()), Instant.now());
                 }
-//                for (int rowIndex=0; rowIndex<batch.size; rowIndex++) {
-//                    if (rowIndex == 0) {
-//                        LOG.info("row0: {}", (BytesColumnVector)(batch.cols[0]).toString());
-//                    }
-//                }
             }
 
 //            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
@@ -127,7 +126,6 @@ public class ORCReaderSplittableDoFn extends DoFn<KV<String, FileIO.ReadableFile
 //                }
 //            }
             rows.close();
-            context.outputWithTimestamp("done", Instant.now());
         }
     }
 

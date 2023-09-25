@@ -48,6 +48,8 @@ public abstract class ExtractColumnNamesTransform
 
   public abstract Boolean pubSubGcs();
 
+  public abstract String projectId();
+
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -60,6 +62,8 @@ public abstract class ExtractColumnNamesTransform
 
     public abstract ExtractColumnNamesTransform.Builder setPubSubGcs(
         Boolean pubSubGcs);
+
+    public abstract ExtractColumnNamesTransform.Builder setProjectId(String projectId);
 
     public abstract ExtractColumnNamesTransform build();
   }
@@ -94,7 +98,7 @@ public abstract class ExtractColumnNamesTransform
         break;
 
       case ORC:
-        readHeader = input.apply("ReadHeader", ParDo.of(new ORCColumnNameDoFn()));
+        readHeader = input.apply("ReadHeader", ParDo.of(new ORCColumnNameDoFn(projectId())));
         break;
 
       default:
