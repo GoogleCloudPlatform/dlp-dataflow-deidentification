@@ -18,7 +18,7 @@ import org.junit.rules.TemporaryFolder;
 import java.io.IOException;
 import java.util.List;
 
-public class ORCReaderSplittableDoFnTest {
+public class ORCReaderDoFnTest {
 
     @Rule
     public transient TestPipeline testPipeline = TestPipeline.create();
@@ -28,10 +28,8 @@ public class ORCReaderSplittableDoFnTest {
 
     protected static final String PROJECT_ID = System.getenv("PROJECT_ID");
 
-    protected static final Integer splitSize = 1;
-
     @Test
-    public void testORCReaderSplittableDoFn() throws IOException {
+    public void testORCReaderDoFn() throws IOException {
         Integer numRecords = 2;
         ORCUtil orcUtil = new ORCUtil(numRecords, tmpFolder);
         String testFilePath = orcUtil.generateORCFile();
@@ -41,7 +39,7 @@ public class ORCReaderSplittableDoFnTest {
                 .apply(FileIO.match().filepattern(testFilePath))
                 .apply(FileIO.readMatches().withCompression(Compression.AUTO))
                 .apply(WithKeys.of("some_key"))
-                .apply(ParDo.of(new ORCReaderSplittableDoFn(PROJECT_ID, splitSize)))
+                .apply(ParDo.of(new ORCReaderDoFn(PROJECT_ID)))
                 .apply(Values.create());
 
         PAssert.that(results).containsInAnyOrder(tableRows);

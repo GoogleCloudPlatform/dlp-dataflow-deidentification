@@ -38,7 +38,7 @@ import com.google.swarm.tokenization.common.WriteToGCS;
 import com.google.swarm.tokenization.common.Util.InputLocation;
 import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
 import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
-import com.google.swarm.tokenization.orc.ORCReaderSplittableDoFn;
+import com.google.swarm.tokenization.orc.ORCReaderDoFn;
 import com.google.swarm.tokenization.parquet.ParquetReaderSplittableDoFn;
 import com.google.swarm.tokenization.txt.ConvertTxtToDLPRow;
 import com.google.swarm.tokenization.txt.ParseTextLogDoFn;
@@ -156,14 +156,6 @@ public class DLPTextToBigQueryStreamingV2 {
     PCollection<KV<String, Table.Row>> records;
 
     switch (options.getFileType()) {
-      case ORC:
-        records =
-            inputFiles
-                .apply(
-                    "ReadFromORCFilesAsOrcStruct",
-                    ParDo.of(
-                            new ORCReaderSplittableDoFn(options.getProject(), options.getSplitSize())));
-        break;
       case AVRO:
         records =
             inputFiles
@@ -232,6 +224,13 @@ public class DLPTextToBigQueryStreamingV2 {
         records = inputFiles
                 .apply(ParDo.of(new ParquetReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())));
         break;
+
+      case ORC:
+        records = inputFiles
+                .apply("ReadFromORCFilesAsOrcStruct",
+                        ParDo.of(new ORCReaderDoFn(options.getProject())));
+        break;
+
       default:
         throw new IllegalArgumentException("Please validate FileType parameter");
     }
