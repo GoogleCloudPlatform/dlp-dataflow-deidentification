@@ -111,7 +111,7 @@ jobs:
   create-output-bucket:
     needs:
       - generate-uuid
-      -
+
     runs-on:
       - self-hosted
 
