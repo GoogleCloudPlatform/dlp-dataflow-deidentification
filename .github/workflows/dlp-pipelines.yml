@@ -122,7 +122,7 @@ jobs:
         env:
           OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
         run: |
-          gcloud storage buckets create gs://${{ env.OUTPUT_GCS_BUCKET }} --location=${{env.PROJECT_ID}}
+          gcloud storage buckets create gs://${{ env.OUTPUT_GCS_BUCKET }} --location=${{env.REGION}}
 
 
   inspection:
