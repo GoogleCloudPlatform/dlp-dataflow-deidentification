@@ -7,6 +7,10 @@ import org.apache.orc.Reader;
 
 import java.io.IOException;
 
+
+/**
+ * Create a org.apache.orc.Reader object read/write ORC files
+ */
 public class ORCFileReader {
 
     private static final String FS_GS_IMPL_DEFAULT = com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem.class.getName();
