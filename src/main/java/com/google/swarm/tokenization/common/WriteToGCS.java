@@ -99,11 +99,12 @@ public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table
             List<String> stringRow = c.element().getValue().getValuesList().stream().map(e -> e.getStringValue()).collect(Collectors.toList());
 
             switch (fileType){
-                case TSV:
-                case TXT:
-                case JSONL:
                 case AVRO:
                 case CSV:
+                case JSONL:
+                case PARQUET:
+                case TSV:
+                case TXT:
                     c.output(KV.of(fileName, String.join(delimiter.toString(), stringRow)));
                     break;
             }

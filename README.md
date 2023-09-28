@@ -523,6 +523,18 @@ The pipeline supports CSV files with a custom delimiter. The delimiter has to be
 gradle run ... -Pargs="... --columnDelimiter=|"
 ```
 
+#### 5. Parquet
+
+The inspection and de-identification pipelines support Parquet file format where data can be read from GCS storage 
+bucket and the results of DLP Dataflow pipeline will be written in BigQuery tables. For sample data in Parquet file 
+format, refer [mock-data](.github/mock-data).
+
+No additional changes are required to run the pipeline except updating the `--filePattern` parameter. For example:
+
+```commandline
+gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.parquet"
+```
+
 ### Amazon S3 Scanner
 
 To use Amazon S3 as a source of input files, use AWS credentials as instructed below.
