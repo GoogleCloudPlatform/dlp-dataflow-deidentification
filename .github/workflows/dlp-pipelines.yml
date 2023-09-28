@@ -592,7 +592,6 @@ jobs:
           OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
-                --streaming --enableStreamingEngine \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
@@ -606,8 +605,7 @@ jobs:
                 --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
                 --batchSize=200000 \
                 --DLPMethod=DEID \
-                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
-                --jobName=${{env.DEID_JOB_NAME}} "
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}}"
 
       - name: Verify output file
         env:
