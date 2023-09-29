@@ -628,7 +628,7 @@ gcloud config set project <project_id>
 ```commandline
 gcloud auth application-default login
 ```
-6. Set project as a quota project:
+6. Set the project as a quota project:
 ```commandline
 gcloud auth application-default set-quota-project <project_id>
 ```
@@ -636,7 +636,7 @@ gcloud auth application-default set-quota-project <project_id>
 ```commandline
 sh setup-data-tokeninzation-solution-v2.sh
 ```
-8. Set environment variables:
+8. Set the environment variables:
 ```commandline
 source set_env.sh
 ```
@@ -649,12 +649,12 @@ This section provides a minimal list of tools and libraries along with their rec
 run this pipeline outside Google Shell.
 
 1. Install Java using [OpenJDK](https://openjdk.org/) (recommended version: 19.0.1 and above).
-1. Gradle - Use bundled [gradle wrapper to install or update](https://docs.gradle.org/current/userguide/gradle_wrapper.html#sec:upgrading_wrapper) the required Gradle automatically.
-    1. To update gradle version (recommended version: 8.3):
+1. Gradle - Use the bundled [gradle wrapper to install or update](https://docs.gradle.org/current/userguide/gradle_wrapper.html#sec:upgrading_wrapper) the required Gradle version automatically.
+    1. To update the Gradle version (recommended version: 8.3):
     ```commandline
     gradle wrapper --gradle-version <updated_version>
     ```
-    2. Build with updated version:
+    2. Build with the updated version:
     ```commandline
     ./gradlew build
     ```
