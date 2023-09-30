@@ -28,6 +28,8 @@
 
 * [Adapt this pipeline for your use cases](#adapt-this-pipeline-for-your-use-cases)
 
+* [Run this pipeline outside Cloud Shell](#run-this-pipeline-outside-cloud-shell)
+
 * [Troubleshooting](#troubleshooting)
 
 * [Dataflow DAG](#dataflow-dag)
@@ -606,6 +608,60 @@ The DLP templates used in this tutorial are specifically tailored for inspecting
 
 1. [Create your inspection templates and run the inspection on sample data](https://cloud.google.com/dlp/docs/creating-templates-inspect)
 2. [Create de-identification templates and run de-identification on sample data](https://cloud.google.com/dlp/docs/creating-templates-deid)
+
+
+## Run this pipeline outside Cloud Shell
+
+Cloud Shell comes with a pre-configured development environment that includes many of the most popular tools and 
+libraries, such as the Google Cloud CLI (gcloud CLI), Gradle, Java, Git, Vim, and more. This means that you don't have 
+to spend time setting up your own environment on your local machine. If you want to run this solution from your own 
+machine, follow these steps:
+
+1. Create a new Google Cloud project.
+2. Set up [required tools and libraries](#required-tools-and-libraries) to run the DLP Dataflow pipelines.
+3. Set up [Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc).
+4. Set the project id:
+```commandline
+gcloud config set project <project_id>
+```
+5. Create your credential file:
+```commandline
+gcloud auth application-default login
+```
+6. Set the project as a quota project:
+```commandline
+gcloud auth application-default set-quota-project <project_id>
+```
+7. Run the shell script:
+```commandline
+sh setup-data-tokeninzation-solution-v2.sh
+```
+8. Set the environment variables:
+```commandline
+source set_env.sh
+```
+9. Run the INSPECT/DEID/REID pipeline commands as described in the [tutorial](#tutorial).
+
+
+### Required tools and libraries
+
+This section provides a minimal list of tools and libraries along with their recommended versions that can be used to 
+run this pipeline outside Google Shell.
+
+1. Install Java using [OpenJDK](https://openjdk.org/) (recommended version: 19.0.1 and above).
+1. Gradle - Use the bundled [gradle wrapper to install or update](https://docs.gradle.org/current/userguide/gradle_wrapper.html#sec:upgrading_wrapper) the required Gradle version automatically.
+    1. To update the Gradle version (recommended version: 8.3):
+    ```commandline
+    gradle wrapper --gradle-version <updated_version>
+    ```
+    2. Build with the updated version:
+    ```commandline
+    ./gradlew build
+    ```
+1. Set up [Git](https://docs.github.com/en/get-started/quickstart/set-up-git).
+1. Install the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install).
+1. Download [jq](https://jqlang.github.io/jq/download/).
+
 
 
 ## Troubleshooting
