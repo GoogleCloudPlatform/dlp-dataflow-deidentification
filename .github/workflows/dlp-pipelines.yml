@@ -599,7 +599,7 @@ jobs:
                 --maxNumWorkers=3 \
                 --runner=DataflowRunner \
                 --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv \
-                --outputBucket=${{env.OUTPUT_GCS_BUCKET}} \
+                --outputBucket=gs://${{env.OUTPUT_GCS_BUCKET}} \
                 --workerMachineType=n1-highmem-4 \
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
                 --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
@@ -750,6 +750,7 @@ jobs:
       - de-identification
       - deidentify-parquet-data
       - de-identification-streaming-write
+      - de-identification-with-gcs-output
       - re-identification
 
     runs-on:
@@ -774,6 +775,11 @@ jobs:
           else
             echo "pub_sub file not present in storage bucket."
           fi
+      - name: Clean up gcs bucket
+        env:
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          gcloud storage ls gs://OUTPUT_GCS_BUCKET
 
       - name: Cancel Inspection Job
         if: "!cancelled()"
