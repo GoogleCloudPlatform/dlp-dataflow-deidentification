@@ -779,7 +779,7 @@ jobs:
         env:
           OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
         run: |
-          gcloud storage ls gs://OUTPUT_GCS_BUCKET
+          gcloud storage rm --recursive gs://${{ env.OUTPUT_GCS_BUCKET }
 
       - name: Cancel Inspection Job
         if: "!cancelled()"
