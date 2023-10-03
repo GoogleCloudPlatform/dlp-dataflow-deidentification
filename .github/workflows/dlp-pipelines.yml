@@ -615,7 +615,7 @@ jobs:
           not_verified=true
           file_count=0
           while $not_verified; do
-            file_count=$(($(gcloud storage ls  gs://${{env.OUTPUT_GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}*.csv | wc -l) -1 ))
+            file_count=$(gcloud storage ls  gs://${{env.OUTPUT_GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}*.csv | wc -l)
             if [[ "file_count" == "1" ]]; then
               echo "PASSED";
               not_verified=false;
