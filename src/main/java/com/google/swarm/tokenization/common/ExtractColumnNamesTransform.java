@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.swarm.tokenization.avro.AvroColumnNamesDoFn;
 import com.google.swarm.tokenization.common.Util.FileType;
 import com.google.swarm.tokenization.json.JsonColumnNameDoFn;
+import com.google.swarm.tokenization.orc.ORCColumnNameDoFn;
 import com.google.swarm.tokenization.parquet.ParquetColumnNamesDoFn;
 import com.google.swarm.tokenization.txt.TxtColumnNameDoFn;
 import java.util.List;
@@ -48,6 +49,8 @@ public abstract class ExtractColumnNamesTransform
 
   public abstract Boolean pubSubGcs();
 
+  public abstract String projectId();
+
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -61,6 +64,8 @@ public abstract class ExtractColumnNamesTransform
     public abstract ExtractColumnNamesTransform.Builder setPubSubGcs(
         Boolean pubSubGcs);
 
+    public abstract ExtractColumnNamesTransform.Builder setProjectId(String projectId);
+
     public abstract ExtractColumnNamesTransform build();
   }
 
@@ -73,28 +78,32 @@ public abstract class ExtractColumnNamesTransform
       PCollection<KV<String, FileIO.ReadableFile>> input) {
     PCollection<KV<String, List<String>>> readHeader;
     switch (fileType()) {
-      case CSV:
-        readHeader = input.apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn(columnDelimiter())));
-        break;
-
-      case TSV:
-        readHeader = input.apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn('\t')));
-        break;
-
       case AVRO:
         readHeader = input.apply("ReadHeader", ParDo.of(new AvroColumnNamesDoFn()));
+        break;
+
+      case CSV:
+        readHeader = input.apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn(columnDelimiter())));
         break;
 
       case JSONL:
         readHeader = input.apply("ReadHeader", ParDo.of(new JsonColumnNameDoFn(headers())));
         break;
 
-      case TXT:
-        readHeader = input.apply("ReadHeader", ParDo.of(new TxtColumnNameDoFn(headers())));
+      case ORC:
+        readHeader = input.apply("ReadHeader", ParDo.of(new ORCColumnNameDoFn(projectId())));
         break;
 
       case PARQUET:
         readHeader = input.apply("ReadHeader", ParDo.of(new ParquetColumnNamesDoFn()));
+        break;
+
+      case TSV:
+        readHeader = input.apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn('\t')));
+        break;
+
+      case TXT:
+        readHeader = input.apply("ReadHeader", ParDo.of(new TxtColumnNameDoFn(headers())));
         break;
 
       default:
