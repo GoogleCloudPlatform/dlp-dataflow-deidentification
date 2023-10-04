@@ -66,7 +66,6 @@ import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.TupleTagList;
-import org.apache.beam.sdk.io.FileSystems;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -257,6 +256,7 @@ public class DLPTextToBigQueryStreamingV2 {
                       .setOutputBucket(options.getOutputBucket())
                       .setFileType(options.getFileType())
                       .setColumnDelimiter(options.getColumnDelimiter())
+                      .setSchema(options.getSchema())
                       .build());
     else if(options.getDataSinkType() == Util.DataSinkType.BigQuery)
       inspectDeidRecords.get(Util.inspectOrDeidSuccess)

@@ -2,23 +2,30 @@ package com.google.swarm.tokenization.common;
 
 import com.google.auto.value.AutoValue;
 import com.google.privacy.dlp.v2.Table;
+import com.google.swarm.tokenization.orc.ORCWriterDoFn;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.io.WriteFilesResult;
-import org.apache.beam.sdk.transforms.Contextful;
-import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.PTransform;
-import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.transforms.windowing.PaneInfo;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
+import org.apache.orc.OrcFile;
+import org.apache.orc.TypeDescription;
+import org.apache.orc.Writer;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.UnknownKeyFor;
 
+import java.io.IOException;
+import java.nio.channels.WritableByteChannel;
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -33,6 +40,8 @@ public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table
 
     public abstract Character columnDelimiter();
 
+    public abstract String schema();
+
     public static Builder newBuilder() {
         return new AutoValue_WriteToGCS.Builder();
     }
@@ -45,21 +54,38 @@ public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table
 
         public abstract Builder setColumnDelimiter(Character columnDelimiter);
 
+        public abstract Builder setSchema(String schema);
+
         public abstract WriteToGCS build();
     }
 
     @Override
     public WriteFilesResult<String> expand(PCollection<KV<String, Table.Row>> input) {
-
-        return input.apply("ConvertTableRowToString",ParDo.of(new ConvertTableRowToString(fileType(),columnDelimiter())))
-                .apply("WriteFileToGCS", FileIO.<String, KV<String, String>>writeDynamic()
-                    .by(KV::getKey)
-                    .withDestinationCoder(StringUtf8Coder.of())
-                    .via(Contextful.fn(KV::getValue), TextIO.sink())
-                    .to(outputBucket())
-                    .withNaming(key -> new CsvFileNaming(key, ".csv"))
-                    .withNumShards(1));
-
+        switch (fileType()) {
+            case ORC:
+                input
+                    .apply(GroupByKey.create())
+                    .apply("WriteORCToGCS",
+                            ParDo.of(
+                                    new ORCWriterDoFn("gs://dlp-orc-support-398810-demo-data/output",
+                                                    TypeDescription.fromString(schema()))))
+                    .setCoder(StringUtf8Coder.of());
+            case AVRO:
+            case CSV:
+            case JSONL:
+            case PARQUET:
+            case TSV:
+            case TXT:
+            default:
+                return input.apply("ConvertTableRowToString", ParDo.of(new ConvertTableRowToString(fileType(), columnDelimiter())))
+                        .apply("WriteFileToGCS", FileIO.<String, KV<String, String>>writeDynamic()
+                                .by(KV::getKey)
+                                .withDestinationCoder(StringUtf8Coder.of())
+                                .via(Contextful.fn(KV::getValue), TextIO.sink())
+                                .to(outputBucket())
+                                .withNaming(key -> new CsvFileNaming(key, ".csv"))
+                                .withNumShards(1));
+        }
     }
 
     public static class CsvFileNaming implements FileIO.Write.FileNaming {
@@ -98,20 +124,44 @@ public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table
             String fileName = c.element().getKey();
             List<String> stringRow = c.element().getValue().getValuesList().stream().map(e -> e.getStringValue()).collect(Collectors.toList());
 
-            switch (fileType){
-                case AVRO:
-                case CSV:
-                case JSONL:
-                case PARQUET:
-                case TSV:
-                case TXT:
-                    c.output(KV.of(fileName, String.join(delimiter.toString(), stringRow)));
-                    break;
-            }
-
-
+            c.output(KV.of(fileName, String.join(delimiter.toString(), stringRow)));
         }
     }
 
+    public class ORCSink implements FileIO.Sink<Table.Row> {
+
+        public String filename;
+        public Path filePath = new Path("gs://dlp-orc-support-398810-demo-data/output/new_orc.orc");
+        public TypeDescription schema = TypeDescription.fromString("struct<column_name1:int,column_name2:int>");
+        public Writer writer;
+        public LongColumnVector x;
+        public LongColumnVector y;
+        public VectorizedRowBatch batch;
+
+        public ORCSink(String filename) {
+            this.filename = filename;
+        }
+
+        @Override
+        public void open(@UnknownKeyFor @NonNull @Initialized WritableByteChannel channel) throws @UnknownKeyFor@NonNull@Initialized IOException {
+            Configuration conf = new Configuration();
+            writer = OrcFile.createWriter(filePath, OrcFile.writerOptions(conf).setSchema(schema));
+            batch = schema.createRowBatch();
+            x = (LongColumnVector) batch.cols[0];
+            y = (LongColumnVector) batch.cols[1];
+        }
+
+        @Override
+        public void write(Table.Row element) throws @UnknownKeyFor@NonNull@Initialized IOException {
+            int row = batch.size++;
+            x.vector[row] = 1;
+            y.vector[row] = 2;
+        }
+
+        @Override
+        public void flush() throws @UnknownKeyFor@NonNull@Initialized IOException {
+            writer.close();
+        }
+    }
 
 }

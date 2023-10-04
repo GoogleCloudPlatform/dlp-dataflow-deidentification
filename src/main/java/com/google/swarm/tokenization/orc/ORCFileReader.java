@@ -22,6 +22,7 @@ public class ORCFileReader {
         conf.set("fs.AbstractFileSystem.gs.impl", FS_ABS_GS_IMPL_DEFAULT);
         conf.set("fs.gs.project.id", projectId);
 
-        return OrcFile.createReader(new Path(filePath), OrcFile.readerOptions(conf));
+        Reader reader = OrcFile.createReader(new Path(filePath), OrcFile.readerOptions(conf));
+        return reader;
     }
 }
