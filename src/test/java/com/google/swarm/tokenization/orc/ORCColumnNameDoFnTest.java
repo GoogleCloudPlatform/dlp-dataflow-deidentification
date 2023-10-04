@@ -31,7 +31,7 @@ public class ORCColumnNameDoFnTest {
     public void testORCColumnNameDoFn() throws IOException {
         Integer numRecords = 2;
         List<String> fieldNames = new ArrayList<>();
-        ORCUtil orcUtil = new ORCUtil(numRecords, tmpFolder);
+        ORCTestUtil orcUtil = new ORCTestUtil(numRecords, tmpFolder);
         String testFilePath = orcUtil.generateORCFile();
 
         fieldNames.add("column_name1");

@@ -31,7 +31,7 @@ public class ORCReaderDoFnTest {
     @Test
     public void testORCReaderDoFn() throws IOException {
         Integer numRecords = 2;
-        ORCUtil orcUtil = new ORCUtil(numRecords, tmpFolder);
+        ORCTestUtil orcUtil = new ORCTestUtil(numRecords, tmpFolder);
         String testFilePath = orcUtil.generateORCFile();
         List<Table.Row> tableRows = orcUtil.generateTableRows();
 

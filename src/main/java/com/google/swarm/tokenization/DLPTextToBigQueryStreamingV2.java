@@ -219,7 +219,7 @@ public class DLPTextToBigQueryStreamingV2 {
                         .withSideInputs(headers));
         break;
       case PARQUET:
-//        TODO: Remove KeyRange parameter, as it is unused
+//      TODO: Remove KeyRange parameter, as it is unused
         records = inputFiles
                 .apply(ParDo.of(new ParquetReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())));
         break;

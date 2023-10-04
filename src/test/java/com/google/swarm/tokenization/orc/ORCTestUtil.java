@@ -16,13 +16,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ORCUtil {
+public class ORCTestUtil {
 
     public final Integer numRecords;
 
     public final TemporaryFolder tmpFolder;
 
-    public ORCUtil(Integer numRecords, TemporaryFolder tmpFolder) {
+    public ORCTestUtil(Integer numRecords, TemporaryFolder tmpFolder) {
         this.numRecords = numRecords;
         this.tmpFolder = tmpFolder;
     }
