@@ -185,6 +185,6 @@ task fatJar(type: Jar) {
 jacocoTestReport {
     dependsOn test
     reports {
-        csv.enabled true
+        csv.required = true
     }
 }
