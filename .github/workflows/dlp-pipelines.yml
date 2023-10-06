@@ -63,23 +63,16 @@ jobs:
           default_author: github_actions
           message: 'Commit JaCoCo badges.'
           add: '*.svg'
-      - name: Comment on PR with coverage percentages
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          REPORT=$(<.github/badges/coverage-summary.json)
-          COVERAGE=$(jq -r '.coverage' <<< "$REPORT")%
-          BRANCHES=$(jq -r '.branches' <<< "$REPORT")%
-          NEWLINE=$'\n'
-          BODY="## JaCoCo Test Coverage Summary Statistics${NEWLINE}* __Coverage:__ ${COVERAGE}${NEWLINE}* __Branches:__ ${BRANCHES}"
-          gh pr comment ${{github.event.pull_request.number}} -b "${BODY}"
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload JaCoCo coverage report
-        uses: actions/upload-artifact@v3
+      - name: Jacoco Report to PR
+        id: jacoco-pr
+        uses: madrapps/jacoco-report@v1.6.1
         with:
-          name: jacoco-report
-          path: build/reports/jacoco
+          paths: ${{ github.workspace }}/build/reports/jacoco/test/jacocoTestReport.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 80
+          min-coverage-changed-files: 80
+          title: Code Coverage
+          update-comment: true
 
   generate-uuid:
     needs: build-and-unit-test
