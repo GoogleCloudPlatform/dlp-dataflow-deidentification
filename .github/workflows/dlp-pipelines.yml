@@ -73,6 +73,12 @@ jobs:
           min-coverage-changed-files: 80
           title: Code Coverage
           update-comment: true
+      - name: Fail PR if coverage is less than 80% for changed files
+        if: ${{ github.event_name == 'pull_request' && github.event.label.name != 'skip_coverage_check' && steps.jacoco-pr.outputs.coverage-changed-files < 80.0 }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            core.setFailed('Coverage for changed files is less than 80%!') 
 
   generate-uuid:
     needs: build-and-unit-test
