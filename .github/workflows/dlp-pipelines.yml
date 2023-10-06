@@ -5,6 +5,7 @@ on:
     types: [ opened, reopened, synchronize ]
   schedule:
     - cron: '30 9 * * *'
+  workflow_dispatch:
 
 env:
   PROJECT_ID: "dlp-dataflow-deid-ci-392604"
