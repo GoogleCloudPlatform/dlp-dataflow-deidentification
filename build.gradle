@@ -186,5 +186,6 @@ jacocoTestReport {
     dependsOn test
     reports {
         csv.required = true
+        html.required = true
     }
 }
