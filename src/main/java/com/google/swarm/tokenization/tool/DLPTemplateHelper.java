@@ -103,4 +103,8 @@ public class DLPTemplateHelper {
   public int adder(int a, int b) {
     return a + b;
   }
+
+  public int sub(int a, int b) {
+    return a - b;
+  }
 }
