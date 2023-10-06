@@ -40,9 +40,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Make gradlew executable
         run: chmod +x gradlew
@@ -118,9 +119,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -130,7 +132,7 @@ jobs:
           INSPECT_JOB_NAME: ${{ needs.generate-uuid.outputs.output2 }}
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --streaming --enableStreamingEngine \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
@@ -202,9 +204,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -214,7 +217,7 @@ jobs:
           PARQUET_INSPECT_JOB_NAME: ${{ needs.generate-uuid.outputs.output6 }}
           PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
@@ -279,9 +282,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -291,7 +295,7 @@ jobs:
           DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output3 }}
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --streaming --enableStreamingEngine \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
@@ -390,9 +394,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -402,7 +407,7 @@ jobs:
           PARQUET_DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output7 }}
           PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
@@ -470,9 +475,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -481,7 +487,7 @@ jobs:
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
           --region=${{env.REGION}} \
           --project=${{env.PROJECT_ID}} \
           --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
@@ -554,9 +560,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -584,7 +591,7 @@ jobs:
           REID_JOB_NAME: ${{ needs.generate-uuid.outputs.output4 }}
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
