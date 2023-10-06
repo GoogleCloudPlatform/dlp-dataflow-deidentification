@@ -26,7 +26,7 @@ public class ORCReaderDoFnTest {
     @ClassRule
     public static TemporaryFolder tmpFolder = new TemporaryFolder();
 
-    protected static final String PROJECT_ID = System.getenv("PROJECT_ID");
+    protected static final String PROJECT_ID = "test-project";
 
     @Test
     public void testORCReaderDoFn() throws IOException {

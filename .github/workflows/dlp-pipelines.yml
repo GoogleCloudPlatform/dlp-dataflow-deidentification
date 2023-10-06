@@ -29,7 +29,29 @@ env:
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
 
 jobs:
+
+  build-and-unit-test:
+    permissions:
+      pull-requests: write
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+      - name: Run gradle build
+        run: ./gradlew clean build
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   generate-uuid:
+    needs: build-and-unit-test
     runs-on: ubuntu-latest
 
     timeout-minutes: 5

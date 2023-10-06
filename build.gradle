@@ -34,7 +34,8 @@ apply plugin: 'application'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'com.google.cloud.tools.jib'
-apply plugin: "com.diffplug.spotless"
+apply plugin: 'com.diffplug.spotless'
+apply plugin: 'jacoco'
 // Licence header enforced by spotless
 def javaLicenseHeader = """/*
  * Copyright 2020 Google LLC
@@ -147,6 +148,7 @@ test {
         showStandardStreams = true
         exceptionFormat "full"
     }
+    finalizedBy jacocoTestReport
 }
 
 sourceSets {
@@ -178,4 +180,13 @@ task fatJar(type: Jar) {
         }
     }
     with jar
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        csv.required = true
+        html.required = false
+        xml.required = true
+    }
 }

@@ -4,6 +4,8 @@
 * Passes data through Dataflow pipelines that perform inspection, de-identification, and re-identification through the Cloud Data Loss Prevention API (DLP API).
 * Migrates the processed data to BigQuery.
 
+![Coverage](.github/badges/jacoco.svg) ![Branches](.github/badges/branches.svg)
+
 ## Table of Contents
 
 * [Architecture](#architecture)
