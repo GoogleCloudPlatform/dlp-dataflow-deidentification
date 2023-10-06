@@ -99,4 +99,8 @@ public class DLPTemplateHelper {
 
     return schemaJson;
   }
+
+  public int adder(int a, int b) {
+    return a + b;
+  }
 }
