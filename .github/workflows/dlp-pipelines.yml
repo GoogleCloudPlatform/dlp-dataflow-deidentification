@@ -815,7 +815,8 @@ jobs:
     needs:
       - generate-uuid
       - create-output-bucket
-
+      - create-dataset
+      - de-identification
     runs-on:
       - self-hosted
       - CI
