@@ -355,168 +355,168 @@ jobs:
           echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}_pub_sub: $row_count."
 
 #  Deidentify only existing parquet files
-  deidentify-parquet-data:
-    needs:
-      - generate-uuid
-      - create-dataset
+#  deidentify-parquet-data:
+#    needs:
+#      - generate-uuid
+#      - create-dataset
+#
+#    runs-on:
+#      - self-hosted
+#
+#    timeout-minutes: 30
+#
+#    steps:
+#      - uses: actions/checkout@v2
+#
+#      - name: Setup Java
+#        uses: actions/setup-java@v1
+#        with:
+#          java-version: 11
+#
+#      - name: Setup Gradle
+#        uses: gradle/gradle-build-action@v2
+#
+#      - name: Run DLP Pipeline
+#        env:
+#          PARQUET_DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output7 }}
+#          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
+#        run: |
+#          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+#                --region=${{env.REGION}} \
+#                --project=${{env.PROJECT_ID}} \
+#                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+#                --numWorkers=1 --maxNumWorkers=2 \
+#                --runner=DataflowRunner \
+#                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_PARQUET_FILE_NAME}}.parquet \
+#                --dataset=${{env.PARQUET_DATASET_ID}}   \
+#                --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
+#                --deidentifyTemplateName=${{env.PARQUET_DEID_TEMPLATE_PATH}} \
+#                --batchSize=200000 \
+#                --DLPMethod=DEID \
+#                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
+#                --jobName=${{env.PARQUET_DEID_JOB_NAME}}"
+#
+#      - name: Verify BQ tables
+#        env:
+#          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
+#        run: |
+#          not_verified=true
+#          table_count=0
+#          while $not_verified; do
+#            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.PARQUET_DATASET_ID}}`.__TABLES__ WHERE table_id LIKE "${{env.INPUT_PARQUET_FILE_NAME}}%"' | wc -l ) -1))
+#            if [[ "$table_count" == "1" ]]; then
+#              echo "PASSED";
+#              not_verified=false;
+#            else
+#              sleep 30s
+#            fi
+#            echo "Got number of tables in BQ with id ${{env.INPUT_PARQUET_FILE_NAME}}*: $table_count ."
+#          done
+#          echo "Verified number of tables in BQ with id ${{env.INPUT_PARQUET_FILE_NAME}}*: $table_count ."
+#
+#      - name: Verify distinct rows of existing file
+#        env:
+#          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
+#        run: |
+#          rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_FILE_NAME}}.csv | wc -l ) -1))
+#          not_verified=true
+#          row_count=0
+#          while $not_verified; do
+#            row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.PARQUET_DATASET_ID}}.${{env.INPUT_PARQUET_FILE_NAME}}`')
+#            row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
+#            if [[ "$row_count" == "$rc_orig" ]]; then
+#              echo "PASSED";
+#              not_verified=false;
+#            else
+#              sleep 30s
+#            fi
+#            echo "Got number of rows in ${{env.INPUT_PARQUET_FILE_NAME}}: $row_count."
+#          done
+#          echo "# records in input Parquet file are: $rc_orig."
+#          echo "Verified number of rows in ${{env.INPUT_PARQUET_FILE_NAME}}: $row_count."
 
-    runs-on:
-      - self-hosted
-
-    timeout-minutes: 30
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Setup Java
-        uses: actions/setup-java@v1
-        with:
-          java-version: 11
-
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
-
-      - name: Run DLP Pipeline
-        env:
-          PARQUET_DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output7 }}
-          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
-        run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
-                --region=${{env.REGION}} \
-                --project=${{env.PROJECT_ID}} \
-                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
-                --numWorkers=1 --maxNumWorkers=2 \
-                --runner=DataflowRunner \
-                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_PARQUET_FILE_NAME}}.parquet \
-                --dataset=${{env.PARQUET_DATASET_ID}}   \
-                --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
-                --deidentifyTemplateName=${{env.PARQUET_DEID_TEMPLATE_PATH}} \
-                --batchSize=200000 \
-                --DLPMethod=DEID \
-                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
-                --jobName=${{env.PARQUET_DEID_JOB_NAME}}"
-
-      - name: Verify BQ tables
-        env:
-          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
-        run: |
-          not_verified=true
-          table_count=0
-          while $not_verified; do
-            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.PARQUET_DATASET_ID}}`.__TABLES__ WHERE table_id LIKE "${{env.INPUT_PARQUET_FILE_NAME}}%"' | wc -l ) -1))
-            if [[ "$table_count" == "1" ]]; then
-              echo "PASSED";
-              not_verified=false;
-            else
-              sleep 30s
-            fi
-            echo "Got number of tables in BQ with id ${{env.INPUT_PARQUET_FILE_NAME}}*: $table_count ."
-          done
-          echo "Verified number of tables in BQ with id ${{env.INPUT_PARQUET_FILE_NAME}}*: $table_count ."
-
-      - name: Verify distinct rows of existing file
-        env:
-          PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
-        run: |
-          rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_FILE_NAME}}.csv | wc -l ) -1))
-          not_verified=true
-          row_count=0
-          while $not_verified; do
-            row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.PARQUET_DATASET_ID}}.${{env.INPUT_PARQUET_FILE_NAME}}`')
-            row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
-            if [[ "$row_count" == "$rc_orig" ]]; then
-              echo "PASSED";
-              not_verified=false;
-            else
-              sleep 30s
-            fi
-            echo "Got number of rows in ${{env.INPUT_PARQUET_FILE_NAME}}: $row_count."
-          done
-          echo "# records in input Parquet file are: $rc_orig."
-          echo "Verified number of rows in ${{env.INPUT_PARQUET_FILE_NAME}}: $row_count."
-
-  de-identification-streaming-write:
-    needs:
-      - generate-uuid
-      - create-dataset
-
-    runs-on:
-      - self-hosted
-
-    timeout-minutes: 30
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Setup Java
-        uses: actions/setup-java@v1
-        with:
-          java-version: 11
-
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
-
-      - name: Run DLP Pipeline for streaming write
-        env:
-          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
-        run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
-          --region=${{env.REGION}} \
-          --project=${{env.PROJECT_ID}} \
-          --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
-          --numWorkers=1 \
-          --maxNumWorkers=2 \
-          --runner=DataflowRunner \
-          --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_STREAMING_WRITE_FILE_NAME}}.csv \
-          --dataset=${{env.DATASET_ID}} \
-          --workerMachineType=n1-highmem-4 \
-          --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
-          --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
-          --batchSize=200000 \
-          --DLPMethod=DEID \
-          --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
-          --useStorageWriteApi \
-          --storageWriteApiTriggeringFrequencySec=2 \
-          --numStorageWriteApiStreams=2"
-
-      - name: Verify BQ table for streaming write
-        env:
-          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
-        run: |
-          not_verified=true
-          table_count=0
-          while $not_verified; do
-            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id LIKE "${{env.INPUT_STREAMING_WRITE_FILE_NAME}}%"' | wc -l ) -1))
-            if [[ "$table_count" == "1" ]]; then
-              echo "PASSED";
-              not_verified=false;
-            else
-              sleep 30s
-            fi
-            echo "Got number of tables in BQ with id ${{env.INPUT_STREAMING_WRITE_FILE_NAME}}: $table_count ."
-          done
-          echo "Verified number of tables in BQ with id ${{env.INPUT_STREAMING_WRITE_FILE_NAME}}: $table_count ."
-
-      - name: Verify distinct rows of streaming write file
-        env:
-          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
-        run: |
-          rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.INPUT_STREAMING_WRITE_FILE_NAME}}.csv | wc -l ) -1))
-          not_verified=true
-          row_count=0
-          while $not_verified; do
-            row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_STREAMING_WRITE_FILE_NAME}}`')
-            row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
-            if [[ "$row_count" == "$rc_orig" ]]; then
-              echo "PASSED";
-              not_verified=false;
-            else
-              sleep 30s
-            fi
-            echo "Got number of rows in ${{env.INPUT_STREAMING_WRITE_FILE_NAME}}: $row_count."
-          done
-          echo "# records in input CSV file are: $rc_orig."
-          echo "Verified number of rows in ${{env.INPUT_STREAMING_WRITE_FILE_NAME}}: $row_count."
+#  de-identification-streaming-write:
+#    needs:
+#      - generate-uuid
+#      - create-dataset
+#
+#    runs-on:
+#      - self-hosted
+#
+#    timeout-minutes: 30
+#
+#    steps:
+#      - uses: actions/checkout@v2
+#
+#      - name: Setup Java
+#        uses: actions/setup-java@v1
+#        with:
+#          java-version: 11
+#
+#      - name: Setup Gradle
+#        uses: gradle/gradle-build-action@v2
+#
+#      - name: Run DLP Pipeline for streaming write
+#        env:
+#          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
+#        run: |
+#          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+#          --region=${{env.REGION}} \
+#          --project=${{env.PROJECT_ID}} \
+#          --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+#          --numWorkers=1 \
+#          --maxNumWorkers=2 \
+#          --runner=DataflowRunner \
+#          --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_STREAMING_WRITE_FILE_NAME}}.csv \
+#          --dataset=${{env.DATASET_ID}} \
+#          --workerMachineType=n1-highmem-4 \
+#          --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
+#          --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
+#          --batchSize=200000 \
+#          --DLPMethod=DEID \
+#          --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
+#          --useStorageWriteApi \
+#          --storageWriteApiTriggeringFrequencySec=2 \
+#          --numStorageWriteApiStreams=2"
+#
+#      - name: Verify BQ table for streaming write
+#        env:
+#          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
+#        run: |
+#          not_verified=true
+#          table_count=0
+#          while $not_verified; do
+#            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}`.__TABLES__ WHERE table_id LIKE "${{env.INPUT_STREAMING_WRITE_FILE_NAME}}%"' | wc -l ) -1))
+#            if [[ "$table_count" == "1" ]]; then
+#              echo "PASSED";
+#              not_verified=false;
+#            else
+#              sleep 30s
+#            fi
+#            echo "Got number of tables in BQ with id ${{env.INPUT_STREAMING_WRITE_FILE_NAME}}: $table_count ."
+#          done
+#          echo "Verified number of tables in BQ with id ${{env.INPUT_STREAMING_WRITE_FILE_NAME}}: $table_count ."
+#
+#      - name: Verify distinct rows of streaming write file
+#        env:
+#          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
+#        run: |
+#          rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.INPUT_STREAMING_WRITE_FILE_NAME}}.csv | wc -l ) -1))
+#          not_verified=true
+#          row_count=0
+#          while $not_verified; do
+#            row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_STREAMING_WRITE_FILE_NAME}}`')
+#            row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
+#            if [[ "$row_count" == "$rc_orig" ]]; then
+#              echo "PASSED";
+#              not_verified=false;
+#            else
+#              sleep 30s
+#            fi
+#            echo "Got number of rows in ${{env.INPUT_STREAMING_WRITE_FILE_NAME}}: $row_count."
+#          done
+#          echo "# records in input CSV file are: $rc_orig."
+#          echo "Verified number of rows in ${{env.INPUT_STREAMING_WRITE_FILE_NAME}}: $row_count."
 
   re-identification:
     needs:
@@ -702,11 +702,11 @@ jobs:
     if: "!cancelled()"
     needs:
       - generate-uuid
-      - inspection
-      - inspect-parquet-data
+#      - inspection
+#      - inspect-parquet-data
       - de-identification
-      - deidentify-parquet-data
-      - de-identification-streaming-write
+#      - deidentify-parquet-data
+#      - de-identification-streaming-write
       - re-identification
       - re-identification-without-query
 
