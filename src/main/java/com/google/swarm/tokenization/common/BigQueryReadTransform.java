@@ -40,6 +40,7 @@ public abstract class BigQueryReadTransform
 
   public abstract Integer keyRange();
 
+  @Nullable
   public abstract String query();
 
   @AutoValue.Builder
@@ -51,7 +52,6 @@ public abstract class BigQueryReadTransform
 
     public abstract Builder setKeyRange(Integer keyRange);
 
-    @Nullable
     public abstract Builder setQuery(String query);
 
     public abstract BigQueryReadTransform build();
