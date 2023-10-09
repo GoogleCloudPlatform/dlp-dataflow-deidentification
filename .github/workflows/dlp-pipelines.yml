@@ -29,6 +29,42 @@ env:
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
 
 jobs:
+  skip-workflow:
+    runs-on: ubuntu-latest
+
+    outputs:
+      skip_inpsect: ${{ steps.skip-inspect-workflow.outputs.skip }}
+      skip_deid: ${{ steps.skip-deid-workflow.outputs.skip }}
+      skip_reid: ${{ steps.skip-reid-workflow.outputs.skip }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: skip-inspect-workflow
+        id: skip-inspect-workflow # id used for referencing step
+        uses: saulmaldonado/skip-workflow@v1
+        with:
+          phrase: '[skip-inspect]'
+          search: '["pull_request"]'
+          pr-message: 'body'
+
+      - name: skip-deid-workflow
+        id: skip-deid-workflow # id used for referencing step
+        uses: saulmaldonado/skip-workflow@v1
+        with:
+          phrase: '[skip-deid]'
+          search: '["pull_request"]'
+          pr-message: 'body'
+
+      - name: skip-reid-workflow
+        id: skip-reid-workflow # id used for referencing step
+        uses: saulmaldonado/skip-workflow@v1
+        with:
+          phrase: '[skip-reid]'
+          search: '["pull_request"]'
+          pr-message: 'body'
+
+
   generate-uuid:
     runs-on: ubuntu-latest
 
@@ -81,6 +117,9 @@ jobs:
     needs:
       - generate-uuid
       - create-dataset
+      - skip-workflow
+
+    if: ${{ !needs.skip-workflow.outputs.skip_inspect }}
 
     runs-on:
       - self-hosted
@@ -165,6 +204,9 @@ jobs:
     needs:
       - generate-uuid
       - create-dataset
+      - skip-workflow
+
+    if: ${{ !needs.skip-workflow.outputs.skip_inspect }}
 
     runs-on:
       - self-hosted
@@ -242,6 +284,9 @@ jobs:
     needs:
       - generate-uuid
       - create-dataset
+      - skip-workflow
+
+    if: ${{ !needs.skip-workflow.outputs.skip_deid }}
 
     runs-on:
       - self-hosted
@@ -353,6 +398,9 @@ jobs:
     needs:
       - generate-uuid
       - create-dataset
+      - skip-workflow
+
+    if: ${{ !needs.skip-workflow.outputs.skip_deid }}
 
     runs-on:
       - self-hosted
@@ -433,6 +481,9 @@ jobs:
     needs:
       - generate-uuid
       - create-dataset
+      - skip-workflow
+
+    if: ${{ !needs.skip-workflow.outputs.skip_deid }}
 
     runs-on:
       - self-hosted
@@ -517,6 +568,9 @@ jobs:
       - generate-uuid
       - create-dataset
       - de-identification
+      - skip-workflow
+
+    if: ${{ !needs.skip-workflow.outputs.skip_reid }}
 
     runs-on:
       - self-hosted
