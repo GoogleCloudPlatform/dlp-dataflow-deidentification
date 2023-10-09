@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      skip_inpsect: ${{ steps.skip-inspect-workflow.outputs.skip }}
+      skip_inspect: ${{ steps.skip-inspect-workflow.outputs.skip }}
       skip_deid: ${{ steps.skip-deid-workflow.outputs.skip }}
       skip_reid: ${{ steps.skip-reid-workflow.outputs.skip }}
 
