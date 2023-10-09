@@ -643,6 +643,7 @@ jobs:
 
       - name: Run DLP Pipeline
         env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
           REID_DATASET_ID: ${{ needs.generate-uuid.outputs.output10 }}
         run: |
           gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
@@ -664,6 +665,7 @@ jobs:
       - name: Verify BQ table
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
+          REID_DATASET_ID: ${{ needs.generate-uuid.outputs.output10 }}
         run: |
           not_verified=true
           table_count=0
@@ -681,6 +683,7 @@ jobs:
       - name: Verify distinct rows
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
+          REID_DATASET_ID: ${{ needs.generate-uuid.outputs.output10 }}
         run: |
           rc_orig=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(ID) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}`')
           not_verified=true
