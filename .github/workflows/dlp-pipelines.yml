@@ -47,6 +47,7 @@ jobs:
           phrase: '[skip-inspect]'
           search: '["pull_request"]'
           pr-message: 'body'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: skip-deid-workflow
         id: skip-deid-workflow # id used for referencing step
@@ -55,6 +56,7 @@ jobs:
           phrase: '[skip-deid]'
           search: '["pull_request"]'
           pr-message: 'body'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: skip-reid-workflow
         id: skip-reid-workflow # id used for referencing step
@@ -63,9 +65,13 @@ jobs:
           phrase: '[skip-reid]'
           search: '["pull_request"]'
           pr-message: 'body'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
 
   generate-uuid:
+    needs:
+      - skip-workflow
+
     runs-on: ubuntu-latest
 
     timeout-minutes: 5
