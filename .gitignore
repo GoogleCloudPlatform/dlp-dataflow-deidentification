@@ -27,6 +27,8 @@ dlp_key.json
 
 # Package Files #
 *.jar
+# Do not ignore gradle wrapper.
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.nar
 *.ear
