@@ -706,11 +706,11 @@ jobs:
     if: "!cancelled()"
     needs:
       - generate-uuid
-#      - inspection
-#      - inspect-parquet-data
+      - inspection
+      - inspect-parquet-data
       - de-identification
-#      - deidentify-parquet-data
-#      - de-identification-streaming-write
+      - deidentify-parquet-data
+      - de-identification-streaming-write
       - re-identification
       - re-identification-without-query
 
