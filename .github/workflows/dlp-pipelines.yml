@@ -685,7 +685,8 @@ jobs:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
           REID_DATASET_ID: ${{ needs.generate-uuid.outputs.output10 }}
         run: |
-          rc_orig=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(ID) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}`')
+          rc_orig_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(ID) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}`')
+          rc_orig=$(echo "$rc_orig_json" | jq -r '.[].f0_')
           not_verified=true
           row_count=0
           while $not_verified; do
