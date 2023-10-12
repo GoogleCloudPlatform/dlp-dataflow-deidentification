@@ -6,7 +6,9 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.HiveIntervalDayTime;
 import org.apache.hadoop.hive.ql.exec.vector.*;
+import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
@@ -14,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.function.Consumer;
@@ -54,12 +57,23 @@ public class ORCWriterDoFn extends DoFn<KV<String, Iterable<Table.Row>>, String>
                 case DECIMAL:
                 case DECIMAL_64:
                     DecimalColumnVector decimalColumnVector = (DecimalColumnVector) columnVector;
+                    String stringyfiedDecimal = tableRowValue.getStringValue();
+                    HiveDecimalWritable hiveDecimalWritable = new HiveDecimalWritable(stringyfiedDecimal);
+                    decimalColumnVector.set(rowIndex, hiveDecimalWritable);
                     break;
                 case TIMESTAMP:
                     TimestampColumnVector timestampColumnVector = (TimestampColumnVector) columnVector;
+                    com.google.protobuf.Timestamp protoTimestamp = tableRowValue.getTimestampValue();
+                    java.sql.Timestamp timestamp = new java.sql.Timestamp(protoTimestamp.getSeconds());
+                    timestamp.setNanos(protoTimestamp.getNanos());
+                    timestampColumnVector.set(rowIndex, timestamp);
                     break;
                 case INTERVAL_DAY_TIME:
                     IntervalDayTimeColumnVector intervalDayTimeColumnVector = (IntervalDayTimeColumnVector) columnVector;
+                    com.google.protobuf.Timestamp protoInterval = tableRowValue.getTimestampValue();
+                    HiveIntervalDayTime hiveIntervalDayTime = new HiveIntervalDayTime(protoInterval.getSeconds(),
+                                                                                      protoInterval.getNanos());
+                    intervalDayTimeColumnVector.set(rowIndex, hiveIntervalDayTime);
                     break;
                 case LIST:
                     ListColumnVector listColumnVector = (ListColumnVector) columnVector;
