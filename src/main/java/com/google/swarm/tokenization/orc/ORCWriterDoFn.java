@@ -4,6 +4,7 @@ import com.google.privacy.dlp.v2.Table;
 import com.google.privacy.dlp.v2.Value;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveIntervalDayTime;
@@ -16,9 +17,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class ORCWriterDoFn extends DoFn<KV<String, Iterable<Table.Row>>, String> {
@@ -27,11 +28,11 @@ public class ORCWriterDoFn extends DoFn<KV<String, Iterable<Table.Row>>, String>
 
     private final String outputBucketName;
 
-    private final TypeDescription schema;
+    private final PCollectionView<Map<String, String>> schemaMapping;
 
-    public ORCWriterDoFn(String outputBucketName, TypeDescription schema) {
+    public ORCWriterDoFn(String outputBucketName, PCollectionView<Map<String, String>> schemaMapping) {
         this.outputBucketName = outputBucketName;
-        this.schema = schema;
+        this.schemaMapping = schemaMapping;
     }
 
     public void createORCColumnVectors(VectorizedRowBatch batch, Table.Row tableRow, int rowIndex) {
@@ -105,6 +106,8 @@ public class ORCWriterDoFn extends DoFn<KV<String, Iterable<Table.Row>>, String>
     public void processElement(ProcessContext context) throws IOException {
         String filename = context.element().getKey();
         Iterable<Table.Row> tableRowIterable = context.element().getValue();
+        Map<String, String> schemaMappings = context.sideInput(schemaMapping);
+        TypeDescription schema = TypeDescription.fromString(schemaMappings.get(filename));
         String filePath = outputBucketName + "/" + filename + "_" + Instant.now().toString() + ".orc";
 
         Configuration conf = new Configuration();
@@ -121,7 +124,8 @@ public class ORCWriterDoFn extends DoFn<KV<String, Iterable<Table.Row>>, String>
             int row = batch.size++;
 
             if (currRecord.getValuesCount() != batch.numCols) {
-                throw new RuntimeException("Size of Table.Row object (" + currRecord.getValuesCount() + ") mismatched with size of ORC fieldNames (" + fieldNames.size() + ").");
+                throw new RuntimeException("Size of Table.Row object (" + currRecord.getValuesCount() + ") mismatched" +
+                                           " with size of ORC fieldNames (" + fieldNames.size() + ").");
             }
 
             createORCColumnVectors(batch, currRecord, row);

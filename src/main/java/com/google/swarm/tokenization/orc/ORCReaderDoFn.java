@@ -118,11 +118,10 @@ public class ORCReaderDoFn extends DoFn<KV<String, FileIO.ReadableFile>, KV<Stri
 
         Reader reader = new ORCFileReader().createORCFileReader(filePath, projectId);
 
-//        Create a RecordReader to read the ORC records row-by-row. RecordReader can be used to read data in batches and
-//        every bacth (VectorizedRowBatch) contains the data for 1024 rows.
+//      Create a RecordReader to read the ORC records row-by-row. RecordReader can be used to read data in batches and
+//      every batch (VectorizedRowBatch) contains the data for 1024 rows.
         RecordReader rows = reader.rows();
         batch = reader.getSchema().createRowBatch();
-        LOG.info("schema: {}", reader.getSchema().toString());
         ColumnVector.Type[] colsMap = new ColumnVector.Type[batch.numCols];
 
         while (rows.nextBatch(batch)) {
