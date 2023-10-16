@@ -47,7 +47,7 @@ This solution comprises the following pipelines. To view the job graphs of these
 ### Inspection and de-identification
 ![Reference architecture](diagrams/inspect-deid-architecture.png)
 
-You can use this pipeline for CSV, TSV, Avro, and JSONL files stored or ingested in Cloud Storage or an Amazon S3 bucket. This pipeline uses the State and Timer APIs to batch and process the files optimally.
+You can use this pipeline for Avro, CSV, JSONL, ORC, Parquet and TSV files stored or ingested in Cloud Storage or an Amazon S3 bucket. This pipeline uses the State and Timer APIs to batch and process the files optimally.
 The results of the inspection and de-identification processes are written in a BigQuery table.
 
 ### Re-identification
