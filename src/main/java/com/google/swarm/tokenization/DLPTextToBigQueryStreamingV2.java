@@ -38,11 +38,15 @@ import com.google.swarm.tokenization.common.WriteToGCS;
 import com.google.swarm.tokenization.common.Util.InputLocation;
 import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
 import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
+import com.google.swarm.tokenization.orc.ExtractFileSchemaTransform;
 import com.google.swarm.tokenization.orc.ORCReaderDoFn;
+import com.google.swarm.tokenization.orc.ORCWriterDoFn;
 import com.google.swarm.tokenization.parquet.ParquetReaderSplittableDoFn;
 import com.google.swarm.tokenization.txt.ConvertTxtToDLPRow;
 import com.google.swarm.tokenization.txt.ParseTextLogDoFn;
 import com.google.swarm.tokenization.txt.TxtReaderSplitDoFn;
+
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.apache.beam.sdk.Pipeline;
@@ -53,11 +57,7 @@ import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.transforms.Flatten;
-import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.Sample;
-import org.apache.beam.sdk.transforms.View;
-import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
@@ -66,7 +66,7 @@ import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.TupleTagList;
-import org.apache.beam.sdk.io.FileSystems;
+import org.apache.orc.Reader;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -220,7 +220,7 @@ public class DLPTextToBigQueryStreamingV2 {
                         .withSideInputs(headers));
         break;
       case PARQUET:
-//        TODO: Remove KeyRange parameter, as it is unused
+//      TODO: Remove KeyRange parameter, as it is unused
         records = inputFiles
                 .apply(ParDo.of(new ParquetReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())));
         break;
@@ -251,21 +251,45 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setDataSinkType(options.getDataSinkType())
                 .build());
 
-    if(options.getDataSinkType() == Util.DataSinkType.GCS)
-      inspectDeidRecords.get(Util.deidSuccessGCS).apply("WriteToGCS",
-              WriteToGCS.newBuilder()
-                      .setOutputBucket(options.getOutputBucket())
-                      .setFileType(options.getFileType())
-                      .setColumnDelimiter(options.getColumnDelimiter())
-                      .build());
-    else if(options.getDataSinkType() == Util.DataSinkType.BigQuery)
+    if(options.getDataSinkType() == Util.DataSinkType.GCS) {
+      if (options.getFileType() == Util.FileType.ORC) {
+        final PCollectionView<Map<String, String>> schemaMapping =
+                inputFiles.apply(
+                        "Extract Input File Schema",
+                        ExtractFileSchemaTransform.newBuilder()
+                                .setFileType(options.getFileType())
+                                .setProjectId(options.getProject())
+                                .build());
+
+        inspectDeidRecords
+                .get(Util.deidSuccessGCS)
+                .apply(GroupByKey.create())
+                .apply("WriteORCToGCS",
+                        ParDo.of(
+                                new ORCWriterDoFn(options.getOutputBucket(), schemaMapping))
+                                .withSideInputs(schemaMapping))
+                .setCoder(StringUtf8Coder.of());
+      }
+      else {
+        inspectDeidRecords
+                .get(Util.deidSuccessGCS)
+                .apply("WriteToGCS",
+                    WriteToGCS.newBuilder()
+                            .setOutputBucket(options.getOutputBucket())
+                            .setFileType(options.getFileType())
+                            .setColumnDelimiter(options.getColumnDelimiter())
+                            .build());
+      }
+    }
+    else if(options.getDataSinkType() == Util.DataSinkType.BigQuery) {
       inspectDeidRecords.get(Util.inspectOrDeidSuccess)
-          .apply(
-              "InsertToBQ",
-              BigQueryDynamicWriteTransform.newBuilder()
-                  .setDatasetId(options.getDataset())
-                  .setProjectId(options.getProject())
-                  .build());
+              .apply(
+                      "InsertToBQ",
+                      BigQueryDynamicWriteTransform.newBuilder()
+                              .setDatasetId(options.getDataset())
+                              .setProjectId(options.getProject())
+                              .build());
+    }
   }
 
   private static void runReidPipeline(

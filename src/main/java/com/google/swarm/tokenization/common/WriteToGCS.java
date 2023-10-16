@@ -53,12 +53,12 @@ public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table
 
         return input.apply("ConvertTableRowToString",ParDo.of(new ConvertTableRowToString(fileType(),columnDelimiter())))
                 .apply("WriteFileToGCS", FileIO.<String, KV<String, String>>writeDynamic()
-                    .by(KV::getKey)
-                    .withDestinationCoder(StringUtf8Coder.of())
-                    .via(Contextful.fn(KV::getValue), TextIO.sink())
-                    .to(outputBucket())
-                    .withNaming(key -> new CsvFileNaming(key, ".csv"))
-                    .withNumShards(1));
+                        .by(KV::getKey)
+                        .withDestinationCoder(StringUtf8Coder.of())
+                        .via(Contextful.fn(KV::getValue), TextIO.sink())
+                        .to(outputBucket())
+                        .withNaming(key -> new CsvFileNaming(key, ".csv"))
+                        .withNumShards(1));
 
     }
 
@@ -108,10 +108,6 @@ public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table
                     c.output(KV.of(fileName, String.join(delimiter.toString(), stringRow)));
                     break;
             }
-
-
         }
     }
-
-
 }
