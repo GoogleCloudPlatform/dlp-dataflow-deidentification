@@ -117,6 +117,11 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
 
   void setHeaders(List<String> topic);
 
+  @Description("Input file schema- Required for ORC type")
+  String getSchema();
+
+  void setSchema(String schema);
+
   @Description(
       "Number of shards for DLP request batches. "
           + "Can be used to controls parallelism of DLP requests.")
