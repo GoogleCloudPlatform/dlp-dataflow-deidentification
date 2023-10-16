@@ -535,6 +535,38 @@ No additional changes are required to run the pipeline except updating the `--fi
 gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.parquet"
 ```
 
+#### 6. ORC
+
+##### Inspection of ORC files
+The inspection pipeline will read ORC files from input GCS storage bucket and the results of will be written in BigQuery
+tables.
+
+```commandline
+gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.orc"
+```
+
+##### De-identification
+The de-identification pipeline support ORC file format where data can be read from input GCS storage bucket and the 
+de-identified results can be written in 
+1. output BigQuery dataset as tables, or 
+
+```commandline
+gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.orc"
+```
+
+2. output GCS storage bucket as de-identified ORC files.
+
+```commandline
+gradle run ... -Pargs="... 
+--filePattern=gs://${PROJECT_ID}-demo-data/*.orc
+--outputBucket=gs://${DATA_STORAGE_BUCKET}/output \"
+```
+
+Input files with varying schema is supported by the de-identification pipeline. Currently, it can process only Primitive
+data types available in ORC format when the results are stored in output GCS storage bucket.
+
+For sample data in ORC file format, refer [mock-data](.github/mock-data).
+
 ### Amazon S3 Scanner
 
 To use Amazon S3 as a source of input files, use AWS credentials as instructed below.
