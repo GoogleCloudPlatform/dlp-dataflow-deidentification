@@ -405,6 +405,7 @@ to validate de-identified results:
 
 #### Re-identification from BigQuery
 
+
 1. Export a SQL query to read and re-identify data from BigQuery. The sample provided below selects 10 records that match the query.
 
    ```
@@ -447,6 +448,7 @@ to validate de-identified results:
    stored in `reid_query.sql`. The re-identified results can be found in the BigQuery
    dataset (`dataset` parameter) with the name of the input table as the suffix.
 
+    The parameter `queryPath` is optional. If not passed, the pipeline will perform re-identification on the entire BigQuery table.
 
 ### Pipeline Parameters
 
@@ -471,7 +473,7 @@ to validate de-identified results:
 | `recordDelimiter`                | (Optional) Record delimiter.                                                                                                                                                                                                                                       | INSPECT/DEID        |
 | `columnDelimiter`                | Column delimiter. Only required in case of a custom delimiter.                                                                                                                                                                                                     | INSPECT/DEID        | 
 | `tableRef`                       | BigQuery table to export from in the form `<project>:<dataset>.<table>`.                                                                                                                                                                                           | REID                |
-| `queryPath`                      | Query file for re-identification.                                                                                                                                                                                                                                  | REID                |
+| `queryPath`                      | (Optional) Query file for re-identification.                                                                                                                                                                                                                       | REID                |
 | `headers`                        | DLP table headers. Required for the JSONL file type.                                                                                                                                                                                                               | INSPECT/DEID        |
 | `numShardsPerDLPRequestBatching` | (Optional) Number of shards for DLP request batches. Can be used to control the parallelism of DLP requests. The default value is 100.                                                                                                                                     | All                 |
 | `numberOfWorkerHarnessThreads`   | (Optional) The number of threads per each worker harness process.                                                                                                                                                                                                  | All                 |
