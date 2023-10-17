@@ -150,7 +150,8 @@ public abstract class DLPTransform
                   "ConvertDeidResponse",
                   ParDo.of(new ConvertDeidResponse(dataSinkType()))
                       .withOutputTags(
-                          Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure).and(Util.deidSuccessGCS)));
+                          Util.inspectOrDeidSuccess,
+                          TupleTagList.of(Util.inspectOrDeidFailure).and(Util.deidSuccessGCS)));
         }
       case REID:
         {
@@ -224,6 +225,7 @@ public abstract class DLPTransform
     public ConvertDeidResponse(DataSinkType dataSink) {
       this.dataSink = dataSink;
     }
+
     @ProcessElement
     public void processElement(
         @Element KV<String, DeidentifyContentResponse> element, MultiOutputReceiver out) {
@@ -243,15 +245,14 @@ public abstract class DLPTransform
             throw new IllegalArgumentException(
                 "CSV file's header count must exactly match with data element count");
           }
-          if(this.dataSink == DataSinkType.BigQuery) {
+          if (this.dataSink == DataSinkType.BigQuery) {
             out.get(Util.inspectOrDeidSuccess)
-              .output(
-                  KV.of(
-                      fileName,
-                      Util.createBqRow(outputRow, headers.toArray(new String[headers.size()]))));
-          }
-          else if(this.dataSink == DataSinkType.GCS){
-            out.get(Util.deidSuccessGCS).output(KV.of(fileName,outputRow));
+                .output(
+                    KV.of(
+                        fileName,
+                        Util.createBqRow(outputRow, headers.toArray(new String[headers.size()]))));
+          } else if (this.dataSink == DataSinkType.GCS) {
+            out.get(Util.deidSuccessGCS).output(KV.of(fileName, outputRow));
           }
         }
       }

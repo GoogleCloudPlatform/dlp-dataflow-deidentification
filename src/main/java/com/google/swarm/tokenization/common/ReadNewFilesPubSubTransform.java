@@ -18,12 +18,11 @@ package com.google.swarm.tokenization.common;
 import com.google.auto.value.AutoValue;
 import com.google.swarm.tokenization.common.Util.InputLocation;
 import javax.annotation.Nullable;
-import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.coders.KvCoder;
-import org.apache.beam.sdk.io.ReadableFileCoder;
-import org.apache.beam.sdk.io.Compression;
+import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -37,10 +36,10 @@ import org.apache.beam.sdk.values.PCollection;
 public abstract class ReadNewFilesPubSubTransform
     extends PTransform<PBegin, PCollection<KV<String, ReadableFile>>> {
 
-  public abstract String  filePattern();
+  public abstract String filePattern();
 
   @Nullable
-  public abstract String  pubSubTopic();
+  public abstract String pubSubTopic();
 
   public abstract Boolean usePubSub();
 
@@ -63,12 +62,15 @@ public abstract class ReadNewFilesPubSubTransform
   @Override
   public PCollection<KV<String, ReadableFile>> expand(PBegin input) {
     if (!usePubSub()) {
-        return input.apply("CreateEmptyNewFileSet", Create.empty(KvCoder.of(StringUtf8Coder.of(),
-                                                                            ReadableFileCoder.of())));
+      return input.apply(
+          "CreateEmptyNewFileSet",
+          Create.empty(KvCoder.of(StringUtf8Coder.of(), ReadableFileCoder.of())));
     }
-    return input.apply("ReadFromTopic", PubsubIO.readMessagesWithAttributes().fromTopic(pubSubTopic()))
-                .apply("ReadFileMetadataFromMessage", ParDo.of(new PubSubReadFileMetadataDoFn(filePattern())))
-                .apply("ReadNewFiles", FileIO.readMatches())
-                .apply("SanitizeFileNameNewFiles", ParDo.of(new SanitizeFileNameDoFn(InputLocation.GCS)));
+    return input
+        .apply("ReadFromTopic", PubsubIO.readMessagesWithAttributes().fromTopic(pubSubTopic()))
+        .apply(
+            "ReadFileMetadataFromMessage", ParDo.of(new PubSubReadFileMetadataDoFn(filePattern())))
+        .apply("ReadNewFiles", FileIO.readMatches())
+        .apply("SanitizeFileNameNewFiles", ParDo.of(new SanitizeFileNameDoFn(InputLocation.GCS)));
   }
 }

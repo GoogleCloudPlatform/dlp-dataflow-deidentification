@@ -17,8 +17,8 @@ package com.google.swarm.tokenization;
 
 import com.google.privacy.dlp.v2.LocationName;
 import com.google.swarm.tokenization.common.Util.DLPMethod;
-import com.google.swarm.tokenization.common.Util.FileType;
 import com.google.swarm.tokenization.common.Util.DataSinkType;
+import com.google.swarm.tokenization.common.Util.FileType;
 import com.google.swarm.tokenization.common.Util.InputLocation;
 import java.util.List;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
@@ -155,10 +155,9 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   class DataSinkFactory implements DefaultValueFactory<DataSinkType> {
     @Override
     public DataSinkType create(PipelineOptions options) {
-      if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getOutputBucket()!=null)
+      if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getOutputBucket() != null)
         return DataSinkType.GCS;
-      else
-        return DataSinkType.BigQuery;
+      else return DataSinkType.BigQuery;
     }
   }
 
@@ -167,7 +166,6 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   DataSinkType getDataSinkType();
 
   void setDataSinkType(DataSinkType dataSinkType);
-
 
   class FileTypeFactory implements DefaultValueFactory<FileType> {
     @Override
@@ -232,10 +230,10 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   class InputPollingFactory implements DefaultValueFactory<InputLocation> {
     @Override
     public InputLocation create(PipelineOptions options) {
-       if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getFilePattern().startsWith("gs://"))
-        return InputLocation.GCS;
-       else
-        return InputLocation.NOT_GCS;
+      if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
+          .getFilePattern()
+          .startsWith("gs://")) return InputLocation.GCS;
+      else return InputLocation.NOT_GCS;
     }
   }
 
@@ -255,5 +253,4 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
   Boolean getProcessExistingFiles();
 
   void setProcessExistingFiles(Boolean value);
-
 }

@@ -152,16 +152,22 @@ import org.slf4j.LoggerFactory;
 public class DLPTextToBigQueryStreaming {
 
   public static final Logger LOG = LoggerFactory.getLogger(DLPTextToBigQueryStreaming.class);
+
   /** Default interval for polling files in GCS. */
   private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(30);
+
   /** Expected only CSV file in GCS bucket. */
   private static final String ALLOWED_FILE_EXTENSION = String.valueOf("csv");
+
   /** Regular expression that matches valid BQ table IDs. */
   private static final String TABLE_REGEXP = "[-\\w$@]{1,1024}";
+
   /** Default batch size if value not provided in execution. */
   private static final Integer DEFAULT_BATCH_SIZE = 100;
+
   /** Regular expression that matches valid BQ column name . */
   private static final String COLUMN_NAME_REGEXP = "^[A-Za-z_]+[A-Za-z_0-9]*$";
+
   /** Default window interval to create side inputs for header records. */
   private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(10);
 
@@ -439,6 +445,7 @@ public class DLPTextToBigQueryStreaming {
 
     private ValueProvider<Integer> batchSize;
     private PCollectionView<List<KV<String, List<String>>>> headerMap;
+
     /** This counter is used to track number of lines processed against batch size. */
     private Integer lineCount;
 
@@ -566,6 +573,7 @@ public class DLPTextToBigQueryStreaming {
     public OffsetRangeTracker newTracker(@Restriction OffsetRange range) {
       return new OffsetRangeTracker(new OffsetRange(range.getFrom(), range.getTo()));
     }
+
     // [END loadSnippet_3]
 
     private Table.Row convertCsvRowToTableRow(CSVRecord csvRow) {
@@ -842,6 +850,7 @@ public class DLPTextToBigQueryStreaming {
       return schema;
     }
   }
+
   // [END loadSnippet_4]
   private static String getFileName(ReadableFile file) {
     String csvFileName = file.getMetadata().resourceId().getFilename().toString();
