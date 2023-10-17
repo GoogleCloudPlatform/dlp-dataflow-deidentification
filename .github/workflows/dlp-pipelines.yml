@@ -57,10 +57,10 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Report spotbugs annotations
-        uses: jwgmeligmeyling/spotbugs-github-action@master
-        token: ${{ secrets.GITHUB_TOKEN }}
+        uses: jwgmeligmeyling/spotbugs-github-action@v1.2
         with:
           path: build/reports/spotbugs/main/spotbugs.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   generate-uuid:
     needs: build-and-unit-test
