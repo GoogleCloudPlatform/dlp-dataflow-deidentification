@@ -22,6 +22,7 @@ plugins {
     id 'com.diffplug.spotless' version '6.22.0'
     id 'com.google.cloud.tools.jib' version '3.4.0'
     id 'jacoco'
+    id 'com.github.spotbugs' version '5.2.0'
 }
 
 // Licence header enforced by spotless
@@ -115,6 +116,7 @@ dependencies {
     testImplementation group: 'org.hamcrest', name: 'hamcrest-core', version: '1.3'
     testImplementation group: 'org.hamcrest', name: 'hamcrest-library', version: '1.3'
     testImplementation group: 'junit', name: 'junit', version: '4.13.1'
+    spotbugsPlugins group: 'com.h3xstream.findsecbugs', name: 'findsecbugs-plugin', version: '1.12.0'
 }
 
 jar {
@@ -188,5 +190,19 @@ jacocoTestReport {
         csv.required = true
         html.required = false
         xml.required = true
+    }
+}
+
+spotbugs {
+    ignoreFailures = true
+    showStackTraces = true
+}
+
+spotbugsMain {
+    reports {
+        xml {
+            required = true
+            outputLocation = file("$buildDir/reports/spotbugs/main/spotbugs.xml")
+        }
     }
 }
