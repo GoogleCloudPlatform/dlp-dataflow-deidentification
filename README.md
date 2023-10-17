@@ -558,9 +558,12 @@ de-identified results can be written in
 
 ```commandline
 ./gradlew run ... -Pargs="... 
---filePattern=gs://${PROJECT_ID}-demo-data/*.orc
---outputBucket=gs://${DATA_STORAGE_BUCKET}/output \"
+--filePattern=gs://${PROJECT_ID}-demo-data/*.orc \
+--outputBucket=<output_storage_bucket> ..."
 ```
+
+In the above command, replace <i>output_storage_bucket</i> with the GCS storage bucket URI where you want to store the 
+de-identified ORC files.
 
 Input files with varying schema is supported by the de-identification pipeline. Currently, it can process only Primitive
 data types available in ORC format when the results are stored in output GCS storage bucket.
