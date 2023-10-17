@@ -542,7 +542,7 @@ The inspection pipeline will read ORC files from input GCS storage bucket and th
 tables.
 
 ```commandline
-gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.orc"
+./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.orc"
 ```
 
 ##### De-identification
@@ -551,13 +551,13 @@ de-identified results can be written in
 1. output BigQuery dataset as tables, or 
 
 ```commandline
-gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.orc"
+./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.orc"
 ```
 
 2. output GCS storage bucket as de-identified ORC files.
 
 ```commandline
-gradle run ... -Pargs="... 
+./gradlew run ... -Pargs="... 
 --filePattern=gs://${PROJECT_ID}-demo-data/*.orc
 --outputBucket=gs://${DATA_STORAGE_BUCKET}/output \"
 ```
