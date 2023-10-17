@@ -649,7 +649,7 @@ This section provides a minimal list of tools and libraries along with their rec
 run this pipeline outside Google Shell.
 
 1. Install Java using [OpenJDK](https://openjdk.org/) (recommended version: 19.0.1 and above).
-1. Use Gradle wrapper to build the project:
+1. Use Gradle Wrapper to build the project:
     ```commandline
     ./gradlew build
     ```
