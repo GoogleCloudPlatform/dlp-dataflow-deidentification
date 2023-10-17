@@ -103,7 +103,7 @@ public class ORCReaderDoFn extends DoFn<KV<String, FileIO.ReadableFile>, KV<Stri
                 tableRowValue = Value.newBuilder().setStringValue(orcBytesValue).build();
                 break;
             default:
-                throw new IllegalArgumentException("Incorrect ColumnVector type found for ORC field value.");
+                throw new IllegalArgumentException("Incorrect ColumnVector.type found while reading ORC field value.");
         }
 
         return tableRowValue;
@@ -118,8 +118,8 @@ public class ORCReaderDoFn extends DoFn<KV<String, FileIO.ReadableFile>, KV<Stri
 
         Reader reader = new ORCFileReader().createORCFileReader(filePath, projectId);
 
-//        Create a RecordReader to read the ORC records row-by-row. RecordReader can be used to read data in batches and
-//        every bacth (VectorizedRowBatch) contains the data for 1024 rows.
+//      Create a RecordReader to read the ORC records row-by-row. RecordReader can be used to read data in batches and
+//      every batch (VectorizedRowBatch) contains the data for 1024 rows.
         RecordReader rows = reader.rows();
         batch = reader.getSchema().createRowBatch();
         ColumnVector.Type[] colsMap = new ColumnVector.Type[batch.numCols];
