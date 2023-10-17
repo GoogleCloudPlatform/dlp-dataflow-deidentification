@@ -126,7 +126,7 @@ projected usage.
 ### Compile the code
 
 ```
-gradle build
+./gradlew build
 ```
 
 ### Run the samples
@@ -143,7 +143,7 @@ You can run the inspection pipeline to do one or both of the following:
 To trigger a streaming inspection Dataflow pipeline that processes all the CSV files in the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
+./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
 -Pargs=" --region=${REGION} \
 --project=${PROJECT_ID} \
 --streaming --enableStreamingEngine \
@@ -165,7 +165,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 To trigger a batch inspection Dataflow pipeline that processes only the CSV files that are currently present in the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
+./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
 -Pargs=" --region=${REGION} \
 --project=${PROJECT_ID} \
 --tempLocation=gs://${DATA_STORAGE_BUCKET}/temp \
@@ -187,7 +187,7 @@ Any files that are added to the bucket after the pipeline was triggered are not 
 To trigger a streaming inspection Dataflow pipeline that processes new CSV files that are added to the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
+./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
 -Pargs=" --region=${REGION} \
 --project=${PROJECT_ID} \
 --streaming --enableStreamingEngine \
@@ -234,7 +234,7 @@ You can run the de-identification pipeline to do one or both of the following:
 To trigger a streaming de-identification Dataflow pipeline that processes all the CSV files in the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
+./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
 -Pargs=" --region=${REGION} \
 --project=${PROJECT_ID} \
 --streaming --enableStreamingEngine \
@@ -256,7 +256,7 @@ gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV
 To trigger a batch de-identification Dataflow pipeline that processes only the CSV files that are currently present in the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
+./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
 -Pargs=" --region=${REGION} \
 --project=${PROJECT_ID} \
 --tempLocation=gs://${DATA_STORAGE_BUCKET}/temp \
@@ -278,7 +278,7 @@ Any files that are added to the bucket after the pipeline was triggered are not 
 To trigger a streaming de-identification Dataflow pipeline that processes new CSV files that are added to the `DATA_STORAGE_BUCKET` bucket (specified in the `filePattern` parameter), run the following command:
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
+./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
 -Pargs=" --region=${REGION} \
 --project=${PROJECT_ID} \
 --streaming --enableStreamingEngine \
@@ -425,7 +425,7 @@ to validate de-identified results:
 4. Run the pipeline by passing the required parameters:
 
    ```
-   gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 
+   ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 
    -Pargs="--region=${REGION} 
    --project=${PROJECT_ID} 
    --tempLocation=gs://${DATA_STORAGE_BUCKET}/temp 
@@ -493,7 +493,7 @@ For sample commands for processing CSV files, see [Run the samples](#run-the-sam
 The pipeline supports the TSV file format which uses tabs as column delimiters. The pipeline options are similar to that of CSV files. The extension of the file name should be .tsv.
 
 ```
-gradle run ... -Pargs="... --filePattern=gs://<bucket_name>/small_file.tsv"
+./gradlew run ... -Pargs="... --filePattern=gs://<bucket_name>/small_file.tsv"
 
 ```
 
@@ -503,7 +503,7 @@ The pipeline supports JSONL file format where each line is a valid JSON object a
 To run the pipeline for JSONL files, the list of comma-separated headers also needs to be passed in the pipeline options.
 
 ```
-gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/CCRecords_sample.jsonl --headers=<comma_separated_list_of_headers>"
+./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/CCRecords_sample.jsonl --headers=<comma_separated_list_of_headers>"
 ```
 
 #### 4. Avro
@@ -512,7 +512,7 @@ The pipeline handles Avro files similarly to how it handles CSV files. No additi
 the pipeline except updating the `--filePattern` parameter. For example:
 
 ```commandline
-gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.avro"
+./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.avro"
 ```
 
 #### 5. CSV files with custom delimiters
@@ -520,7 +520,7 @@ gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.avro"
 The pipeline supports CSV files with a custom delimiter. The delimiter has to be passed in the pipeline option as `--columnDelimiter`.
 
 ```
-gradle run ... -Pargs="... --columnDelimiter=|"
+./gradlew run ... -Pargs="... --columnDelimiter=|"
 ```
 
 #### 5. Parquet
@@ -532,7 +532,7 @@ format, refer [mock-data](.github/mock-data).
 No additional changes are required to run the pipeline except updating the `--filePattern` parameter. For example:
 
 ```commandline
-gradle run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.parquet"
+./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.parquet"
 ```
 
 #### 6. ORC
@@ -586,10 +586,10 @@ To use Amazon S3 as a source of input files, use AWS credentials as instructed b
    Update the `filePattern` and `awsRegion` parameters with appropriate values in the following command.
 
    ```
-   gradle build
+   ./gradlew build
    
    // inspect is default as DLP Method; For deid: --DLPMethod=DEID
-   gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="
+   ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs="
    --region=${REGION}  
    --project=${PROJECT_ID}
    --streaming --enableStreamingEngine 
@@ -617,7 +617,7 @@ The pipeline offers GCS as a sink for the DEID workflow. Currently, it supports 
 Following is the command to deidentify existing CSV files. Update `outputBucket` parameter with the correct GCS path for storing the deidentified files.
 
 ```
-gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
+./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 \
 -Pargs=" --region=${REGION} \
 --project=${PROJECT_ID} \
 --tempLocation=gs://${DATA_STORAGE_BUCKET}/temp \
@@ -681,19 +681,13 @@ This section provides a minimal list of tools and libraries along with their rec
 run this pipeline outside Google Shell.
 
 1. Install Java using [OpenJDK](https://openjdk.org/) (recommended version: 19.0.1 and above).
-1. Gradle - Use the bundled [gradle wrapper to install or update](https://docs.gradle.org/current/userguide/gradle_wrapper.html#sec:upgrading_wrapper) the required Gradle version automatically.
-    1. To update the Gradle version (recommended version: 8.3):
-    ```commandline
-    gradle wrapper --gradle-version <updated_version>
-    ```
-    2. Build with the updated version:
+1. Use Gradle Wrapper to build the project:
     ```commandline
     ./gradlew build
     ```
 1. Set up [Git](https://docs.github.com/en/get-started/quickstart/set-up-git).
 1. Install the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install).
 1. Download [jq](https://jqlang.github.io/jq/download/).
-
 
 
 ## Troubleshooting
