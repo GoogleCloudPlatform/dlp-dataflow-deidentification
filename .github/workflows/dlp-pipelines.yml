@@ -58,6 +58,7 @@ jobs:
 
       - name: Report spotbugs annotations
         uses: jwgmeligmeyling/spotbugs-github-action@master
+        token: ${{ secrets.GITHUB_TOKEN }}
         with:
           path: build/reports/spotbugs/main/spotbugs.xml
 
