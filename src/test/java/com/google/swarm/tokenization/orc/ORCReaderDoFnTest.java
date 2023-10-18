@@ -26,12 +26,12 @@ public class ORCReaderDoFnTest {
     @ClassRule
     public static TemporaryFolder tmpFolder = new TemporaryFolder();
 
-    protected static final String PROJECT_ID = System.getenv("PROJECT_ID");
+    protected static final String PROJECT_ID = "mock-project-id";
 
     @Test
     public void testORCReaderDoFn() throws IOException {
         Integer numRecords = 2;
-        ORCUtil orcUtil = new ORCUtil(numRecords, tmpFolder);
+        ORCTestUtil orcUtil = new ORCTestUtil(numRecords, tmpFolder);
         String testFilePath = orcUtil.generateORCFile();
         List<Table.Row> tableRows = orcUtil.generateTableRows();
 

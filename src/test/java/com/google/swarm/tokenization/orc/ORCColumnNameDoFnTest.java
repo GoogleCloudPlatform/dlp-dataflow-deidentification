@@ -25,13 +25,13 @@ public class ORCColumnNameDoFnTest {
     @ClassRule
     public static TemporaryFolder tmpFolder = new TemporaryFolder();
 
-    protected static final String PROJECT_ID = System.getenv("PROJECT_ID");
+    protected static final String PROJECT_ID = "mock-project-id";
 
     @Test
     public void testORCColumnNameDoFn() throws IOException {
         Integer numRecords = 2;
         List<String> fieldNames = new ArrayList<>();
-        ORCUtil orcUtil = new ORCUtil(numRecords, tmpFolder);
+        ORCTestUtil orcUtil = new ORCTestUtil(numRecords, tmpFolder);
         String testFilePath = orcUtil.generateORCFile();
 
         fieldNames.add("column_name1");
