@@ -5,6 +5,7 @@ on:
     types: [ opened, reopened, synchronize ]
   schedule:
     - cron: '30 9 * * *'
+  workflow_dispatch:
 
 env:
   PROJECT_ID: "dlp-dataflow-deid-ci-392604"
@@ -28,9 +29,37 @@ env:
   NUM_INSPECTION_RECORDS_THRESHOLD: "50"
   PARQUET_INSPECTION_RECORDS_THRESHOLD: "30"
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
+  OUTPUT_GCS_BUCKET: "deidentified_files"
 
 jobs:
+
+  build-and-unit-test:
+    permissions:
+      pull-requests: write
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Run gradle build
+        run: ./gradlew clean build
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   generate-uuid:
+    needs: build-and-unit-test
     runs-on: ubuntu-latest
 
     timeout-minutes: 5
@@ -44,7 +73,9 @@ jobs:
       output6: ${{ steps.gen-uuid.outputs.parquet_inspect_job_name }}
       output7: ${{ steps.gen-uuid.outputs.parquet_deid_job_name }}
       output8: ${{ steps.gen-uuid.outputs.parquet_dataset_id }}
+      output9: ${{ steps.gen-uuid.outputs.output_gcs_bucket }}
       output10: ${{ steps.gen-uuid.outputs.reid_without_query_dataset_id }}
+
 
     steps:
       - name: Generate UUID for workflow
@@ -60,6 +91,7 @@ jobs:
           echo "parquet_inspect_job_name=parquet-inspect-$new_uuid" >> "$GITHUB_OUTPUT"
           echo "parquet_deid_job_name=parquet-deid-$new_uuid" >> "$GITHUB_OUTPUT"
           echo "parquet_dataset_id=${{ env.PARQUET_DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
+          echo "output_gcs_bucket=${{ env.OUTPUT_GCS_BUCKET }}_$modified_uuid" >> "$GITHUB_OUTPUT"
           echo "reid_without_query_dataset_id=${{ env.REID_WITHOUT_QUERY_DATASET_ID}}_$modified_uuid" >> "$GITHUB_OUTPUT"
 
   create-dataset:
@@ -83,6 +115,23 @@ jobs:
           bq --location=US mk -d --description "GitHub CI workflow dataset to store reid results" ${{ env.REID_WITHOUT_QUERY_DATASET_ID }}
 
 
+  create-output-bucket:
+    needs:
+      - generate-uuid
+
+    runs-on:
+      - self-hosted
+
+    timeout-minutes: 5
+
+    steps:
+      - name: Create Output GCS Bucket
+        env:
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          gcloud storage buckets create gs://${{ env.OUTPUT_GCS_BUCKET }} --location=${{env.REGION}}
+
+
   inspection:
     needs:
       - generate-uuid
@@ -97,9 +146,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -109,7 +159,7 @@ jobs:
           INSPECT_JOB_NAME: ${{ needs.generate-uuid.outputs.output2 }}
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --streaming --enableStreamingEngine \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
@@ -181,9 +231,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -193,7 +244,7 @@ jobs:
           PARQUET_INSPECT_JOB_NAME: ${{ needs.generate-uuid.outputs.output6 }}
           PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
@@ -258,9 +309,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -270,7 +322,7 @@ jobs:
           DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output3 }}
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --streaming --enableStreamingEngine \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
@@ -369,9 +421,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -381,7 +434,7 @@ jobs:
           PARQUET_DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output7 }}
           PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
@@ -449,9 +502,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -460,7 +514,7 @@ jobs:
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
           --region=${{env.REGION}} \
           --project=${{env.PROJECT_ID}} \
           --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
@@ -518,6 +572,80 @@ jobs:
           echo "# records in input CSV file are: $rc_orig."
           echo "Verified number of rows in ${{env.INPUT_STREAMING_WRITE_FILE_NAME}}: $row_count."
 
+  de-identification-with-gcs-output:
+    needs:
+      - generate-uuid
+      - create-output-bucket
+
+    runs-on:
+      - self-hosted
+
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Run DLP Pipeline
+        env:
+          DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output3 }}
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --region=${{env.REGION}} \
+                --project=${{env.PROJECT_ID}} \
+                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+                --numWorkers=2 \
+                --maxNumWorkers=3 \
+                --runner=DataflowRunner \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv \
+                --outputBucket=gs://${{env.OUTPUT_GCS_BUCKET}} \
+                --workerMachineType=n1-highmem-4 \
+                --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
+                --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
+                --batchSize=200000 \
+                --DLPMethod=DEID \
+                --jobName=${{env.DEID_JOB_NAME}}-gcs \
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}}"
+
+      - name: Verify output file
+        env:
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          not_verified=true
+          file_count=0
+          while $not_verified; do
+            file_count=$(gcloud storage ls  gs://${{env.OUTPUT_GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}*.csv | wc -l)
+            if [[ "$file_count" == "1" ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+            echo "Got output files in GCS with name ${{env.INPUT_FILE_NAME}}*: $file_count ."
+          done
+          echo "Verified output files in GCS with name ${{env.INPUT_FILE_NAME}}*: $file_count ."
+
+      - name: Verify rows in output file
+        env:
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          output_file_name=$(gcloud storage ls  gs://${{env.OUTPUT_GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}*.csv)
+          rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv | wc -l ) -1))
+          rc_output=$(($(gcloud storage cat $output_file_name | wc -l )))
+          if [[ "$rc_output" == "$rc_orig" ]]; then
+              echo "PASSED";
+          fi
+          echo "Verified number of rows in output file : $output_file_name"
+
+
   re-identification:
     needs:
       - generate-uuid
@@ -533,9 +661,10 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
+          distribution: 'zulu'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
@@ -563,7 +692,7 @@ jobs:
           REID_JOB_NAME: ${{ needs.generate-uuid.outputs.output4 }}
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
-          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --region=${{env.REGION}} \
                 --project=${{env.PROJECT_ID}} \
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
@@ -711,6 +840,7 @@ jobs:
       - de-identification
       - deidentify-parquet-data
       - de-identification-streaming-write
+      - de-identification-with-gcs-output
       - re-identification
       - re-identification-without-query
 
@@ -738,6 +868,11 @@ jobs:
           else
             echo "pub_sub file not present in storage bucket."
           fi
+      - name: Clean up gcs bucket
+        env:
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          gcloud storage rm --recursive gs://${{env.OUTPUT_GCS_BUCKET}}
 
       - name: Cancel Inspection Job
         if: "!cancelled()"
