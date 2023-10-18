@@ -554,7 +554,7 @@ written in a BigQuery dataset as tables or an output Cloud Storage bucket as ORC
 ./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.orc"
 ```
 
-2. To write the de-identified files to Cloud storage bucket:
+2. To write the de-identified files to a Cloud storage bucket:
 
 ```commandline
 ./gradlew run ... -Pargs="... 
