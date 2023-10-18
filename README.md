@@ -527,7 +527,7 @@ The pipeline supports CSV files with a custom delimiter. The delimiter has to be
 
 The inspection and de-identification pipelines support Parquet file format where data can be read from GCS storage 
 bucket and the results of DLP Dataflow pipeline will be written in BigQuery tables. For sample data in Parquet file 
-format, refer [mock-data](.github/mock-data).
+format, refer to [mock-data](.github/mock-data).
 
 No additional changes are required to run the pipeline except updating the `--filePattern` parameter. For example:
 
@@ -538,7 +538,7 @@ No additional changes are required to run the pipeline except updating the `--fi
 #### 6. ORC
 
 ##### Inspection of ORC files
-The inspection pipeline will read ORC files from input GCS storage bucket and the results of will be written in BigQuery
+The inspection pipeline will read ORC files from an input Cloud Storage bucket and the results will be written in BigQuery
 tables.
 
 ```commandline
@@ -546,9 +546,9 @@ tables.
 ```
 
 ##### De-identification
-The de-identification pipeline support ORC file format where data can be read from input GCS storage bucket and the 
-de-identified results can be written in 
-1. output BigQuery dataset as tables, or 
+The de-identification pipeline supports the ORC file format. The data is read from an input Cloud Storage bucket. The 
+de-identified results can be written in a BigQuery dataset as tables or an output Cloud Storage bucket as ORC files. 
+1. To write the de-identified files to BigQuery tables: 
 
 ```commandline
 ./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.orc"
@@ -562,13 +562,13 @@ de-identified results can be written in
 --outputBucket=<output_storage_bucket> ..."
 ```
 
-In the above command, replace <i>output_storage_bucket</i> with the GCS storage bucket URI where you want to store the 
+In the above command, replace <i>output_storage_bucket</i> with the URI of the Cloud Storage bucket where you want to store the 
 de-identified ORC files.
 
-Input files with varying schema is supported by the de-identification pipeline. Currently, it can process only Primitive
-data types available in ORC format when the results are stored in output GCS storage bucket.
+The de-identification pipeline supports input files with varying schemas. Currently, it can process only primitive
+data types available in ORC format when the results are stored in an output Cloud Storage bucket.
 
-For sample data in ORC file format, refer [mock-data](.github/mock-data).
+For sample data in ORC file format, refer to [mock-data](.github/mock-data).
 
 ### Amazon S3 Scanner
 
