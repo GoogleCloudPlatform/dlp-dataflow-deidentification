@@ -546,15 +546,15 @@ tables.
 ```
 
 ##### De-identification
-The de-identification pipeline supports the ORC file format. The data is read from an input Cloud Storage bucket. The 
-de-identified results can be written in a BigQuery dataset as tables or an output Cloud Storage bucket as ORC files. 
+The de-identification pipeline will read the data from an input Cloud Storage bucket. The de-identified results can be 
+written in a BigQuery dataset as tables or an output Cloud Storage bucket as ORC files. 
 1. To write the de-identified files to BigQuery tables: 
 
 ```commandline
 ./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.orc"
 ```
 
-2. output GCS storage bucket as de-identified ORC files.
+2. To write the de-identified files to Cloud storage bucket:
 
 ```commandline
 ./gradlew run ... -Pargs="... 
