@@ -28,6 +28,7 @@ env:
   NUM_INSPECTION_RECORDS_THRESHOLD: "50"
   PARQUET_INSPECTION_RECORDS_THRESHOLD: "30"
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
+  OUTPUT_GCS_BUCKET: "deidentified_files"
 
 jobs:
 
@@ -71,6 +72,7 @@ jobs:
       output6: ${{ steps.gen-uuid.outputs.parquet_inspect_job_name }}
       output7: ${{ steps.gen-uuid.outputs.parquet_deid_job_name }}
       output8: ${{ steps.gen-uuid.outputs.parquet_dataset_id }}
+      output9: ${{ steps.gen-uuid.outputs.output_gcs_bucket }}
 
     steps:
       - name: Generate UUID for workflow
@@ -86,6 +88,7 @@ jobs:
           echo "parquet_inspect_job_name=parquet-inspect-$new_uuid" >> "$GITHUB_OUTPUT"
           echo "parquet_deid_job_name=parquet-deid-$new_uuid" >> "$GITHUB_OUTPUT"
           echo "parquet_dataset_id=${{ env.PARQUET_DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
+          echo "output_gcs_bucket=${{ env.OUTPUT_GCS_BUCKET }}_$modified_uuid" >> "$GITHUB_OUTPUT"
 
   create-dataset:
     needs:
@@ -104,6 +107,23 @@ jobs:
         run: |
           bq --location=US mk -d --description "GitHub CI workflow dataset" ${{ env.DATASET_ID }}
           bq --location=US mk -d --description "GitHub CI workflow dataset to store parquet results" ${{ env.PARQUET_DATASET_ID }}
+
+  create-output-bucket:
+    needs:
+      - generate-uuid
+
+    runs-on:
+      - self-hosted
+
+    timeout-minutes: 5
+
+    steps:
+      - name: Create Output GCS Bucket
+        env:
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          gcloud storage buckets create gs://${{ env.OUTPUT_GCS_BUCKET }} --location=${{env.REGION}}
+
 
   inspection:
     needs:
@@ -545,6 +565,80 @@ jobs:
           echo "# records in input CSV file are: $rc_orig."
           echo "Verified number of rows in ${{env.INPUT_STREAMING_WRITE_FILE_NAME}}: $row_count."
 
+  de-identification-with-gcs-output:
+    needs:
+      - generate-uuid
+      - create-output-bucket
+
+    runs-on:
+      - self-hosted
+
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Run DLP Pipeline
+        env:
+          DEID_JOB_NAME: ${{ needs.generate-uuid.outputs.output3 }}
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --region=${{env.REGION}} \
+                --project=${{env.PROJECT_ID}} \
+                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+                --numWorkers=2 \
+                --maxNumWorkers=3 \
+                --runner=DataflowRunner \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv \
+                --outputBucket=gs://${{env.OUTPUT_GCS_BUCKET}} \
+                --workerMachineType=n1-highmem-4 \
+                --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
+                --deidentifyTemplateName=${{env.DEID_TEMPLATE_PATH}} \
+                --batchSize=200000 \
+                --DLPMethod=DEID \
+                --jobName=${{env.DEID_JOB_NAME}}-gcs \
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}}"
+
+      - name: Verify output file
+        env:
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          not_verified=true
+          file_count=0
+          while $not_verified; do
+            file_count=$(gcloud storage ls  gs://${{env.OUTPUT_GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}*.csv | wc -l)
+            if [[ "$file_count" == "1" ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+            echo "Got output files in GCS with name ${{env.INPUT_FILE_NAME}}*: $file_count ."
+          done
+          echo "Verified output files in GCS with name ${{env.INPUT_FILE_NAME}}*: $file_count ."
+
+      - name: Verify rows in output file
+        env:
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          output_file_name=$(gcloud storage ls  gs://${{env.OUTPUT_GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}*.csv)
+          rc_orig=$(($(gcloud storage cat gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}.csv | wc -l ) -1))
+          rc_output=$(($(gcloud storage cat $output_file_name | wc -l )))
+          if [[ "$rc_output" == "$rc_orig" ]]; then
+              echo "PASSED";
+          fi
+          echo "Verified number of rows in output file : $output_file_name"
+
+
   re-identification:
     needs:
       - generate-uuid
@@ -656,6 +750,7 @@ jobs:
       - de-identification
       - deidentify-parquet-data
       - de-identification-streaming-write
+      - de-identification-with-gcs-output
       - re-identification
 
     runs-on:
@@ -680,6 +775,11 @@ jobs:
           else
             echo "pub_sub file not present in storage bucket."
           fi
+      - name: Clean up gcs bucket
+        env:
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          gcloud storage rm --recursive gs://${{env.OUTPUT_GCS_BUCKET}}
 
       - name: Cancel Inspection Job
         if: "!cancelled()"
