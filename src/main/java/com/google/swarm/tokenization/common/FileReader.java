@@ -154,6 +154,7 @@ public class FileReader {
     elementIsPresent = true;
     buffer = buffer.substring(endOfDelimiterInBuffer);
   }
+
   /** Returns false if we were unable to ensure the minimum capacity by consuming the channel. */
   private boolean tryToEnsureNumberOfBytesInBuffer(int minCapacity) throws IOException {
     // While we aren't at EOF or haven't fulfilled the minimum buffer capacity,

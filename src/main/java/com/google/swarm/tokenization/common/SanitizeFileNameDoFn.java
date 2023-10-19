@@ -17,9 +17,6 @@ package com.google.swarm.tokenization.common;
 
 import com.google.common.io.Files;
 import com.google.swarm.tokenization.common.Util.InputLocation;
-import java.util.Arrays;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
@@ -41,7 +38,6 @@ public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, Readable
   public SanitizeFileNameDoFn(InputLocation inputType) {
     this.inputProviderType = inputType;
   }
-
 
   public static String sanitizeFileName(String file) {
     String extension = Files.getFileExtension(file);
@@ -83,7 +79,6 @@ public class SanitizeFileNameDoFn extends DoFn<ReadableFile, KV<String, Readable
      */
     if (this.inputProviderType == InputLocation.GCS)
       c.outputWithTimestamp(KV.of(fileName, file), Instant.ofEpochMilli(Instant.now().getMillis()));
-    else
-      c.outputWithTimestamp(KV.of(fileName, file), Instant.ofEpochMilli(lastModified));
+    else c.outputWithTimestamp(KV.of(fileName, file), Instant.ofEpochMilli(lastModified));
   }
 }
