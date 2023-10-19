@@ -88,8 +88,7 @@ public class ORCWriterDoFn extends DoFn<KV<String, Iterable<Table.Row>>, String>
                 case MAP:
                 case UNION:
                 case STRUCT:
-                    throw new IllegalArgumentException("Compound ORC data types are not supported to write output in " +
-                            "Cloud Storage buckets.");
+                    throw new IllegalArgumentException("Compound ORC data types are not supported to write output in Cloud Storage buckets.");
                 default:
                     throw new IllegalArgumentException("Incorrect ColumnVector.type found while type casting ColumnVectors.");
             }

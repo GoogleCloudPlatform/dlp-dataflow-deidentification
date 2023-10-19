@@ -61,8 +61,7 @@ public abstract class ExtractColumnNamesTransform
     public abstract ExtractColumnNamesTransform.Builder setColumnDelimiter(
         Character columnDelimiter);
 
-    public abstract ExtractColumnNamesTransform.Builder setPubSubGcs(
-        Boolean pubSubGcs);
+    public abstract ExtractColumnNamesTransform.Builder setPubSubGcs(Boolean pubSubGcs);
 
     public abstract ExtractColumnNamesTransform.Builder setProjectId(String projectId);
 
@@ -110,9 +109,10 @@ public abstract class ExtractColumnNamesTransform
         throw new IllegalStateException("Unexpected value: " + fileType());
     }
     if (!pubSubGcs()) {
-        return readHeader.apply("ViewAsList", View.asMap());
+      return readHeader.apply("ViewAsList", View.asMap());
     }
-    return readHeader.apply(Combine.<String, List<String>, List<String>>perKey(new ResolveDuplicatesCombineFn()))
-                     .apply("ViewAsList", View.asMap());
+    return readHeader
+        .apply(Combine.<String, List<String>, List<String>>perKey(new ResolveDuplicatesCombineFn()))
+        .apply("ViewAsList", View.asMap());
   }
 }

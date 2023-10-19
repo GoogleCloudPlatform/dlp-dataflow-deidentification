@@ -29,13 +29,13 @@ import com.google.swarm.tokenization.common.CSVFileReaderSplitDoFn;
 import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.ExtractColumnNamesTransform;
 import com.google.swarm.tokenization.common.FilePollingTransform;
-import com.google.swarm.tokenization.common.ReadExistingFilesTransform;
-import com.google.swarm.tokenization.common.ReadNewFilesPubSubTransform;
 import com.google.swarm.tokenization.common.MergeBigQueryRowToDlpRow;
 import com.google.swarm.tokenization.common.PubSubMessageConverts;
+import com.google.swarm.tokenization.common.ReadExistingFilesTransform;
+import com.google.swarm.tokenization.common.ReadNewFilesPubSubTransform;
 import com.google.swarm.tokenization.common.Util;
-import com.google.swarm.tokenization.common.WriteToGCS;
 import com.google.swarm.tokenization.common.Util.InputLocation;
+import com.google.swarm.tokenization.common.WriteToGCS;
 import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
 import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
 import com.google.swarm.tokenization.orc.ExtractFileSchemaTransform;
@@ -45,15 +45,12 @@ import com.google.swarm.tokenization.parquet.ParquetReaderSplittableDoFn;
 import com.google.swarm.tokenization.txt.ConvertTxtToDLPRow;
 import com.google.swarm.tokenization.txt.ParseTextLogDoFn;
 import com.google.swarm.tokenization.txt.TxtReaderSplitDoFn;
-
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
-import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -66,7 +63,6 @@ import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.TupleTagList;
-import org.apache.orc.Reader;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,8 +72,10 @@ public class DLPTextToBigQueryStreamingV2 {
   public static final Logger LOG = LoggerFactory.getLogger(DLPTextToBigQueryStreamingV2.class);
   private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(3);
   private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(3);
+
   /** PubSub configuration for default batch size in number of messages */
   public static final Integer PUB_SUB_BATCH_SIZE = 1000;
+
   /** PubSub configuration for default batch size in bytes */
   public static final Integer PUB_SUB_BATCH_SIZE_BYTES = 10000;
 
@@ -115,29 +113,44 @@ public class DLPTextToBigQueryStreamingV2 {
     PCollection<KV<String, ReadableFile>> inputFiles;
     boolean usePubSub = options.getGcsNotificationTopic() != null;
 
-    if (options.getInputProviderType() == InputLocation.GCS && !usePubSub && !options.getProcessExistingFiles())
-        throw new IllegalArgumentException("Either --processExistingFiles should be set to true or --gcsNotificationTopic should be provided");
+    if (options.getInputProviderType() == InputLocation.GCS
+        && !usePubSub
+        && !options.getProcessExistingFiles())
+      throw new IllegalArgumentException(
+          "Either --processExistingFiles should be set to true or --gcsNotificationTopic should be provided");
 
-    if(options.getDataset()!= null && options.getOutputBucket()!=null)
-        throw new IllegalArgumentException("Please provide either BQ Dataset or GCS output bucket");
+    if (options.getDataset() != null && options.getOutputBucket() != null)
+      throw new IllegalArgumentException("Please provide either BQ Dataset or GCS output bucket");
 
     if (options.getInputProviderType() == InputLocation.GCS) {
-        PCollection<KV<String, ReadableFile>> newFiles = p.apply("Read New Files", ReadNewFilesPubSubTransform.newBuilder()
-                                                          .setFilePattern(options.getFilePattern())
-                                                          .setUsePubSub(usePubSub)
-                                                          .setPubSubTopic(options.getGcsNotificationTopic())
-                                                          .build());
+      PCollection<KV<String, ReadableFile>> newFiles =
+          p.apply(
+              "Read New Files",
+              ReadNewFilesPubSubTransform.newBuilder()
+                  .setFilePattern(options.getFilePattern())
+                  .setUsePubSub(usePubSub)
+                  .setPubSubTopic(options.getGcsNotificationTopic())
+                  .build());
 
-        PCollection<KV<String, ReadableFile>> existingFiles = p.apply("Read Existing Files", ReadExistingFilesTransform.newBuilder()
-                                                               .setFilePattern(options.getFilePattern())
-                                                               .setProcessExistingFiles(options.getProcessExistingFiles())
-                                                               .build());
+      PCollection<KV<String, ReadableFile>> existingFiles =
+          p.apply(
+              "Read Existing Files",
+              ReadExistingFilesTransform.newBuilder()
+                  .setFilePattern(options.getFilePattern())
+                  .setProcessExistingFiles(options.getProcessExistingFiles())
+                  .build());
 
-        inputFiles = PCollectionList.of(newFiles).and(existingFiles)
-                        .apply(Flatten.<KV<String, ReadableFile>>pCollections());
+      inputFiles =
+          PCollectionList.of(newFiles)
+              .and(existingFiles)
+              .apply(Flatten.<KV<String, ReadableFile>>pCollections());
     } else {
-        inputFiles = p.apply(FilePollingTransform.newBuilder().setFilePattern(options.getFilePattern())
-                            .setInterval(DEFAULT_POLL_INTERVAL).build());
+      inputFiles =
+          p.apply(
+              FilePollingTransform.newBuilder()
+                  .setFilePattern(options.getFilePattern())
+                  .setInterval(DEFAULT_POLL_INTERVAL)
+                  .build());
     }
 
     inputFiles = inputFiles.apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
@@ -220,22 +233,26 @@ public class DLPTextToBigQueryStreamingV2 {
                         .withSideInputs(headers));
         break;
       case PARQUET:
-//      TODO: Remove KeyRange parameter, as it is unused
-        records = inputFiles
-                .apply(ParDo.of(new ParquetReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())));
+        //      TODO: Remove KeyRange parameter, as it is unused
+        records =
+            inputFiles.apply(
+                ParDo.of(
+                    new ParquetReaderSplittableDoFn(
+                        options.getKeyRange(), options.getSplitSize())));
         break;
 
       case ORC:
-        records = inputFiles
-                .apply("ReadFromORCFilesAsOrcStruct",
-                        ParDo.of(new ORCReaderDoFn(options.getProject())));
+        records =
+            inputFiles.apply(
+                "ReadFromORCFilesAsOrcStruct", ParDo.of(new ORCReaderDoFn(options.getProject())));
         break;
 
       default:
         throw new IllegalArgumentException("Please validate FileType parameter");
     }
 
-    PCollectionTuple inspectDeidRecords = records.apply(
+    PCollectionTuple inspectDeidRecords =
+        records.apply(
             "DLPTransform",
             DLPTransform.newBuilder()
                 .setBatchSize(options.getBatchSize())
@@ -251,44 +268,44 @@ public class DLPTextToBigQueryStreamingV2 {
                 .setDataSinkType(options.getDataSinkType())
                 .build());
 
-    if(options.getDataSinkType() == Util.DataSinkType.GCS) {
+    if (options.getDataSinkType() == Util.DataSinkType.GCS) {
       if (options.getFileType() == Util.FileType.ORC) {
         final PCollectionView<Map<String, String>> schemaMapping =
-                inputFiles.apply(
-                        "Extract Input File Schema",
-                        ExtractFileSchemaTransform.newBuilder()
-                                .setFileType(options.getFileType())
-                                .setProjectId(options.getProject())
-                                .build());
+            inputFiles.apply(
+                "Extract Input File Schema",
+                ExtractFileSchemaTransform.newBuilder()
+                    .setFileType(options.getFileType())
+                    .setProjectId(options.getProject())
+                    .build());
 
         inspectDeidRecords
-                .get(Util.deidSuccessGCS)
-                .apply(GroupByKey.create())
-                .apply("WriteORCToGCS",
-                        ParDo.of(
-                                new ORCWriterDoFn(options.getOutputBucket(), schemaMapping))
-                                .withSideInputs(schemaMapping))
-                .setCoder(StringUtf8Coder.of());
-      }
-      else {
+            .get(Util.deidSuccessGCS)
+            .apply(GroupByKey.create())
+            .apply(
+                "WriteORCToGCS",
+                ParDo.of(new ORCWriterDoFn(options.getOutputBucket(), schemaMapping))
+                    .withSideInputs(schemaMapping))
+            .setCoder(StringUtf8Coder.of());
+      } else {
         inspectDeidRecords
-                .get(Util.deidSuccessGCS)
-                .apply("WriteToGCS",
-                    WriteToGCS.newBuilder()
-                            .setOutputBucket(options.getOutputBucket())
-                            .setFileType(options.getFileType())
-                            .setColumnDelimiter(options.getColumnDelimiter())
-                            .build());
+            .get(Util.deidSuccessGCS)
+            .apply(
+                "WriteToGCS",
+                WriteToGCS.newBuilder()
+                    .setOutputBucket(options.getOutputBucket())
+                    .setFileType(options.getFileType())
+                    .setColumnDelimiter(options.getColumnDelimiter())
+                    .build());
       }
-    }
-    else if(options.getDataSinkType() == Util.DataSinkType.BigQuery) {
-      inspectDeidRecords.get(Util.inspectOrDeidSuccess)
-              .apply(
-                      "InsertToBQ",
-                      BigQueryDynamicWriteTransform.newBuilder()
-                              .setDatasetId(options.getDataset())
-                              .setProjectId(options.getProject())
-                              .build());
+    } else if (options.getDataSinkType() == Util.DataSinkType.BigQuery) {
+      inspectDeidRecords
+          .get(Util.inspectOrDeidSuccess)
+          .apply(
+              "InsertToBQ",
+              BigQueryDynamicWriteTransform.newBuilder()
+                  .setDatasetId(options.getDataset())
+                  .setProjectId(options.getProject())
+                  .build());
     }
   }
 
