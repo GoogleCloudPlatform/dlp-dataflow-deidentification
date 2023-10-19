@@ -37,7 +37,7 @@ public class ORCReaderDoFnTest {
 
   @ClassRule public static TemporaryFolder tmpFolder = new TemporaryFolder();
 
-  protected static final String PROJECT_ID = "mock-project-id";
+  protected static final String project_id = "mock-project-id";
 
   @Test
   public void testORCReaderDoFn() throws IOException {
@@ -51,7 +51,7 @@ public class ORCReaderDoFnTest {
             .apply(FileIO.match().filepattern(testFilePath))
             .apply(FileIO.readMatches().withCompression(Compression.AUTO))
             .apply(WithKeys.of("some_key"))
-            .apply(ParDo.of(new ORCReaderDoFn(PROJECT_ID)))
+            .apply(ParDo.of(new ORCReaderDoFn(project_id)))
             .apply(Values.create());
 
     PAssert.that(results).containsInAnyOrder(tableRows);
