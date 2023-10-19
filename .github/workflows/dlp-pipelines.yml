@@ -834,14 +834,14 @@ jobs:
     if: "!cancelled()"
     needs:
       - generate-uuid
-      - inspection
-      - inspect-parquet-data
+#      - inspection
+#      - inspect-parquet-data
       - inspect-orc-data
-      - de-identification
-      - deidentify-parquet-data
-      - de-identification-streaming-write
-      - de-identification-with-gcs-output
-      - re-identification
+#      - de-identification
+#      - deidentify-parquet-data
+#      - de-identification-streaming-write
+#      - de-identification-with-gcs-output
+#      - re-identification
 
     runs-on:
       - self-hosted
