@@ -11,6 +11,7 @@ env:
   PROJECT_ID: "dlp-dataflow-deid-ci-392604"
   DATASET_ID: "demo_dataset"
   PARQUET_DATASET_ID: "parquet_results"
+  ORC_DATASET_ID: "orc_results"
   REGION: "us-central1"
   GCS_BUCKET: "dlp-dataflow-deid-ci-392604-demo-data"
   GCS_NOTIFICATION_TOPIC: "projects/dlp-dataflow-deid-ci-392604/topics/dlp-dataflow-deid-ci-gcs-notification-topic"
@@ -18,6 +19,7 @@ env:
   INPUT_FILE_NAME: "tiny_csv"
   INPUT_STREAMING_WRITE_FILE_NAME: "streaming_write"
   INPUT_PARQUET_FILE_NAME: "tiny_parquet"
+  INPUT_ORC_FILE_NAME: "tiny_orc"
   INSPECT_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
   DEID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
   PARQUET_DEID_TEMPLATE_PATH: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/parquet-dlp-demo-deid-latest-1689137435622"
@@ -27,6 +29,7 @@ env:
   INSPECTION_TABLE_ID: "dlp_inspection_result"
   NUM_INSPECTION_RECORDS_THRESHOLD: "50"
   PARQUET_INSPECTION_RECORDS_THRESHOLD: "30"
+  ORC_INSPECTION_RECORDS_THRESHOLD: "30"
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
   OUTPUT_GCS_BUCKET: "deidentified_files"
 
@@ -73,6 +76,9 @@ jobs:
       output7: ${{ steps.gen-uuid.outputs.parquet_deid_job_name }}
       output8: ${{ steps.gen-uuid.outputs.parquet_dataset_id }}
       output9: ${{ steps.gen-uuid.outputs.output_gcs_bucket }}
+      output10: ${{ steps.gen-uuid.outputs.orc_inspect_job_name }}
+      output11: ${{ steps.gen-uuid.outputs.orc_deid_job_name }}
+      output12: ${{ steps.gen-uuid.outputs.orc_dataset_id }}
 
     steps:
       - name: Generate UUID for workflow
@@ -89,6 +95,9 @@ jobs:
           echo "parquet_deid_job_name=parquet-deid-$new_uuid" >> "$GITHUB_OUTPUT"
           echo "parquet_dataset_id=${{ env.PARQUET_DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
           echo "output_gcs_bucket=${{ env.OUTPUT_GCS_BUCKET }}_$modified_uuid" >> "$GITHUB_OUTPUT"
+          echo "orc_inspect_job_name=orc-inspect-$new_uuid" >> "$GITHUB_OUTPUT"
+          echo "orc_deid_job_name=orc-deid-$new_uuid" >> "$GITHUB_OUTPUT"
+          echo "orc_dataset_id=${{ env.ORC_DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
 
   create-dataset:
     needs:
@@ -104,9 +113,11 @@ jobs:
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
           PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
+          ORC_DATASET_ID: ${{ needs.generate-uuid.outputs.output12 }}
         run: |
           bq --location=US mk -d --description "GitHub CI workflow dataset" ${{ env.DATASET_ID }}
           bq --location=US mk -d --description "GitHub CI workflow dataset to store parquet results" ${{ env.PARQUET_DATASET_ID }}
+          bq --location=US mk -d --description "GitHub CI workflow dataset to store orc results" ${{ env.ORC_DATASET_ID }}
 
   create-output-bucket:
     needs:
@@ -279,6 +290,85 @@ jobs:
             row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(*) FROM `${{env.PROJECT_ID}}.${{env.PARQUET_DATASET_ID}}.${{env.INSPECTION_TABLE_ID}}`')
             row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
             if [[ "$row_count" == ${{env.PARQUET_INSPECTION_RECORDS_THRESHOLD}} ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+            echo "Got number of rows in ${{env.INSPECTION_TABLE_ID}}: $row_count."
+          done
+          echo "Verified number of rows in ${{env.INSPECTION_TABLE_ID}}: $row_count."
+
+#  Inspect only existing orc files
+  inspect-orc-data:
+    needs:
+      - generate-uuid
+      - create-dataset
+
+    runs-on:
+      - self-hosted
+
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Run DLP Pipeline
+        env:
+          ORC_INSPECT_JOB_NAME: ${{ needs.generate-uuid.outputs.output10 }}
+          ORC_DATASET_ID: ${{ needs.generate-uuid.outputs.output11 }}
+        run: |
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --region=${{env.REGION}} \
+                --project=${{env.PROJECT_ID}} \
+                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+                --numWorkers=1 --maxNumWorkers=2 \
+                --runner=DataflowRunner \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_ORC_FILE_NAME}}*.orc \
+                --dataset=${{env.ORC_DATASET_ID}}   \
+                --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
+                --batchSize=200000 \
+                --DLPMethod=INSPECT \
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
+                --jobName=${{env.ORC_INSPECT_JOB_NAME}}"
+
+      - name: Verify BQ table
+        env:
+          ORC_DATASET_ID: ${{ needs.generate-uuid.outputs.output11 }}
+        run: |
+          not_verified=true
+          table_count=0
+          while $not_verified; do
+            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.ORC_DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.INSPECTION_TABLE_ID}}"'  | wc -l ) -1))
+            if [[ "$table_count" == "1" ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+            echo "Got number of tables in ORC BQ dataset with id ${{env.INSPECTION_TABLE_ID}}: $table_count ."
+          done
+          echo "Verified number of tables in ORC BQ dataset with id ${{env.INSPECTION_TABLE_ID}}: $table_count ."
+
+      - name: Verify distinct rows
+        env:
+          ORC_DATASET_ID: ${{ needs.generate-uuid.outputs.output11 }}
+        run: |
+          not_verified=true
+          row_count=0
+          while $not_verified; do
+            row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(*) FROM `${{env.PROJECT_ID}}.${{env.ORC_DATASET_ID}}.${{env.INSPECTION_TABLE_ID}}`')
+            row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
+            if [[ "$row_count" == ${{env.ORC_INSPECTION_RECORDS_THRESHOLD}} ]]; then
               echo "PASSED";
               not_verified=false;
             else
@@ -747,6 +837,7 @@ jobs:
       - generate-uuid
       - inspection
       - inspect-parquet-data
+      - inspect-orc-data
       - de-identification
       - deidentify-parquet-data
       - de-identification-streaming-write
@@ -764,10 +855,11 @@ jobs:
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
           PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
+          ORC_DATASET_ID: ${{ needs.generate-uuid.outputs.output12 }}
         run: |
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.PARQUET_DATASET_ID}}
-
+          bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.ORC_DATASET_ID}}
       - name: Clean up pub_sub file
         run: |
           if ($(gsutil rm -f gs://${{env.GCS_BUCKET}}/${{env.INPUT_FILE_NAME}}_pub_sub.csv)); then
@@ -780,7 +872,6 @@ jobs:
           OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
         run: |
           gcloud storage rm --recursive gs://${{env.OUTPUT_GCS_BUCKET}}
-
       - name: Cancel Inspection Job
         if: "!cancelled()"
         env:
@@ -793,7 +884,6 @@ jobs:
           else
             gcloud dataflow jobs cancel $inspect_job_id --project ${{env.PROJECT_ID}}
           fi
-
       - name: Cancel De-identification Job
         if: "!cancelled()"
         env:
