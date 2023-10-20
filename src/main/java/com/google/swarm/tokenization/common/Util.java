@@ -442,6 +442,10 @@ public class Util {
   }
 
   public static String getQueryFromGcs(String gcsPath) {
+    if(gcsPath == null){
+      LOG.debug("Query path not provided, entire table will be read");
+      return null;
+    }
     GcsPath path = GcsPath.fromUri(URI.create(gcsPath));
     Storage storage = StorageOptions.getDefaultInstance().getService();
     BlobId blobId = BlobId.of(path.getBucket(), path.getObject());

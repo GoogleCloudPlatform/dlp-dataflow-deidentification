@@ -11,6 +11,7 @@ env:
   PROJECT_ID: "dlp-dataflow-deid-ci-392604"
   DATASET_ID: "demo_dataset"
   PARQUET_DATASET_ID: "parquet_results"
+  REID_WITHOUT_QUERY_DATASET_ID: "reid_without_query_results"
   REGION: "us-central1"
   GCS_BUCKET: "dlp-dataflow-deid-ci-392604-demo-data"
   GCS_NOTIFICATION_TOPIC: "projects/dlp-dataflow-deid-ci-392604/topics/dlp-dataflow-deid-ci-gcs-notification-topic"
@@ -73,6 +74,8 @@ jobs:
       output7: ${{ steps.gen-uuid.outputs.parquet_deid_job_name }}
       output8: ${{ steps.gen-uuid.outputs.parquet_dataset_id }}
       output9: ${{ steps.gen-uuid.outputs.output_gcs_bucket }}
+      output10: ${{ steps.gen-uuid.outputs.reid_without_query_dataset_id }}
+
 
     steps:
       - name: Generate UUID for workflow
@@ -89,6 +92,7 @@ jobs:
           echo "parquet_deid_job_name=parquet-deid-$new_uuid" >> "$GITHUB_OUTPUT"
           echo "parquet_dataset_id=${{ env.PARQUET_DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
           echo "output_gcs_bucket=${{ env.OUTPUT_GCS_BUCKET }}_$modified_uuid" >> "$GITHUB_OUTPUT"
+          echo "reid_without_query_dataset_id=${{ env.REID_WITHOUT_QUERY_DATASET_ID}}_$modified_uuid" >> "$GITHUB_OUTPUT"
 
   create-dataset:
     needs:
@@ -104,9 +108,12 @@ jobs:
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
           PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
+          REID_WITHOUT_QUERY_DATASET_ID: ${{ needs.generate-uuid.outputs.output10 }}
         run: |
           bq --location=US mk -d --description "GitHub CI workflow dataset" ${{ env.DATASET_ID }}
           bq --location=US mk -d --description "GitHub CI workflow dataset to store parquet results" ${{ env.PARQUET_DATASET_ID }}
+          bq --location=US mk -d --description "GitHub CI workflow dataset to store reid results" ${{ env.REID_WITHOUT_QUERY_DATASET_ID }}
+
 
   create-output-bucket:
     needs:
@@ -741,6 +748,89 @@ jobs:
           echo "# records in input query are: $rc_orig."
           echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}_re_id: $row_count."
 
+  re-identification-without-query:
+    needs:
+      - generate-uuid
+      - create-dataset
+      - de-identification
+
+    runs-on:
+      - self-hosted
+
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Run DLP Pipeline
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
+          REID_WITHOUT_QUERY_DATASET_ID: ${{ needs.generate-uuid.outputs.output10 }}
+        run: |
+          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --region=${{env.REGION}} \
+                --project=${{env.PROJECT_ID}} \
+                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+                --numWorkers=1 \
+                --maxNumWorkers=2 \
+                --runner=DataflowRunner \
+                --tableRef=${{env.PROJECT_ID}}:${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}} \
+                --dataset=${{env.REID_WITHOUT_QUERY_DATASET_ID}} \
+                --autoscalingAlgorithm=THROUGHPUT_BASED \
+                --workerMachineType=n1-highmem-4 \
+                --deidentifyTemplateName=${{env.REID_TEMPLATE_PATH}} \
+                --DLPMethod=REID \
+                --keyRange=1024 \
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}}"
+
+      - name: Verify BQ table
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
+          REID_WITHOUT_QUERY_DATASET_ID: ${{ needs.generate-uuid.outputs.output10 }}
+        run: |
+          not_verified=true
+          table_count=0
+          while $not_verified; do
+            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.REID_WITHOUT_QUERY_DATASET_ID}}`.__TABLES__ WHERE table_id="${{env.INPUT_FILE_NAME}}_re_id"'  | wc -l ) -1))
+            if [[ "$table_count" == "1" ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+          done
+          echo "Verified number of tables in BQ with id ${{env.INPUT_FILE_NAME}}_re_id: $table_count ."
+
+      - name: Verify distinct rows
+        env:
+          DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
+          REID_WITHOUT_QUERY_DATASET_ID: ${{ needs.generate-uuid.outputs.output10 }}
+        run: |
+          rc_orig_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(ID) FROM `${{env.PROJECT_ID}}.${{env.DATASET_ID}}.${{env.INPUT_FILE_NAME}}`')
+          rc_orig=$(echo "$rc_orig_json" | jq -r '.[].f0_')
+          not_verified=true
+          row_count=0
+          while $not_verified; do
+            row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(ID) FROM `${{env.PROJECT_ID}}.${{env.REID_WITHOUT_QUERY_DATASET_ID}}.${{env.INPUT_FILE_NAME}}_re_id`')
+            row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
+            if [[ "$row_count" == "$rc_orig" ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+          done
+          echo "# records in input query are: $rc_orig."
+          echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}_re_id: $row_count."
+
   clean-up:
     if: "!cancelled()"
     needs:
@@ -752,6 +842,7 @@ jobs:
       - de-identification-streaming-write
       - de-identification-with-gcs-output
       - re-identification
+      - re-identification-without-query
 
     runs-on:
       - self-hosted
@@ -764,9 +855,11 @@ jobs:
         env:
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
           PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
+          REID_WITHOUT_QUERY_DATASET_ID: ${{ needs.generate-uuid.outputs.output10 }}
         run: |
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.DATASET_ID}}
           bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.PARQUET_DATASET_ID}}
+          bq rm -r -f -d ${{env.PROJECT_ID}}:${{env.REID_WITHOUT_QUERY_DATASET_ID}}
 
       - name: Clean up pub_sub file
         run: |
