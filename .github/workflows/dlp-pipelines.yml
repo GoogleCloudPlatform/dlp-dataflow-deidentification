@@ -29,9 +29,10 @@ env:
   INSPECTION_TABLE_ID: "dlp_inspection_result"
   NUM_INSPECTION_RECORDS_THRESHOLD: "50"
   PARQUET_INSPECTION_RECORDS_THRESHOLD: "30"
-  ORC_INSPECTION_RECORDS_THRESHOLD: "30"
+  ORC_INSPECTION_RECORDS_THRESHOLD: "60"
   REIDENTIFICATION_QUERY_FILE: "reid_query.sql"
   OUTPUT_GCS_BUCKET: "deidentified_files"
+  ORC_DEID_RECORDS_COUNT: "20"
 
 jobs:
 
@@ -77,8 +78,9 @@ jobs:
       output8: ${{ steps.gen-uuid.outputs.parquet_dataset_id }}
       output9: ${{ steps.gen-uuid.outputs.output_gcs_bucket }}
       output10: ${{ steps.gen-uuid.outputs.orc_inspect_job_name }}
-      output11: ${{ steps.gen-uuid.outputs.orc_deid_job_name }}
+      output11: ${{ steps.gen-uuid.outputs.orc_deid_bq_job_name }}
       output12: ${{ steps.gen-uuid.outputs.orc_dataset_id }}
+      output13: ${{ steps.gen-uuid.outputs.orc_deid_gcs_job_name }}
 
     steps:
       - name: Generate UUID for workflow
@@ -96,8 +98,9 @@ jobs:
           echo "parquet_dataset_id=${{ env.PARQUET_DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
           echo "output_gcs_bucket=${{ env.OUTPUT_GCS_BUCKET }}_$modified_uuid" >> "$GITHUB_OUTPUT"
           echo "orc_inspect_job_name=orc-inspect-$new_uuid" >> "$GITHUB_OUTPUT"
-          echo "orc_deid_job_name=orc-deid-$new_uuid" >> "$GITHUB_OUTPUT"
+          echo "orc_deid_bq_job_name=orc-deid-bq-$new_uuid" >> "$GITHUB_OUTPUT"
           echo "orc_dataset_id=${{ env.ORC_DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
+          echo "orc_deid_gcs_job_name=orc-deid-gcs-$new_uuid" >> "$GITHUB_OUTPUT"
 
   create-dataset:
     needs:
@@ -333,7 +336,7 @@ jobs:
                 --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
                 --numWorkers=1 --maxNumWorkers=2 \
                 --runner=DataflowRunner \
-                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_ORC_FILE_NAME}}*.orc \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_ORC_FILE_NAME}}.orc \
                 --dataset=${{env.ORC_DATASET_ID}}   \
                 --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
                 --batchSize=200000 \
@@ -488,7 +491,150 @@ jobs:
 #          done
 #          echo "# records in input CSV file are: $rc_orig."
 #          echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}_pub_sub: $row_count."
-#
+
+#  Deidentify only existing orc files and store results in BigQuery dataset
+  deidentify-orc-data-bq:
+    needs:
+      - generate-uuid
+      - create-dataset
+
+    runs-on:
+      - self-hosted
+
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Run DLP Pipeline
+        env:
+          ORC_DEID_BQ_JOB_NAME: ${{ needs.generate-uuid.outputs.output11 }}
+          ORC_DATASET_ID: ${{ needs.generate-uuid.outputs.output12 }}
+        run: |
+          ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --region=${{env.REGION}} \
+                --project=${{env.PROJECT_ID}} \
+                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+                --numWorkers=1 --maxNumWorkers=2 \
+                --runner=DataflowRunner \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_ORC_FILE_NAME}}.orc \
+                --dataset=${{env.ORC_DATASET_ID}}   \
+                --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
+                --deidentifyTemplateName=${{env.PARQUET_DEID_TEMPLATE_PATH}} \
+                --batchSize=200000 \
+                --DLPMethod=DEID \
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}} \
+                --jobName=${{env.ORC_DEID_BQ_JOB_NAME}}"
+
+      - name: Verify BQ tables
+        env:
+          ORC_DATASET_ID: ${{ needs.generate-uuid.outputs.output12 }}
+        run: |
+          not_verified=true
+          table_count=0
+          while $not_verified; do
+            table_count=$(($(bq query --use_legacy_sql=false --format csv 'SELECT * FROM `${{env.PROJECT_ID}}.${{env.ORC_DATASET_ID}}`.__TABLES__ WHERE table_id LIKE "${{env.INPUT_ORC_FILE_NAME}}%"' | wc -l ) -1))
+            if [[ "$table_count" == "1" ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+            echo "Got number of tables in BQ with id ${{env.INPUT_ORC_FILE_NAME}}: $table_count ."
+          done
+          echo "Verified number of tables in BQ with id ${{env.INPUT_ORC_FILE_NAME}}: $table_count ."
+
+      - name: Verify distinct rows of existing file
+        env:
+          ORC_DATASET_ID: ${{ needs.generate-uuid.outputs.output12 }}
+        run: |
+          rc_orig=${{ env.ORC_DEID_RECORDS_COUNT }}
+          not_verified=true
+          row_count=0
+          while $not_verified; do
+            row_count_json=$(bq query --use_legacy_sql=false --format json 'SELECT COUNT(DISTINCT(ID)) FROM `${{env.PROJECT_ID}}.${{env.ORC_DATASET_ID}}.${{env.INPUT_ORC_FILE_NAME}}`')
+            row_count=$(echo "$row_count_json" | jq -r '.[].f0_')
+            if [[ "$row_count" == "$rc_orig" ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+            echo "Got number of rows in ${{env.INPUT_ORC_FILE_NAME}}: $row_count."
+          done
+          echo "# records in input ORC file are: $rc_orig."
+          echo "Verified number of rows in ${{env.INPUT_ORC_FILE_NAME}}: $row_count."
+
+  deidentify-orc-data-gcs:
+    needs:
+      - generate-uuid
+      - create-output-bucket
+
+    runs-on:
+      - self-hosted
+
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Run DLP Pipeline
+        env:
+          ORC_DEID_GCS_JOB_NAME: ${{ needs.generate-uuid.outputs.output13 }}
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          gradle run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                --region=${{env.REGION}} \
+                --project=${{env.PROJECT_ID}} \
+                --tempLocation=gs://${{env.GCS_BUCKET}}/temp \
+                --numWorkers=2 \
+                --maxNumWorkers=3 \
+                --runner=DataflowRunner \
+                --filePattern=gs://${{env.GCS_BUCKET}}/${{env.SAMPLE_DATA_DIR}}/${{env.INPUT_ORC_FILE_NAME}}.orc \
+                --outputBucket=gs://${{env.OUTPUT_GCS_BUCKET}} \
+                --workerMachineType=n1-highmem-4 \
+                --inspectTemplateName=${{env.INSPECT_TEMPLATE_PATH}} \
+                --deidentifyTemplateName=${{env.PARQUET_DEID_TEMPLATE_PATH}} \
+                --batchSize=200000 \
+                --DLPMethod=DEID \
+                --jobName=${{env.ORC_DEID_GCS_JOB_NAME}}-gcs \
+                --serviceAccount=${{env.SERVICE_ACCOUNT_EMAIL}}"
+
+      - name: Verify output file
+        env:
+          OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
+        run: |
+          not_verified=true
+          file_count=0
+          while $not_verified; do
+            file_count=$(gcloud storage ls  gs://${{env.OUTPUT_GCS_BUCKET}}/${{env.INPUT_ORC_FILE_NAME}}*.orc | wc -l)
+            if [[ "$file_count" == "1" ]]; then
+              echo "PASSED";
+              not_verified=false;
+            else
+              sleep 30s
+            fi
+            echo "Got output files in GCS with name ${{env.INPUT_ORC_FILE_NAME}}*: $file_count ."
+          done
+          echo "Verified output files in GCS with name ${{env.INPUT_ORC_FILE_NAME}}*: $file_count ."
+
 ##  Deidentify only existing parquet files
 #  deidentify-parquet-data:
 #    needs:
@@ -728,7 +874,6 @@ jobs:
 #          fi
 #          echo "Verified number of rows in output file : $output_file_name"
 #
-#
 #  re-identification:
 #    needs:
 #      - generate-uuid
@@ -839,6 +984,8 @@ jobs:
       - inspect-orc-data
 #      - de-identification
 #      - deidentify-parquet-data
+      - deidentify-orc-data-bq
+      - deidentify-orc-data-gcs
 #      - de-identification-streaming-write
 #      - de-identification-with-gcs-output
 #      - re-identification
