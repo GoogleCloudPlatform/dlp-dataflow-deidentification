@@ -82,8 +82,8 @@ public abstract class BigQueryDynamicWriteTransform
     }
 
     if (!input.getPipeline().getOptions().as(BigQueryOptions.class).getUseStorageWriteApi()) {
-        transform = transform.withMethod(Write.Method.STREAMING_INSERTS);
-      }
+      transform = transform.withMethod(Write.Method.STREAMING_INSERTS);
+    }
 
     return input.apply("BQ Write", transform);
   }
@@ -132,7 +132,7 @@ public abstract class BigQueryDynamicWriteTransform
           for (int i = 0; i < cells.size(); i++) {
             Map<String, Object> object = cells.get(i);
             String header =
-            object.keySet().stream().filter(name -> !name.equals("v")).findFirst().get();
+                object.keySet().stream().filter(name -> !name.equals("v")).findFirst().get();
             /* currently all BQ data types are set to String */
             fields.add(
                 new TableFieldSchema().setName(Util.checkHeaderName(header)).setType("STRING"));

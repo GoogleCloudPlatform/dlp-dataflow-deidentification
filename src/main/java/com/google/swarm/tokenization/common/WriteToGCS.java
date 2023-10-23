@@ -1,7 +1,25 @@
+/*
+ * Copyright 2023 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.google.swarm.tokenization.common;
 
 import com.google.auto.value.AutoValue;
 import com.google.privacy.dlp.v2.Table;
+import java.text.DecimalFormat;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.Compression;
 import org.apache.beam.sdk.io.FileIO;
@@ -19,95 +37,104 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.UnknownKeyFor;
 
-import java.text.DecimalFormat;
-import java.util.List;
-import java.util.stream.Collectors;
-
 @AutoValue
 @SuppressWarnings("serial")
-public abstract class WriteToGCS extends PTransform<PCollection<KV<String, Table.Row>>, WriteFilesResult<String>> {
+public abstract class WriteToGCS
+    extends PTransform<PCollection<KV<String, Table.Row>>, WriteFilesResult<String>> {
 
-    public abstract String outputBucket();
+  public abstract String outputBucket();
 
-    public abstract Util.FileType fileType();
+  public abstract Util.FileType fileType();
 
-    public abstract Character columnDelimiter();
+  public abstract Character columnDelimiter();
 
-    public static Builder newBuilder() {
-        return new AutoValue_WriteToGCS.Builder();
-    }
+  public static Builder newBuilder() {
+    return new AutoValue_WriteToGCS.Builder();
+  }
 
-    @AutoValue.Builder
-    public abstract static class Builder {
-        public abstract Builder setOutputBucket(String value);
+  @AutoValue.Builder
+  public abstract static class Builder {
+    public abstract Builder setOutputBucket(String value);
 
-        public abstract Builder setFileType(Util.FileType value);
+    public abstract Builder setFileType(Util.FileType value);
 
-        public abstract Builder setColumnDelimiter(Character columnDelimiter);
+    public abstract Builder setColumnDelimiter(Character columnDelimiter);
 
-        public abstract WriteToGCS build();
+    public abstract WriteToGCS build();
+  }
+
+  @Override
+  public WriteFilesResult<String> expand(PCollection<KV<String, Table.Row>> input) {
+
+    return input
+        .apply(
+            "ConvertTableRowToString",
+            ParDo.of(new ConvertTableRowToString(fileType(), columnDelimiter())))
+        .apply(
+            "WriteFileToGCS",
+            FileIO.<String, KV<String, String>>writeDynamic()
+                .by(KV::getKey)
+                .withDestinationCoder(StringUtf8Coder.of())
+                .via(Contextful.fn(KV::getValue), TextIO.sink())
+                .to(outputBucket())
+                .withNaming(key -> new CsvFileNaming(key, ".csv"))
+                .withNumShards(1));
+  }
+
+  public static class CsvFileNaming implements FileIO.Write.FileNaming {
+    private String fileName;
+    private String suffix;
+
+    public CsvFileNaming(String fileName, String suffix) {
+      this.fileName = fileName;
+      this.suffix = suffix;
     }
 
     @Override
-    public WriteFilesResult<String> expand(PCollection<KV<String, Table.Row>> input) {
+    public @UnknownKeyFor @NonNull @Initialized String getFilename(
+        @UnknownKeyFor @NonNull @Initialized BoundedWindow window,
+        @UnknownKeyFor @NonNull @Initialized PaneInfo pane,
+        @UnknownKeyFor @NonNull @Initialized int numShards,
+        @UnknownKeyFor @NonNull @Initialized int shardIndex,
+        @UnknownKeyFor @NonNull @Initialized Compression compression) {
+      StringBuilder res = new StringBuilder(this.fileName);
+      String numShardsStr = String.valueOf(numShards);
+      DecimalFormat df =
+          new DecimalFormat("000000000000".substring(0, Math.max(5, numShardsStr.length())));
+      res.append("-").append(df.format(shardIndex)).append("-of-").append(df.format(numShards));
+      res.append(this.suffix);
+      return res.toString();
+    }
+  }
 
-        return input.apply("ConvertTableRowToString",ParDo.of(new ConvertTableRowToString(fileType(),columnDelimiter())))
-                .apply("WriteFileToGCS", FileIO.<String, KV<String, String>>writeDynamic()
-                        .by(KV::getKey)
-                        .withDestinationCoder(StringUtf8Coder.of())
-                        .via(Contextful.fn(KV::getValue), TextIO.sink())
-                        .to(outputBucket())
-                        .withNaming(key -> new CsvFileNaming(key, ".csv"))
-                        .withNumShards(1));
+  public class ConvertTableRowToString extends DoFn<KV<String, Table.Row>, KV<String, String>> {
 
+    public Util.FileType fileType;
+    public Character delimiter;
+
+    public ConvertTableRowToString(Util.FileType fileType, Character delimiter) {
+      this.fileType = fileType;
+      this.delimiter = delimiter;
     }
 
-    public static class CsvFileNaming implements FileIO.Write.FileNaming {
-        private String fileName;
-        private String suffix;
+    @ProcessElement
+    public void processElement(ProcessContext c) {
+      String fileName = c.element().getKey();
+      List<String> stringRow =
+          c.element().getValue().getValuesList().stream()
+              .map(e -> e.getStringValue())
+              .collect(Collectors.toList());
 
-        public CsvFileNaming(String fileName, String suffix) {
-            this.fileName = fileName;
-            this.suffix = suffix;
-        }
-
-        @Override
-        public @UnknownKeyFor @NonNull @Initialized String getFilename(@UnknownKeyFor @NonNull @Initialized BoundedWindow window, @UnknownKeyFor @NonNull @Initialized PaneInfo pane, @UnknownKeyFor @NonNull @Initialized int numShards, @UnknownKeyFor @NonNull @Initialized int shardIndex, @UnknownKeyFor @NonNull @Initialized Compression compression) {
-            StringBuilder res = new StringBuilder(this.fileName);
-            String numShardsStr = String.valueOf(numShards);
-            DecimalFormat df =
-                    new DecimalFormat("000000000000".substring(0, Math.max(5, numShardsStr.length())));
-            res.append("-").append(df.format(shardIndex)).append("-of-").append(df.format(numShards));
-            res.append(this.suffix);
-            return res.toString();
-        }
+      switch (fileType) {
+        case AVRO:
+        case CSV:
+        case JSONL:
+        case PARQUET:
+        case TSV:
+        case TXT:
+          c.output(KV.of(fileName, String.join(delimiter.toString(), stringRow)));
+          break;
+      }
     }
-
-    public class ConvertTableRowToString extends DoFn<KV<String, Table.Row>, KV<String, String>> {
-
-        public Util.FileType fileType;
-        public Character delimiter;
-
-        public ConvertTableRowToString(Util.FileType fileType, Character delimiter) {
-            this.fileType = fileType;
-            this.delimiter = delimiter;
-        }
-
-        @ProcessElement
-        public void processElement(ProcessContext c) {
-            String fileName = c.element().getKey();
-            List<String> stringRow = c.element().getValue().getValuesList().stream().map(e -> e.getStringValue()).collect(Collectors.toList());
-
-            switch (fileType){
-                case AVRO:
-                case CSV:
-                case JSONL:
-                case PARQUET:
-                case TSV:
-                case TXT:
-                    c.output(KV.of(fileName, String.join(delimiter.toString(), stringRow)));
-                    break;
-            }
-        }
-    }
+  }
 }

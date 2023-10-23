@@ -26,7 +26,7 @@ plugins {
 
 // Licence header enforced by spotless
 def javaLicenseHeader = """/*
- * Copyright 2020 Google LLC
+ * Copyright \$YEAR Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -159,9 +159,7 @@ sourceSets {
     }
 }
 
-def enableSpotlessCheck = project.hasProperty('enableSpotlessCheck') && project.enableSpotlessCheck == 'true'
 spotless {
-    enforceCheck enableSpotlessCheck
     java {
         licenseHeader javaLicenseHeader
         googleJavaFormat()

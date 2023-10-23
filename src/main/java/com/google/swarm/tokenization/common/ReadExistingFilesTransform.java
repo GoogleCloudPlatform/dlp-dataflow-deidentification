@@ -17,21 +17,18 @@ package com.google.swarm.tokenization.common;
 
 import com.google.auto.value.AutoValue;
 import com.google.swarm.tokenization.common.Util.InputLocation;
-import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.NullableCoder;
-import org.apache.beam.sdk.io.ReadableFileCoder;
-import org.apache.beam.sdk.io.Compression;
+import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
+import org.apache.beam.sdk.io.ReadableFileCoder;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.Watch;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
-import org.joda.time.Duration;
 
 /** Transform that polls for new files and sanitizes file names. */
 @AutoValue
@@ -47,7 +44,8 @@ public abstract class ReadExistingFilesTransform
 
     public abstract ReadExistingFilesTransform.Builder setFilePattern(String filePattern);
 
-    public abstract ReadExistingFilesTransform.Builder setProcessExistingFiles(Boolean processExistingFiles);
+    public abstract ReadExistingFilesTransform.Builder setProcessExistingFiles(
+        Boolean processExistingFiles);
 
     public abstract ReadExistingFilesTransform build();
   }
@@ -59,11 +57,14 @@ public abstract class ReadExistingFilesTransform
   @Override
   public PCollection<KV<String, ReadableFile>> expand(PBegin input) {
     if (!processExistingFiles()) {
-        return input.apply("CreateEmptyExistingFileSet", Create.empty(KvCoder.of(NullableCoder.of(StringUtf8Coder.of()),
-                                                                            ReadableFileCoder.of())));
-    } 
-    return input.apply("MatchExistingFiles", FileIO.match().filepattern(filePattern()))
-                .apply("ReadExistingFiles", FileIO.readMatches())
-                .apply("SanitizeFileNameExistingFiles", ParDo.of(new SanitizeFileNameDoFn(InputLocation.GCS)));
+      return input.apply(
+          "CreateEmptyExistingFileSet",
+          Create.empty(KvCoder.of(NullableCoder.of(StringUtf8Coder.of()), ReadableFileCoder.of())));
+    }
+    return input
+        .apply("MatchExistingFiles", FileIO.match().filepattern(filePattern()))
+        .apply("ReadExistingFiles", FileIO.readMatches())
+        .apply(
+            "SanitizeFileNameExistingFiles", ParDo.of(new SanitizeFileNameDoFn(InputLocation.GCS)));
   }
 }

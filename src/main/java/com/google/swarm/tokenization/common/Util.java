@@ -36,9 +36,9 @@ import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -97,6 +97,7 @@ public class Util {
     GCS,
     BigQuery
   }
+
   public static final Gson gson = new Gson();
   private static final char DEFAULT_SEPARATOR = ',';
   private static final char DEFAULT_QUOTE = '"';
@@ -115,7 +116,7 @@ public class Util {
       new TupleTag<KV<String, TableRow>>() {};
 
   public static final TupleTag<KV<String, Table.Row>> deidSuccessGCS =
-          new TupleTag<KV<String, Table.Row>>() {};
+      new TupleTag<KV<String, Table.Row>>() {};
 
   public static final TupleTag<KV<String, TableRow>> inspectOrDeidFailure =
       new TupleTag<KV<String, TableRow>>() {};
@@ -134,11 +135,12 @@ public class Util {
   public static final String BQ_ERROR_TABLE_NAME = String.valueOf("error_log");
   public static final String BQ_REID_TABLE_EXT = String.valueOf("re_id");
 
-  public static final Set<String> ALLOWED_FILE_EXTENSIONS = 
-        Arrays.asList("avro", "csv", "jsonl", "orc", "parquet", "tsv", "txt", "text").stream().collect(Collectors.toUnmodifiableSet());
-
   public static final Set<String> ALLOWED_TEXT_FILE_EXTENSIONS =
           Arrays.asList("txt","json","xml","yaml").stream().collect(Collectors.toUnmodifiableSet());
+
+  public static final Set<String> ALLOWED_FILE_EXTENSIONS =
+      Arrays.asList("avro", "csv", "jsonl", "orc", "parquet", "tsv", "txt").stream()
+          .collect(Collectors.toUnmodifiableSet());
 
   public static final DateTimeFormatter TIMESTAMP_FORMATTER =
       DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
@@ -439,8 +441,8 @@ public class Util {
       // BigQueryIO when useStorageWriteApi is true, but it might be confusing to a user why
       // useStorageWriteApiAtLeastOnce doesn't take effect.
       throw new IllegalArgumentException(
-        "When at-least-once semantics (useStorageWriteApiAtLeastOnce) is enabled, Storage Write"
-        + " API (useStorageWriteApi) must also be enabled.");
+          "When at-least-once semantics (useStorageWriteApiAtLeastOnce) is enabled, Storage Write"
+              + " API (useStorageWriteApi) must also be enabled.");
     }
   }
 
@@ -453,6 +455,7 @@ public class Util {
     LOG.debug("Query: {}", contentString);
     return contentString;
   }
+
   // index, transcript -> 0 [Customer]: <text> [Agent]:
   public static String parseChatlog(String fileName, String chatLog) {
 

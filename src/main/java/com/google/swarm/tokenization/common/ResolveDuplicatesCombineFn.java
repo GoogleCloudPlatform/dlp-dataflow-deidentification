@@ -17,27 +17,27 @@ package com.google.swarm.tokenization.common;
 
 import java.util.List;
 import org.apache.beam.sdk.transforms.Combine;
-import org.apache.beam.sdk.values.KV;
 
-public class ResolveDuplicatesCombineFn extends Combine.CombineFn<List<String>, List<String>, List<String>> {
+public class ResolveDuplicatesCombineFn
+    extends Combine.CombineFn<List<String>, List<String>, List<String>> {
 
-    @Override
-    public List<String> createAccumulator() {
-        return null;
-    }
+  @Override
+  public List<String> createAccumulator() {
+    return null;
+  }
 
-    @Override
-    public List<String> addInput(List<String> accum, List<String> input) {
-        return input;
-    }
+  @Override
+  public List<String> addInput(List<String> accum, List<String> input) {
+    return input;
+  }
 
-    @Override
-    public List<String> extractOutput(List<String> accum) {
-        return accum;
-    }
+  @Override
+  public List<String> extractOutput(List<String> accum) {
+    return accum;
+  }
 
-    @Override
-    public List<String> mergeAccumulators(Iterable<List<String>> values) {
-        return values.iterator().next();
-    }
+  @Override
+  public List<String> mergeAccumulators(Iterable<List<String>> values) {
+    return values.iterator().next();
+  }
 }

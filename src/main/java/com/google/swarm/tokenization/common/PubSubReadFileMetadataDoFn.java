@@ -16,54 +16,58 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.common.io.Files;
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
-import org.apache.beam.sdk.io.FileSystems;
-import java.util.Arrays;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.regex.Pattern;
 import java.io.IOException;
-import org.apache.beam.sdk.transforms.DoFn;
+import java.util.regex.Pattern;
+import org.apache.beam.sdk.io.FileSystems;
 import org.apache.beam.sdk.io.fs.MatchResult.Metadata;
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PubSubReadFileMetadataDoFn
-    extends DoFn<PubsubMessage, Metadata> {
-    public static final Logger LOG = LoggerFactory.getLogger(PubSubReadFileMetadataDoFn.class);
-    private String filePattern;
+public class PubSubReadFileMetadataDoFn extends DoFn<PubsubMessage, Metadata> {
+  public static final Logger LOG = LoggerFactory.getLogger(PubSubReadFileMetadataDoFn.class);
+  private String filePattern;
 
-    public PubSubReadFileMetadataDoFn(String pattern) {
-        this.filePattern = pattern;
-    }
+  public PubSubReadFileMetadataDoFn(String pattern) {
+    this.filePattern = pattern;
+  }
 
-    public static boolean matches(String gsUrl, String pattern) {
-        String regex = pattern
-                .replace(".", "\\.")
-                .replace("*", ".*")
-                .replace("?", ".");
-        Pattern compiledPattern = Pattern.compile(regex);
-        return compiledPattern.matcher(gsUrl).matches();
-    }
+  public static boolean matches(String gsUrl, String pattern) {
+    String regex = pattern.replace(".", "\\.").replace("*", ".*").replace("?", ".");
+    Pattern compiledPattern = Pattern.compile(regex);
+    return compiledPattern.matcher(gsUrl).matches();
+  }
 
-    @ProcessElement
-    public void processElement(ProcessContext c) {
-        PubsubMessage message = c.element();
-        String filename  = message.getAttribute("objectId");
-        String bucketId  = message.getAttribute("bucketId");
-        String extension = Files.getFileExtension(filename);
+  @ProcessElement
+  public void processElement(ProcessContext c) {
+    PubsubMessage message = c.element();
+    String filename = message.getAttribute("objectId");
+    String bucketId = message.getAttribute("bucketId");
+    String extension = Files.getFileExtension(filename);
 
-        String gsUrl = "gs://" + bucketId + "/" + filename;
-        LOG.info("Received " + filename + " " + bucketId + " " + extension + " " + gsUrl + " " + this.filePattern);
+    String gsUrl = "gs://" + bucketId + "/" + filename;
+    LOG.info(
+        "Received "
+            + filename
+            + " "
+            + bucketId
+            + " "
+            + extension
+            + " "
+            + gsUrl
+            + " "
+            + this.filePattern);
 
-        try {
-            if (filename.endsWith("/") || !Util.ALLOWED_FILE_EXTENSIONS.contains(extension)
-                || !matches(gsUrl, this.filePattern)) return;
-            LOG.info("Processing " + filename + " " + bucketId + " " + extension);
-            Metadata fileMetadata = FileSystems.matchSingleFileSpec(gsUrl);
-            c.output(fileMetadata);
-        } catch (IOException e) {
-            LOG.error("GCS Failure retrieving {}: {}", gsUrl, e);
-        }
+    try {
+      if (filename.endsWith("/")
+          || !Util.ALLOWED_FILE_EXTENSIONS.contains(extension)
+          || !matches(gsUrl, this.filePattern)) return;
+      LOG.info("Processing " + filename + " " + bucketId + " " + extension);
+      Metadata fileMetadata = FileSystems.matchSingleFileSpec(gsUrl);
+      c.output(fileMetadata);
+    } catch (IOException e) {
+      LOG.error("GCS Failure retrieving {}: {}", gsUrl, e);
     }
   }
+}

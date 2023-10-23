@@ -47,7 +47,7 @@ This solution comprises the following pipelines. To view the job graphs of these
 ### Inspection and de-identification
 ![Reference architecture](diagrams/inspect-deid-architecture.png)
 
-You can use this pipeline for CSV, TSV, Avro, and JSONL files stored or ingested in Cloud Storage or an Amazon S3 bucket. This pipeline uses the State and Timer APIs to batch and process the files optimally.
+You can use this pipeline for Avro, CSV, JSONL, ORC, Parquet and TSV files stored or ingested in Cloud Storage or an Amazon S3 bucket. This pipeline uses the State and Timer APIs to batch and process the files optimally.
 The results of the inspection and de-identification processes are written in a BigQuery table.
 
 ### Re-identification
@@ -527,13 +527,48 @@ The pipeline supports CSV files with a custom delimiter. The delimiter has to be
 
 The inspection and de-identification pipelines support Parquet file format where data can be read from GCS storage 
 bucket and the results of DLP Dataflow pipeline will be written in BigQuery tables. For sample data in Parquet file 
-format, refer [mock-data](.github/mock-data).
+format, refer to [mock-data](.github/mock-data).
 
 No additional changes are required to run the pipeline except updating the `--filePattern` parameter. For example:
 
 ```commandline
 ./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.parquet"
 ```
+
+#### 6. ORC
+
+##### Inspection of ORC files
+The inspection pipeline will read ORC files from an input Cloud Storage bucket and the results will be written in BigQuery
+tables.
+
+```commandline
+./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.orc"
+```
+
+##### De-identification
+The de-identification pipeline will read the data from an input Cloud Storage bucket. The de-identified results can be 
+written in a BigQuery dataset as tables or an output Cloud Storage bucket as ORC files. 
+1. To write the de-identified files to BigQuery tables: 
+
+```commandline
+./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.orc"
+```
+
+2. To write the de-identified files to a Cloud storage bucket:
+
+```commandline
+./gradlew run ... -Pargs="... 
+--filePattern=gs://${PROJECT_ID}-demo-data/*.orc \
+--outputBucket=<output_storage_bucket> ..."
+```
+
+In the above command, replace <i>output_storage_bucket</i> with the URI of the Cloud Storage bucket where you want to store the 
+de-identified ORC files.
+
+The de-identification pipeline supports input files with varying schemas. Currently, it can process only primitive
+data types available in ORC format when the results are stored in an output Cloud Storage bucket.
+
+For sample data in ORC file format, refer to [mock-data](.github/mock-data).
 
 ### Amazon S3 Scanner
 
