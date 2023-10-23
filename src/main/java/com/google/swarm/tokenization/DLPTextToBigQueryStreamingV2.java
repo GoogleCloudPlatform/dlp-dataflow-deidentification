@@ -243,8 +243,7 @@ public class DLPTextToBigQueryStreamingV2 {
 
       case ORC:
         records =
-            inputFiles.apply(
-                "ReadFromORCFilesAsOrcStruct", ParDo.of(new ORCReaderDoFn(options.getProject())));
+            inputFiles.apply("ReadORCFiles", ParDo.of(new ORCReaderDoFn(options.getProject())));
         break;
 
       default:

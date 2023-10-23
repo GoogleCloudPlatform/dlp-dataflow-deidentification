@@ -56,12 +56,10 @@ public class ORCWriterDoFn extends DoFn<KV<String, Iterable<Table.Row>>, String>
       ColumnVector columnVector = batch.cols[columnIndex];
       Value tableRowValue = tableRow.getValues(columnIndex);
 
-      LOG.info(
-          "Processing tableValue: {}, at row: {}, at colIndex: {}, with colVector: {}",
-          tableRowValue.toString(),
-          rowIndex,
-          columnIndex,
-          columnVector.type);
+      if (tableRowValue.equals(Value.getDefaultInstance())) {
+        columnVector.isNull[rowIndex] = true;
+        columnVector.noNulls = false;
+      }
 
       switch (columnVector.type) {
         case LONG:
