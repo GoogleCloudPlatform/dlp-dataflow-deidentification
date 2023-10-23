@@ -79,7 +79,7 @@ public class ConvertCSVRecordToDLPRow extends DoFn<KV<String, String>, KV<String
             csvHeader.size());
       }
     } else {
-      rowBuilder.addValues(Value.newBuilder().setStringValue(input).build());
+      rowBuilder.addValues(Value.newBuilder().s etStringValue(input).build());
       context.output(KV.of(fileName, rowBuilder.build()));
     }
   }

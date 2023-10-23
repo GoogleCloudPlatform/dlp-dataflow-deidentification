@@ -16,6 +16,7 @@
 package com.google.swarm.tokenization.common;
 
 import com.google.auto.value.AutoValue;
+import com.google.swarm.tokenization.classification.FileKeyObject;
 import com.google.swarm.tokenization.common.Util.InputLocation;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
@@ -61,7 +62,7 @@ public abstract class ReadNewFilesPubSubTransform
   }
 
   @Override
-  public PCollection<KV<String, ReadableFile>> expand(PBegin input) {
+  public PCollection<KV<FileKeyObject, ReadableFile>> expand(PBegin input) {
     if (!usePubSub()) {
         return input.apply("CreateEmptyNewFileSet", Create.empty(KvCoder.of(StringUtf8Coder.of(),
                                                                             ReadableFileCoder.of())));
