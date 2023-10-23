@@ -48,7 +48,7 @@ public class ExtractFileSchemaTransformTest {
     String originalSchemaMapping = "struct<column_name1:int,column_name2:int,column_name3:string>";
 
     PCollection<KV<String, String>> schemaMapping =
-            (PCollection<KV<String, String>>)
+        (PCollection<KV<String, String>>)
             testPipeline
                 .apply(FileIO.match().filepattern(testFilePath))
                 .apply(FileIO.readMatches().withCompression(Compression.AUTO))
@@ -58,7 +58,8 @@ public class ExtractFileSchemaTransformTest {
                     ExtractFileSchemaTransform.newBuilder()
                         .setFileType(fileType)
                         .setProjectId(projectId)
-                        .build()).getPCollection();
+                        .build())
+                .getPCollection();
 
     PAssert.that(schemaMapping).containsInAnyOrder(KV.of("some_key", originalSchemaMapping));
 
