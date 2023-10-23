@@ -974,7 +974,7 @@ jobs:
             fi
           done
           echo "# records in input query are: $rc_orig."
-          echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}_re_id: $row_count
+          echo "Verified number of rows in ${{env.INPUT_FILE_NAME}}_re_id: $row_count."
 
   clean-up:
     if: "!cancelled()"
