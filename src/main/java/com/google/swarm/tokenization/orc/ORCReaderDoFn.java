@@ -44,6 +44,11 @@ public class ORCReaderDoFn extends DoFn<KV<String, FileIO.ReadableFile>, KV<Stri
     ColumnVector.Type orcFieldType = batch.cols[columnIndex].type;
     Value tableRowValue;
 
+    if (batch.cols[columnIndex].isNull[rowIndex] == true) {
+      tableRowValue = Value.getDefaultInstance();
+      return tableRowValue;
+    }
+
     switch (orcFieldType) {
       case LONG:
         long orcLongValue = ((LongColumnVector) batch.cols[columnIndex]).vector[rowIndex];
@@ -138,9 +143,10 @@ public class ORCReaderDoFn extends DoFn<KV<String, FileIO.ReadableFile>, KV<Stri
 
     Reader reader = new ORCFileReader().createORCFileReader(filePath, projectId);
 
-    //      Create a RecordReader to read the ORC records row-by-row. RecordReader can be used to
-    // read data in batches and
-    //      every batch (VectorizedRowBatch) contains the data for 1024 rows.
+    /**
+     * Create a RecordReader to read the ORC records row-by-row. RecordReader can be used to read
+     * data in batches and every batch (VectorizedRowBatch) contains the data for 1024 rows.
+     */
     RecordReader rows = reader.rows();
     batch = reader.getSchema().createRowBatch();
     ColumnVector.Type[] colsMap = new ColumnVector.Type[batch.numCols];

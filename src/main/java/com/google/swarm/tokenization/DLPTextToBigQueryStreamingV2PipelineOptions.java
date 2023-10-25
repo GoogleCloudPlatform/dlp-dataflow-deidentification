@@ -147,7 +147,7 @@ public interface DLPTextToBigQueryStreamingV2PipelineOptions
    */
   void setInitialBackoff(int value);
 
-  @Description("Output bucket to write DEID output as csv file")
+  @Description("Output bucket to write de-identified files in Cloud Storage buckets")
   String getOutputBucket();
 
   void setOutputBucket(String outputBucket);

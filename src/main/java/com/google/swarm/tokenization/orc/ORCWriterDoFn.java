@@ -56,12 +56,10 @@ public class ORCWriterDoFn extends DoFn<KV<String, Iterable<Table.Row>>, String>
       ColumnVector columnVector = batch.cols[columnIndex];
       Value tableRowValue = tableRow.getValues(columnIndex);
 
-      LOG.info(
-          "Processing tableValue: {}, at row: {}, at colIndex: {}, with colVector: {}",
-          tableRowValue.toString(),
-          rowIndex,
-          columnIndex,
-          columnVector.type);
+      if (tableRowValue.equals(Value.getDefaultInstance())) {
+        columnVector.isNull[rowIndex] = true;
+        columnVector.noNulls = false;
+      }
 
       switch (columnVector.type) {
         case LONG:
@@ -96,18 +94,6 @@ public class ORCWriterDoFn extends DoFn<KV<String, Iterable<Table.Row>>, String>
               new HiveIntervalDayTime(protoInterval.getSeconds(), protoInterval.getNanos());
           intervalDayTimeColumnVector.set(rowIndex, hiveIntervalDayTime);
           break;
-        case LIST:
-          ListColumnVector listColumnVector = (ListColumnVector) columnVector;
-          break;
-        case MAP:
-          MapColumnVector mapColumnVector = (MapColumnVector) columnVector;
-          break;
-        case UNION:
-          UnionColumnVector unionColumnVector = (UnionColumnVector) columnVector;
-          break;
-        case STRUCT:
-          StructColumnVector structColumnVector = (StructColumnVector) columnVector;
-          break;
         case BYTES:
         case NONE:
         case VOID:
@@ -116,6 +102,12 @@ public class ORCWriterDoFn extends DoFn<KV<String, Iterable<Table.Row>>, String>
           byte[] orcBytesValue = orcStringValue.getBytes();
           bytesColumnVector.setRef(rowIndex, orcBytesValue, 0, orcBytesValue.length);
           break;
+        case LIST:
+        case MAP:
+        case UNION:
+        case STRUCT:
+          throw new IllegalArgumentException(
+              "Compound ORC data types are not supported to write output in Cloud Storage buckets.");
         default:
           throw new IllegalArgumentException(
               "Incorrect ColumnVector.type found while type casting ColumnVectors.");

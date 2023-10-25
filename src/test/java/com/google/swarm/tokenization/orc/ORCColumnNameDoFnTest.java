@@ -37,7 +37,7 @@ public class ORCColumnNameDoFnTest {
 
   @ClassRule public static TemporaryFolder tmpFolder = new TemporaryFolder();
 
-  protected static final String PROJECT_ID = "mock-project-id";
+  private static final String project_id = "mock-project-id";
 
   @Test
   public void testORCColumnNameDoFn() throws IOException {
@@ -55,7 +55,7 @@ public class ORCColumnNameDoFnTest {
             .apply(FileIO.match().filepattern(testFilePath))
             .apply(FileIO.readMatches().withCompression(Compression.AUTO))
             .apply(WithKeys.of("some_key"))
-            .apply(ParDo.of(new ORCColumnNameDoFn(PROJECT_ID)));
+            .apply(ParDo.of(new ORCColumnNameDoFn(project_id)));
 
     PAssert.that(results).containsInAnyOrder(KV.of("some_key", fieldNames));
 
