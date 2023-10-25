@@ -35,9 +35,9 @@ public class ExtractFileSchemaTransformTest {
 
   @ClassRule public static TemporaryFolder tmpFolder = new TemporaryFolder();
 
-  protected static final String projectId = "mock-project-id";
+  private static final String projectId = "mock-project-id";
 
-  protected static final Util.FileType fileType = Util.FileType.ORC;
+  private static final Util.FileType fileType = Util.FileType.ORC;
 
   @Test
   public void testExtractFileSchemaTransform() throws IOException {

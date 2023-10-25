@@ -37,7 +37,7 @@ public class ORCColumnNameDoFnTest {
 
   @ClassRule public static TemporaryFolder tmpFolder = new TemporaryFolder();
 
-  protected static final String project_id = "mock-project-id";
+  private static final String project_id = "mock-project-id";
 
   @Test
   public void testORCColumnNameDoFn() throws IOException {
