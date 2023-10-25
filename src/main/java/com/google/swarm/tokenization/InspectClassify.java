@@ -1,25 +1,38 @@
+/*
+ * Copyright 2023 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.google.swarm.tokenization;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.privacy.dlp.v2.Table;
-import com.google.swarm.tokenization.avro.AvroReaderSplittableDoFn;
-import com.google.swarm.tokenization.avro.ConvertAvroRecordToDlpRowDoFn;
-import com.google.swarm.tokenization.avro.GenericRecordCoder;
+import com.google.swarm.tokenization.avro.AvroColumnNamesDoFn;
 import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
-import com.google.swarm.tokenization.classification.FileKeyObject;
-import com.google.swarm.tokenization.classification.SanitizeFileKeyDoFn;
 import com.google.swarm.tokenization.coders.DeterministicTableRowJsonCoder;
 import com.google.swarm.tokenization.common.*;
-import com.google.swarm.tokenization.json.ConvertJsonRecordToDLPRow;
-import com.google.swarm.tokenization.json.JsonReaderSplitDoFn;
-import com.google.swarm.tokenization.orc.ORCReaderDoFn;
-import com.google.swarm.tokenization.parquet.ParquetReaderSplittableDoFn;
-import com.google.swarm.tokenization.txt.ConvertTxtToDLPRow;
-import com.google.swarm.tokenization.txt.ParseTextLogDoFn;
-import com.google.swarm.tokenization.txt.TxtReaderSplitDoFn;
+import com.google.swarm.tokenization.json.JsonColumnNameDoFn;
+import com.google.swarm.tokenization.orc.ORCColumnNameDoFn;
+import com.google.swarm.tokenization.parquet.ParquetColumnNamesDoFn;
+import com.google.swarm.tokenization.txt.TxtColumnNameDoFn;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
+import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.ListCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -27,210 +40,306 @@ import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.*;
-import org.apache.commons.collections.map.HashedMap;
-import org.checkerframework.checker.initialization.qual.Initialized;
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.checkerframework.checker.nullness.qual.UnknownKeyFor;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
 public class InspectClassify {
 
-    public static final Logger LOG = LoggerFactory.getLogger(InspectClassify.class);
-    private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(3);
-    private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(3);
-    /**
-     * PubSub configuration for default batch size in number of messages
-     */
-    public static final Integer PUB_SUB_BATCH_SIZE = 1000;
-    /**
-     * PubSub configuration for default batch size in bytes
-     */
-    public static final Integer PUB_SUB_BATCH_SIZE_BYTES = 10000;
+  public static final Logger LOG = LoggerFactory.getLogger(InspectClassify.class);
+  private static final Duration DEFAULT_POLL_INTERVAL = Duration.standardSeconds(3);
+  private static final Duration WINDOW_INTERVAL = Duration.standardSeconds(3);
 
-    public static void main(String[] args) {
+  /** PubSub configuration for default batch size in number of messages */
+  public static final Integer PUB_SUB_BATCH_SIZE = 1000;
 
-        InspectClassifyPipelineOptions options =
-                PipelineOptionsFactory.fromArgs(args).as(InspectClassifyPipelineOptions.class);
-        run(options);
+  /** PubSub configuration for default batch size in bytes */
+  public static final Integer PUB_SUB_BATCH_SIZE_BYTES = 10000;
+
+  public static void main(String[] args) throws CannotProvideCoderException {
+
+    InspectClassifyPipelineOptions options =
+        PipelineOptionsFactory.fromArgs(args).as(InspectClassifyPipelineOptions.class);
+    run(options);
+  }
+
+  public static PCollectionView<Map<String, List<String>>> createHeaders(
+      PCollectionList<KV<String, FileIO.ReadableFile>> input,
+      Pipeline p,
+      List<Util.FileType> fileTypes,
+      InspectClassifyPipelineOptions options) {
+
+    PCollection<KV<String, List<String>>> readHeader;
+    PCollectionList<KV<String, List<String>>> headerList = PCollectionList.empty(p);
+
+    for (Util.FileType fileType : fileTypes) {
+      switch (fileType) {
+        case AVRO:
+          PCollection<KV<String, List<String>>> readHeaderAvro =
+              input
+                  .get(fileType.ordinal())
+                  .apply("ReadHeader", ParDo.of(new AvroColumnNamesDoFn()));
+          headerList.and(readHeaderAvro);
+          break;
+
+        case CSV:
+          PCollection<KV<String, List<String>>> readHeaderCsv =
+              input
+                  .get(fileType.ordinal())
+                  .apply(
+                      "ReadHeader", ParDo.of(new CSVColumnNamesDoFn(options.getColumnDelimiter())));
+          headerList.and(readHeaderCsv);
+          break;
+
+        case JSONL:
+          PCollection<KV<String, List<String>>> readHeaderJsonl =
+              input
+                  .get(fileType.ordinal())
+                  .apply("ReadHeader", ParDo.of(new JsonColumnNameDoFn(options.getHeaders())));
+          headerList.and(readHeaderJsonl);
+          break;
+
+        case ORC:
+          PCollection<KV<String, List<String>>> readHeaderOrc =
+              input
+                  .get(fileType.ordinal())
+                  .apply("ReadHeader", ParDo.of(new ORCColumnNameDoFn(options.getProject())));
+          headerList.and(readHeaderOrc);
+          break;
+
+        case PARQUET:
+          PCollection<KV<String, List<String>>> readHeaderParquet =
+              input
+                  .get(fileType.ordinal())
+                  .apply("ReadHeader", ParDo.of(new ParquetColumnNamesDoFn()));
+          headerList.and(readHeaderParquet);
+          break;
+
+        case TSV:
+          PCollection<KV<String, List<String>>> readHeaderTsv =
+              input
+                  .get(fileType.ordinal())
+                  .apply("ReadHeader", ParDo.of(new CSVColumnNamesDoFn('\t')));
+          headerList.and(readHeaderTsv);
+          break;
+
+        case TXT:
+          PCollection<KV<String, List<String>>> readHeaderTxt =
+              input
+                  .get(fileType.ordinal())
+                  .apply("ReadHeader", ParDo.of(new TxtColumnNameDoFn(options.getHeaders())));
+          headerList.and(readHeaderTxt);
+          break;
+
+        default:
+          throw new IllegalStateException("Unexpected value: " + fileType);
+      }
     }
 
-    public static PipelineResult run(InspectClassifyPipelineOptions options) {
-        Pipeline p = Pipeline.create(options);
-        p.getCoderRegistry().registerCoderForClass(TableRow.class, DeterministicTableRowJsonCoder.of());
+    readHeader = headerList.apply(Flatten.pCollections())
+            .setCoder(KvCoder.of(StringUtf8Coder.of(), ListCoder.of(StringUtf8Coder.of())));
 
-        PCollection<KV<FileKeyObject, FileIO.ReadableFile>> inputFiles = p.apply("MatchExistingFiles", FileIO.match().filepattern(options.getFilePattern()))
-                .apply("ReadExistingFiles", FileIO.readMatches())
-                .apply("SanitizeFileNameExistingFiles", ParDo.of(new SanitizeFileKeyDoFn(Util.InputLocation.GCS)))
-                .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+    return readHeader.apply("ViewAsList", View.asMap());
+  }
 
+  public static PipelineResult run(InspectClassifyPipelineOptions options) throws CannotProvideCoderException {
+    Pipeline p = Pipeline.create(options);
+    p.getCoderRegistry().registerCoderForClass(TableRow.class, DeterministicTableRowJsonCoder.of());
 
-        PCollectionList<KV<FileKeyObject, FileIO.ReadableFile>> files = inputFiles.apply(Partition.of(
+    PCollection<KV<String, FileIO.ReadableFile>> inputFiles =
+        p.apply("MatchExistingFiles", FileIO.match().filepattern(options.getFilePattern()))
+            .apply("ReadExistingFiles", FileIO.readMatches())
+            .apply(
+                "SanitizeFileNameExistingFiles",
+                ParDo.of(new SanitizeFileNameDoFn(Util.InputLocation.GCS)))
+            .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
+
+    /** Create a List of PCollections where list index represents the FileType enum's ordinal */
+    PCollectionList<KV<String, FileIO.ReadableFile>> files =
+        inputFiles.apply(
+            Partition.of(
                 Util.FileType.values().length,
-                new Partition.PartitionFn<KV<FileKeyObject, FileIO.ReadableFile>>(){
-                    @Override
-                    public int partitionFor(KV<FileKeyObject, FileIO.ReadableFile> elem, int numPartitions) {
-                        return elem.getKey().getExtension().ordinal();
-                    }
+                new Partition.PartitionFn<KV<String, FileIO.ReadableFile>>() {
+                  @Override
+                  public int partitionFor(KV<String, FileIO.ReadableFile> elem, int numPartitions) {
+                    String resourceId = String.valueOf(elem.getValue().getMetadata().resourceId());
+                    String extension = String.valueOf(resourceId.lastIndexOf("."));
+                    return Util.FileType.valueOf(extension.toUpperCase()).ordinal();
+                  }
+                }));
 
-                }
-        ));
+    /**
+     * Store Table.Row objects of every FileType in a Mapping from FileType to PCollection before
+     * DLPTransform
+     */
+    PCollectionList<KV<String, Table.Row>> records = PCollectionList.empty(p);
 
+    List<Util.FileType> fileExtensionList =
+        options.getFileTypes().stream()
+            .map(x -> Util.FileType.valueOf(x.toUpperCase()))
+            .collect(Collectors.toList());
 
-        Map<Util.FileType,PCollection<KV<String, Table.Row>>> records = new HashMap();
-        PCollectionView<Map<String, List<String>>> headers;
+    /**
+     * Store header objects of every FileType in a single PCollectionView assuming no two input
+     * files can have same name.
+     */
+    //    PCollectionView<Map<String, List<String>>> headers =
+    //        files.apply(
+    //            "Extract Column Names",
+    //            NewExtractColumnNamesTransform.newBuilder()
+    //                .setHeaders(options.getHeaders())
+    //                .setColumnDelimiter(options.getColumnDelimiter())
+    //                .setPubSubGcs(false)
+    //                .setProjectId(options.getProject())
+    //                .setFileTypes(fileExtensionList)
+    //                .build());
+    PCollectionView<Map<String, List<String>>> headers =
+        createHeaders(files, p, fileExtensionList, options);
 
+    for (Util.FileType fileType : fileExtensionList) {
+      switch (fileType) {
+          //                case AVRO:
+          //                    records =
+          //
+          // files.get(Util.FileType.AVRO.ordinal()).apply("converttoStringkey", MapElements.via(
+          //                                            new SimpleFunction<KV<FileKeyObject,
+          // FileIO.ReadableFile>, KV<String, FileIO.ReadableFile>>() {
+          //                                                @Override
+          //                                                public KV<String, FileIO.ReadableFile>
+          // apply(KV<FileKeyObject, FileIO.ReadableFile> ele){
+          //                                                        return
+          // KV.of(ele.getKey().getFilename(),ele.getValue());
+          //                                                }
+          //
+          //                                            }
+          //                                    ))
+          //                                    .apply(
+          //                                            ParDo.of(
+          //                                                    new AvroReaderSplittableDoFn(
+          //                                                            options.getKeyRange(),
+          // options.getSplitSize())))
+          //                                    .setCoder(KvCoder.of(StringUtf8Coder.of(),
+          // GenericRecordCoder.of()))
+          //                                    .apply(ParDo.of(new
+          // ConvertAvroRecordToDlpRowDoFn()));
+          //                    break;
 
-        List<Util.FileType> fileExtensionList = options.getFileTypes().stream().map(x -> Util.FileType.valueOf(x.toUpperCase())).collect(Collectors.toList());
-        for(Util.FileType fileType: fileExtensionList) {
-            switch (fileType) {
-//                case AVRO:
-//                    records =
-//                            files.get(Util.FileType.AVRO.ordinal()).apply("converttoStringkey", MapElements.via(
-//                                            new SimpleFunction<KV<FileKeyObject, FileIO.ReadableFile>, KV<String, FileIO.ReadableFile>>() {
-//                                                @Override
-//                                                public KV<String, FileIO.ReadableFile> apply(KV<FileKeyObject, FileIO.ReadableFile> ele){
-//                                                        return KV.of(ele.getKey().getFilename(),ele.getValue());
-//                                                }
-//
-//                                            }
-//                                    ))
-//                                    .apply(
-//                                            ParDo.of(
-//                                                    new AvroReaderSplittableDoFn(
-//                                                            options.getKeyRange(), options.getSplitSize())))
-//                                    .setCoder(KvCoder.of(StringUtf8Coder.of(), GenericRecordCoder.of()))
-//                                    .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
-//                    break;
+        case CSV:
+          PCollection<KV<String, FileIO.ReadableFile>> inputFilescsv =
+              files.get(Util.FileType.CSV.ordinal());
+          PCollection<KV<String, Table.Row>> csvRecords =
+              files
+                  .get(Util.FileType.CSV.ordinal())
+                  .apply(
+                      "SplitCSVFile",
+                      ParDo.of(
+                          new CSVFileReaderSplitDoFn(
+                              options.getRecordDelimiter(), options.getSplitSize())))
+                  .apply(
+                      "ConvertToDLPRow",
+                      ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), headers))
+                          .withSideInputs(headers));
 
-                case CSV:
-                    PCollection<KV<String, FileIO.ReadableFile>> inputFilescsv = files.get(Util.FileType.CSV.ordinal()).apply("convertStringKeyCSV", MapElements.via(
-                            new SimpleFunction<KV<FileKeyObject, FileIO.ReadableFile>, KV<String, FileIO.ReadableFile>>() {
-                                @Override
-                                public KV<String, FileIO.ReadableFile> apply(KV<FileKeyObject, FileIO.ReadableFile> ele) {
-                                    return KV.of(ele.getKey().getFilename(), ele.getValue());
-                                }
-                            }
-                    ));
-                     PCollectionView<Map<String, List<String>>> csvheaders =
-                            inputFilescsv.apply(
-                                    "Extract Column Names",
-                                    ExtractColumnNamesTransform.newBuilder()
-                                            .setFileType(options.getFileType())
-                                            .setHeaders(options.getHeaders())
-                                            .setColumnDelimiter(options.getColumnDelimiter())
-                                            .setPubSubGcs(usePubSub)
-                                            .setProjectId(options.getProject())
-                                            .build());
-                    PCollection<KV<String, Table.Row>> csvRecords =  inputFilescsv.apply(
-                            "SplitCSVFile",
-                            ParDo.of(
-                                    new CSVFileReaderSplitDoFn(
-                                            options.getRecordDelimiter(), options.getSplitSize())))
-                    .apply(
-                        "ConvertToDLPRow",
-                        ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), headers))
-                                .withSideInputs(headers));
+          records.and(csvRecords);
+          break;
 
-                    records.put(Util.FileType.CSV,csvRecords);
-                    break;
+          //                case JSONL:
+          //                    records =
+          //                            inputFiles
+          //                                    .apply(
+          //                                            "SplitJSONFile",
+          //                                            ParDo.of(
+          //                                                    new JsonReaderSplitDoFn(
+          //                                                            options.getKeyRange(),
+          //
+          // options.getRecordDelimiter(),
+          //                                                            options.getSplitSize())))
+          //                                    .apply("ConvertToDLPRow", ParDo.of(new
+          // ConvertJsonRecordToDLPRow()));
+          //                    break;
+          //                case TXT:
+          //                    PCollectionTuple recordTuple =
+          //                            inputFiles
+          //                                    .apply(
+          //                                            "SplitTextFile",
+          //                                            ParDo.of(
+          //                                                    new TxtReaderSplitDoFn(
+          //                                                            options.getKeyRange(),
+          //
+          // options.getRecordDelimiter(),
+          //                                                            options.getSplitSize())))
+          //                                    .apply(
+          //                                            "ParseTextFile",
+          //                                            ParDo.of(new ParseTextLogDoFn())
+          //                                                    .withOutputTags(
+          //                                                            Util.agentTranscriptTuple,
+          //
+          // TupleTagList.of(Util.customerTranscriptTuple)));
+          //
+          //                    records =
+          //
+          // PCollectionList.of(recordTuple.get(Util.agentTranscriptTuple))
+          //                                    .and(recordTuple.get(Util.customerTranscriptTuple))
+          //                                    .apply("Flatten", Flatten.pCollections())
+          //                                    .apply(
+          //                                            "ConvertToDLPRow",
+          //                                            ParDo.of(new
+          // ConvertTxtToDLPRow(options.getColumnDelimiter(), headers))
+          //                                                    .withSideInputs(headers));
+          //                    break;
+          //                case PARQUET:
+          ////      TODO: Remove KeyRange parameter, as it is unused
+          //                    records = inputFiles
+          //                            .apply(ParDo.of(new
+          // ParquetReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())));
+          //                    break;
+          //
+          //                case ORC:
+          //                    records = inputFiles
+          //                            .apply("ReadFromORCFilesAsOrcStruct",
+          //                                    ParDo.of(new ORCReaderDoFn(options.getProject())));
+          //                    break;
 
-//                case JSONL:
-//                    records =
-//                            inputFiles
-//                                    .apply(
-//                                            "SplitJSONFile",
-//                                            ParDo.of(
-//                                                    new JsonReaderSplitDoFn(
-//                                                            options.getKeyRange(),
-//                                                            options.getRecordDelimiter(),
-//                                                            options.getSplitSize())))
-//                                    .apply("ConvertToDLPRow", ParDo.of(new ConvertJsonRecordToDLPRow()));
-//                    break;
-//                case TXT:
-//                    PCollectionTuple recordTuple =
-//                            inputFiles
-//                                    .apply(
-//                                            "SplitTextFile",
-//                                            ParDo.of(
-//                                                    new TxtReaderSplitDoFn(
-//                                                            options.getKeyRange(),
-//                                                            options.getRecordDelimiter(),
-//                                                            options.getSplitSize())))
-//                                    .apply(
-//                                            "ParseTextFile",
-//                                            ParDo.of(new ParseTextLogDoFn())
-//                                                    .withOutputTags(
-//                                                            Util.agentTranscriptTuple,
-//                                                            TupleTagList.of(Util.customerTranscriptTuple)));
-//
-//                    records =
-//                            PCollectionList.of(recordTuple.get(Util.agentTranscriptTuple))
-//                                    .and(recordTuple.get(Util.customerTranscriptTuple))
-//                                    .apply("Flatten", Flatten.pCollections())
-//                                    .apply(
-//                                            "ConvertToDLPRow",
-//                                            ParDo.of(new ConvertTxtToDLPRow(options.getColumnDelimiter(), headers))
-//                                                    .withSideInputs(headers));
-//                    break;
-//                case PARQUET:
-////      TODO: Remove KeyRange parameter, as it is unused
-//                    records = inputFiles
-//                            .apply(ParDo.of(new ParquetReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())));
-//                    break;
-//
-//                case ORC:
-//                    records = inputFiles
-//                            .apply("ReadFromORCFilesAsOrcStruct",
-//                                    ParDo.of(new ORCReaderDoFn(options.getProject())));
-//                    break;
+        case TEXT:
 
-                case TEXT:
-
-                default:
-                    throw new IllegalArgumentException("Please validate FileType parameter");
-            }
-
-
-
-        }
-
-        for(Map.Entry<Util.FileType,PCollection<KV<String, Table.Row>>> fileRecords :  records.entrySet()){
-            PCollectionTuple inspectDeidRecords = fileRecords.getValue().apply(
-                    "DLPTransform",
-                    DLPTransform.newBuilder()
-                            .setBatchSize(options.getBatchSize())
-                            .setInspectTemplateName(options.getInspectTemplateName())
-                            .setDeidTemplateName(options.getDeidentifyTemplateName())
-                            .setDlpmethod(options.getDLPMethod())
-                            .setProjectId(options.getDLPParent())
-                            .setHeaders(headers)
-                            .setColumnDelimiter(options.getColumnDelimiter())
-                            .setJobName(options.getJobName())
-                            .setDlpApiRetryCount(options.getDlpApiRetryCount())
-                            .setInitialBackoff(options.getInitialBackoff())
-                            .setDataSinkType(options.getDataSinkType())
-                            .build())
-                    .get(Util.inspectOrDeidSuccess)
-                    .apply(
-                            "InsertToBQ",
-                            BigQueryDynamicWriteTransform.newBuilder()
-                                    .setDatasetId(options.getDataset())
-                                    .setProjectId(options.getProject())
-                                    .build());
-        }
-
-        return p.run();
+        default:
+          throw new IllegalArgumentException("Please validate FileType parameter");
+      }
     }
 
+    PCollection<KV<String, Table.Row>> flattenedRecords = null;
+    try {
+      flattenedRecords = records.apply(Flatten.pCollections())
+              .setCoder(KvCoder.of(StringUtf8Coder.of(), p.getCoderRegistry().getCoder(Table.Row.class)));
+    } catch (CannotProvideCoderException e) {
+      throw new RuntimeException(e);
+    }
+    ;
 
+    flattenedRecords
+        .apply(
+            "DLPTransform",
+            DLPTransform.newBuilder()
+                .setBatchSize(options.getBatchSize())
+                .setInspectTemplateName(options.getInspectTemplateName())
+                .setDeidTemplateName(options.getDeidentifyTemplateName())
+                .setDlpmethod(options.getDLPMethod())
+                .setProjectId(options.getDLPParent())
+                .setHeaders(headers)
+                .setColumnDelimiter(options.getColumnDelimiter())
+                .setJobName(options.getJobName())
+                .setDlpApiRetryCount(options.getDlpApiRetryCount())
+                .setInitialBackoff(options.getInitialBackoff())
+                .setDataSinkType(options.getDataSinkType())
+                .build())
+        .get(Util.inspectOrDeidSuccess)
+        .apply(
+            "InsertToBQ",
+            BigQueryDynamicWriteTransform.newBuilder()
+                .setDatasetId(options.getDataset())
+                .setProjectId(options.getProject())
+                .build());
 
+    return p.run();
+  }
 }
-
