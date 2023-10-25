@@ -16,7 +16,7 @@
 package com.google.swarm.tokenization.beam;
 
 import com.google.privacy.dlp.v2.Table.Row;
-import com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2PipelineOptions;
+import com.google.swarm.tokenization.InspectClassifyPipelineOptions;
 import java.util.Random;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.coders.Coder;
@@ -58,8 +58,8 @@ public class ShardRows
     }
 
     if (numberOfShards == UNDEFINED_NUMBER_OF_SHARDS) {
-      DLPTextToBigQueryStreamingV2PipelineOptions options =
-          input.getPipeline().getOptions().as(DLPTextToBigQueryStreamingV2PipelineOptions.class);
+      InspectClassifyPipelineOptions options =
+          input.getPipeline().getOptions().as(InspectClassifyPipelineOptions.class);
       numberOfShards = options.getNumShardsPerDLPRequestBatching();
     }
 
