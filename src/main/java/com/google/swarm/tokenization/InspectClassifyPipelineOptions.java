@@ -1,247 +1,255 @@
+/*
+ * Copyright 2023 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.google.swarm.tokenization;
 
 import com.google.privacy.dlp.v2.LocationName;
 import com.google.swarm.tokenization.common.Util;
+import java.util.List;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.io.aws.options.S3Options;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.options.*;
 
-import java.util.List;
+public interface InspectClassifyPipelineOptions extends DataflowPipelineOptions, S3Options {
 
+  @Validation.Required
+  String getFilePattern();
 
-public interface InspectClassifyPipelineOptions
-        extends DataflowPipelineOptions, S3Options {
+  void setFilePattern(String csvFilePattern);
 
-    @Validation.Required
-    String getFilePattern();
+  @Description("DLP Inspect Template Name")
+  String getInspectTemplateName();
 
-    void setFilePattern(String csvFilePattern);
+  void setInspectTemplateName(String value);
 
-    @Description("DLP Inspect Template Name")
-    String getInspectTemplateName();
+  @Description("DLP DeIdentify Template Name")
+  String getDeidentifyTemplateName();
 
-    void setInspectTemplateName(String value);
+  void setDeidentifyTemplateName(String value);
 
-    @Description("DLP DeIdentify Template Name")
-    String getDeidentifyTemplateName();
+  @Description("DLP method deid,inspect,reid")
+  @Default.Enum("INSPECT")
+  Util.DLPMethod getDLPMethod();
 
-    void setDeidentifyTemplateName(String value);
+  void setDLPMethod(Util.DLPMethod value);
 
-    @Description("DLP method deid,inspect,reid")
-    @Default.Enum("INSPECT")
-    Util.DLPMethod getDLPMethod();
+  @Description("Batch Size (max 524kb)")
+  @Default.Integer(500000)
+  Integer getBatchSize();
 
-    void setDLPMethod(Util.DLPMethod value);
+  void setBatchSize(Integer value);
 
-    @Description("Batch Size (max 524kb)")
-    @Default.Integer(500000)
-    Integer getBatchSize();
+  @Description("key range")
+  @Default.Integer(100)
+  Integer getKeyRange();
 
-    void setBatchSize(Integer value);
+  void setKeyRange(Integer value);
 
-    @Description("key range")
-    @Default.Integer(100)
-    Integer getKeyRange();
+  @Description("BQ Dataset")
+  String getDataset();
 
-    void setKeyRange(Integer value);
+  void setDataset(String value);
 
-    @Description("BQ Dataset")
-    String getDataset();
+  @Description("BQ Write Method")
+  @Default.Enum("DEFAULT")
+  BigQueryIO.Write.Method getWriteMethod();
 
-    void setDataset(String value);
+  void setWriteMethod(BigQueryIO.Write.Method value);
 
-    @Description("BQ Write Method")
-    @Default.Enum("DEFAULT")
-    BigQueryIO.Write.Method getWriteMethod();
+  @Description("Record delimiter")
+  @Default.String("\n")
+  String getRecordDelimiter();
 
-    void setWriteMethod(BigQueryIO.Write.Method value);
+  void setRecordDelimiter(String value);
 
-    @Description("Record delimiter")
-    @Default.String("\n")
-    String getRecordDelimiter();
+  @Description("Column delimiter")
+  @Default.Character(',')
+  Character getColumnDelimiter();
 
-    void setRecordDelimiter(String value);
+  void setColumnDelimiter(Character value);
 
-    @Description("Column delimiter")
-    @Default.Character(',')
-    Character getColumnDelimiter();
+  @Description("BigQuery table to export from in the form <project>:<dataset>.<table>")
+  String getTableRef();
 
-    void setColumnDelimiter(Character value);
+  void setTableRef(String tableRef);
 
-    @Description("BigQuery table to export from in the form <project>:<dataset>.<table>")
-    String getTableRef();
+  @Description("read method default, direct, export")
+  @Default.Enum("EXPORT")
+  BigQueryIO.TypedRead.Method getReadMethod();
 
-    void setTableRef(String tableRef);
+  void setReadMethod(BigQueryIO.TypedRead.Method method);
 
-    @Description("read method default, direct, export")
-    @Default.Enum("EXPORT")
-    BigQueryIO.TypedRead.Method getReadMethod();
+  @Description("Query")
+  String getQueryPath();
 
-    void setReadMethod(BigQueryIO.TypedRead.Method method);
+  void setQueryPath(String topic);
 
-    @Description("Query")
-    String getQueryPath();
+  @Description("Topic to use for reid result")
+  String getTopic();
 
-    void setQueryPath(String topic);
+  void setTopic(String topic);
 
-    @Description("Topic to use for reid result")
-    String getTopic();
+  @Default.Integer(900 * 1000)
+  Integer getSplitSize();
 
-    void setTopic(String topic);
+  void setSplitSize(Integer value);
 
-    @Default.Integer(900 * 1000)
-    Integer getSplitSize();
+  @Description("DLP Table Headers- Required for Json type")
+  List<String> getHeaders();
 
-    void setSplitSize(Integer value);
+  void setHeaders(List<String> topic);
 
-    @Description("DLP Table Headers- Required for Json type")
-    List<String> getHeaders();
+  @Description("Input file schema- Required for ORC type")
+  String getSchema();
 
-    void setHeaders(List<String> topic);
+  void setSchema(String schema);
 
-    @Description("Input file schema- Required for ORC type")
-    String getSchema();
+  @Description(
+      "Number of shards for DLP request batches. "
+          + "Can be used to controls parallelism of DLP requests.")
+  @Default.Integer(100)
+  int getNumShardsPerDLPRequestBatching();
 
-    void setSchema(String schema);
+  void setNumShardsPerDLPRequestBatching(int value);
 
-    @Description(
-            "Number of shards for DLP request batches. "
-                    + "Can be used to controls parallelism of DLP requests.")
-    @Default.Integer(100)
-    int getNumShardsPerDLPRequestBatching();
+  @Description("Number of retries in case of transient errors in DLP API")
+  @Default.Integer(10)
+  int getDlpApiRetryCount();
 
-    void setNumShardsPerDLPRequestBatching(int value);
+  void setDlpApiRetryCount(int value);
 
-    @Description("Number of retries in case of transient errors in DLP API")
-    @Default.Integer(10)
-    int getDlpApiRetryCount();
+  @Description("Initial backoff (in seconds) for retries with exponential backoff")
+  @Default.Integer(5)
+  int getInitialBackoff();
 
-    void setDlpApiRetryCount(int value);
+  /**
+   * Initial backoff (in seconds) for retries with exponential backoff. See {@link
+   * org.apache.beam.sdk.util.FluentBackoff.BackoffImpl#nextBackOffMillis()} for details on how the
+   * exponential backoff is implemented.
+   */
+  void setInitialBackoff(int value);
 
-    @Description("Initial backoff (in seconds) for retries with exponential backoff")
-    @Default.Integer(5)
-    int getInitialBackoff();
+  @Description("Output bucket to write DEID output as csv file")
+  String getOutputBucket();
 
-    /**
-     * Initial backoff (in seconds) for retries with exponential backoff. See {@link
-     * org.apache.beam.sdk.util.FluentBackoff.BackoffImpl#nextBackOffMillis()} for details on how the
-     * exponential backoff is implemented.
-     */
-    void setInitialBackoff(int value);
+  void setOutputBucket(String outputBucket);
 
-    @Description("Output bucket to write DEID output as csv file")
-    String getOutputBucket();
-
-    void setOutputBucket(String outputBucket);
-
-    class DataSinkFactory implements DefaultValueFactory<Util.DataSinkType> {
-        @Override
-        public Util.DataSinkType create(PipelineOptions options) {
-            if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getOutputBucket()!=null)
-                return Util.DataSinkType.GCS;
-            else
-                return Util.DataSinkType.BigQuery;
-        }
+  class DataSinkFactory implements DefaultValueFactory<Util.DataSinkType> {
+    @Override
+    public Util.DataSinkType create(PipelineOptions options) {
+      if (((InspectClassifyPipelineOptions) options).getOutputBucket() != null)
+        return Util.DataSinkType.GCS;
+      else return Util.DataSinkType.BigQuery;
     }
+  }
 
-    @Validation.Required
-    @Default.InstanceFactory(DataSinkFactory.class)
-    Util.DataSinkType getDataSinkType();
+  @Validation.Required
+  @Default.InstanceFactory(DataSinkFactory.class)
+  Util.DataSinkType getDataSinkType();
 
-    void setDataSinkType(Util.DataSinkType dataSinkType);
+  void setDataSinkType(Util.DataSinkType dataSinkType);
 
+  class FileTypeFactory implements DefaultValueFactory<Util.FileType> {
+    @Override
+    public Util.FileType create(PipelineOptions options) {
+      if (((InspectClassifyPipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".avro")) {
+        return Util.FileType.AVRO;
 
-    class FileTypeFactory implements DefaultValueFactory<Util.FileType> {
-        @Override
-        public Util.FileType create(PipelineOptions options) {
-            if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
-                    .getFilePattern()
-                    .toLowerCase()
-                    .endsWith(".avro")) {
-                return Util.FileType.AVRO;
-
-            } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
-                    .getFilePattern()
-                    .toLowerCase()
-                    .endsWith(".jsonl")) {
-                return Util.FileType.JSONL;
-            } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
-                    .getFilePattern()
-                    .toLowerCase()
-                    .endsWith(".txt")) {
-                return Util.FileType.TXT;
-            } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
-                    .getFilePattern()
-                    .toLowerCase()
-                    .endsWith(".tsv")) {
-                return Util.FileType.TSV;
-            } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
-                    .getFilePattern()
-                    .toLowerCase()
-                    .endsWith(".parquet")) {
-                return Util.FileType.PARQUET;
-            } else if (((DLPTextToBigQueryStreamingV2PipelineOptions) options)
-                    .getFilePattern()
-                    .toLowerCase()
-                    .endsWith(".orc")) {
-                return Util.FileType.ORC;
-            } else {
-                return Util.FileType.CSV;
-            }
-        }
+      } else if (((InspectClassifyPipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".jsonl")) {
+        return Util.FileType.JSONL;
+      } else if (((InspectClassifyPipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".txt")) {
+        return Util.FileType.TXT;
+      } else if (((InspectClassifyPipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".tsv")) {
+        return Util.FileType.TSV;
+      } else if (((InspectClassifyPipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".parquet")) {
+        return Util.FileType.PARQUET;
+      } else if (((InspectClassifyPipelineOptions) options)
+          .getFilePattern()
+          .toLowerCase()
+          .endsWith(".orc")) {
+        return Util.FileType.ORC;
+      } else {
+        return Util.FileType.CSV;
+      }
     }
+  }
 
-    @Validation.Required
-    @Default.InstanceFactory(FileTypeFactory.class)
-    Util.FileType getFileType();
+  @Validation.Required
+  @Default.InstanceFactory(FileTypeFactory.class)
+  Util.FileType getFileType();
 
-    void setFileType(Util.FileType fileType);
+  void setFileType(Util.FileType fileType);
 
+  List<String> getFileTypes();
 
-    List<String> getFileTypes();
+  void setFileTypes(List<String> fileTypes);
 
-    void setFileTypes(List<String> fileTypes);
-
-    class DLPConfigProjectFactory implements DefaultValueFactory<String> {
-        @Override
-        public String create(PipelineOptions options) {
-            return LocationName.of(
-                            ((DLPTextToBigQueryStreamingV2PipelineOptions) options).getProject(), "global")
-                    .toString();
-        }
+  class DLPConfigProjectFactory implements DefaultValueFactory<String> {
+    @Override
+    public String create(PipelineOptions options) {
+      return LocationName.of(
+              ((InspectClassifyPipelineOptions) options).getProject(), "global")
+          .toString();
     }
+  }
 
-    @Default.InstanceFactory(DLPConfigProjectFactory.class)
-    String getDLPParent();
+  @Default.InstanceFactory(DLPConfigProjectFactory.class)
+  String getDLPParent();
 
-    void setDLPParent(String parent);
+  void setDLPParent(String parent);
 
-    class InputPollingFactory implements DefaultValueFactory<Util.InputLocation> {
-        @Override
-        public Util.InputLocation create(PipelineOptions options) {
-            if (((DLPTextToBigQueryStreamingV2PipelineOptions) options).getFilePattern().startsWith("gs://"))
-                return Util.InputLocation.GCS;
-            else
-                return Util.InputLocation.NOT_GCS;
-        }
+  class InputPollingFactory implements DefaultValueFactory<Util.InputLocation> {
+    @Override
+    public Util.InputLocation create(PipelineOptions options) {
+      if (((InspectClassifyPipelineOptions) options)
+          .getFilePattern()
+          .startsWith("gs://")) return Util.InputLocation.GCS;
+      else return Util.InputLocation.NOT_GCS;
     }
+  }
 
-    @Validation.Required
-    @Default.InstanceFactory(InputPollingFactory.class)
-    Util.InputLocation getInputProviderType();
+  @Validation.Required
+  @Default.InstanceFactory(InputPollingFactory.class)
+  Util.InputLocation getInputProviderType();
 
-    void setInputProviderType(Util.InputLocation input);
+  void setInputProviderType(Util.InputLocation input);
 
-    @Description("Topic to use for GCS Pub/Sub")
-    String getGcsNotificationTopic();
+  @Description("Topic to use for GCS Pub/Sub")
+  String getGcsNotificationTopic();
 
-    void setGcsNotificationTopic(String topic);
+  void setGcsNotificationTopic(String topic);
 
-    @Description("Flag to process existing files")
-    @Default.Boolean(true)
-    Boolean getProcessExistingFiles();
+  @Description("Flag to process existing files")
+  @Default.Boolean(true)
+  Boolean getProcessExistingFiles();
 
-    void setProcessExistingFiles(Boolean value);
-
+  void setProcessExistingFiles(Boolean value);
 }

@@ -136,7 +136,7 @@ public class Util {
   public static final String BQ_REID_TABLE_EXT = String.valueOf("re_id");
 
   public static final Set<String> ALLOWED_TEXT_FILE_EXTENSIONS =
-          Arrays.asList("txt","json","xml","yaml").stream().collect(Collectors.toUnmodifiableSet());
+      Arrays.asList("txt", "json", "xml", "yaml").stream().collect(Collectors.toUnmodifiableSet());
 
   public static final Set<String> ALLOWED_FILE_EXTENSIONS =
       Arrays.asList("avro", "csv", "jsonl", "orc", "parquet", "tsv", "txt").stream()
@@ -526,37 +526,22 @@ public class Util {
     return StringUtils.EMPTY;
   }
 
-  public static List<Util.FileType> getExtension(List<String> fileTypes){
+  public static List<Util.FileType> getExtension(List<String> fileTypes) {
     List<Util.FileType> extensionList = new ArrayList<>();
-    for(String filetype: fileTypes){
+    for (String filetype : fileTypes) {
 
-      if(filetype == "avro")
-        extensionList.add(Util.FileType.AVRO);
-      else if(filetype == "csv")
-        extensionList.add(Util.FileType.CSV);
-      else if(filetype == "jsonl")
-        extensionList.add(Util.FileType.JSONL);
-      else if(filetype == "text")
-        extensionList.add(Util.FileType.TXT);
-
-
+      if (filetype == "avro") extensionList.add(Util.FileType.AVRO);
+      else if (filetype == "csv") extensionList.add(Util.FileType.CSV);
+      else if (filetype == "jsonl") extensionList.add(Util.FileType.JSONL);
+      else if (filetype == "text") extensionList.add(Util.FileType.TXT);
     }
     return extensionList;
   }
 
-  public static Util.FileType getExtension(String fileType){
-
-      if(filetype == "avro")
-        return Util.FileType.AVRO;
-      else if(filetype == "csv")
-        return  Util.FileType.CSV;
-      else if(filetype == "jsonl")
-        return Util.FileType.JSONL;
-      else
-        return Util.FileType.TXT;
-
-
-    }
-
+  public static Util.FileType getExtension(String fileType) {
+    if (fileType == "avro") return Util.FileType.AVRO;
+    else if (fileType == "csv") return Util.FileType.CSV;
+    else if (fileType == "jsonl") return Util.FileType.JSONL;
+    else return Util.FileType.TXT;
   }
 }
