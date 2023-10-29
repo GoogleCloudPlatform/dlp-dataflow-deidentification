@@ -16,9 +16,15 @@
 package com.google.swarm.tokenization;
 
 import com.google.api.services.bigquery.model.TableRow;
+import com.google.privacy.dlp.v2.FileType;
 import com.google.privacy.dlp.v2.Table;
 import com.google.swarm.tokenization.avro.AvroColumnNamesDoFn;
+import com.google.swarm.tokenization.avro.AvroReaderSplittableDoFn;
+import com.google.swarm.tokenization.avro.ConvertAvroRecordToDlpRowDoFn;
+import com.google.swarm.tokenization.avro.GenericRecordCoder;
 import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
+import com.google.swarm.tokenization.classification.NewExtractColumnNamesTransform;
+import com.google.swarm.tokenization.classification.ReadHeaderTransform;
 import com.google.swarm.tokenization.coders.DeterministicTableRowJsonCoder;
 import com.google.swarm.tokenization.common.*;
 import com.google.swarm.tokenization.json.JsonColumnNameDoFn;
@@ -147,11 +153,12 @@ public class InspectClassify {
     p.getCoderRegistry().registerCoderForClass(TableRow.class, DeterministicTableRowJsonCoder.of());
 
     PCollection<KV<String, FileIO.ReadableFile>> inputFiles =
-        p.apply("MatchExistingFiles", FileIO.match().filepattern(options.getFilePattern()))
-            .apply("ReadExistingFiles", FileIO.readMatches())
-            .apply(
-                "SanitizeFileNameExistingFiles",
-                ParDo.of(new SanitizeFileNameDoFn(Util.InputLocation.GCS)))
+            p.apply(
+                    "Read Existing Files",
+                    ReadExistingFilesTransform.newBuilder()
+                            .setFilePattern(options.getFilePattern())
+                            .setProcessExistingFiles(options.getProcessExistingFiles())
+                            .build())
             .apply("Fixed Window", Window.into(FixedWindows.of(WINDOW_INTERVAL)));
 
     /** Create a List of PCollections where list index represents the FileType enum's ordinal */
@@ -163,7 +170,8 @@ public class InspectClassify {
                   @Override
                   public int partitionFor(KV<String, FileIO.ReadableFile> elem, int numPartitions) {
                     String resourceId = String.valueOf(elem.getValue().getMetadata().resourceId());
-                    String extension = String.valueOf(resourceId.lastIndexOf("."));
+                    String extension = String.valueOf(resourceId.substring(resourceId.lastIndexOf(".") + 1));
+                    LOG.info("Found extension: {} and FileType: {} ", extension, Util.FileType.valueOf(extension.toUpperCase()).toString());
                     return Util.FileType.valueOf(extension.toUpperCase()).ordinal();
                   }
                 }));
@@ -183,46 +191,28 @@ public class InspectClassify {
      * Store header objects of every FileType in a single PCollectionView assuming no two input
      * files can have same name.
      */
-    //    PCollectionView<Map<String, List<String>>> headers =
-    //        files.apply(
-    //            "Extract Column Names",
-    //            NewExtractColumnNamesTransform.newBuilder()
-    //                .setHeaders(options.getHeaders())
-    //                .setColumnDelimiter(options.getColumnDelimiter())
-    //                .setPubSubGcs(false)
-    //                .setProjectId(options.getProject())
-    //                .setFileTypes(fileExtensionList)
-    //                .build());
-    PCollectionView<Map<String, List<String>>> headers =
-        createHeaders(files, p, fileExtensionList, options);
+     final PCollectionView<Map<String, List<String>>> headers =
+            files.apply(
+                "Extract Column Names",
+                NewExtractColumnNamesTransform.newBuilder()
+                    .setHeaders(options.getHeaders())
+                    .setColumnDelimiter(options.getColumnDelimiter())
+                    .setPubSubGcs(false)
+                    .setProjectId(options.getProject())
+                    .setFileTypes(fileExtensionList)
+                    .build());
+//    PCollectionView<Map<String, List<String>>> headers =
+//        createHeaders(files, p, fileExtensionList, options);
 
     for (Util.FileType fileType : fileExtensionList) {
       switch (fileType) {
-          //                case AVRO:
-          //                    records =
-          //
-          // files.get(Util.FileType.AVRO.ordinal()).apply("converttoStringkey", MapElements.via(
-          //                                            new SimpleFunction<KV<FileKeyObject,
-          // FileIO.ReadableFile>, KV<String, FileIO.ReadableFile>>() {
-          //                                                @Override
-          //                                                public KV<String, FileIO.ReadableFile>
-          // apply(KV<FileKeyObject, FileIO.ReadableFile> ele){
-          //                                                        return
-          // KV.of(ele.getKey().getFilename(),ele.getValue());
-          //                                                }
-          //
-          //                                            }
-          //                                    ))
-          //                                    .apply(
-          //                                            ParDo.of(
-          //                                                    new AvroReaderSplittableDoFn(
-          //                                                            options.getKeyRange(),
-          // options.getSplitSize())))
-          //                                    .setCoder(KvCoder.of(StringUtf8Coder.of(),
-          // GenericRecordCoder.of()))
-          //                                    .apply(ParDo.of(new
-          // ConvertAvroRecordToDlpRowDoFn()));
-          //                    break;
+        case AVRO:
+          PCollection<KV<String, FileIO.ReadableFile>> inputFilesavro = files.get(Util.FileType.AVRO.ordinal());
+          PCollection<KV<String, Table.Row>> avroRecords = inputFilesavro.apply(ParDo.of(new AvroReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())))
+                                              .setCoder(KvCoder.of(StringUtf8Coder.of(), GenericRecordCoder.of()))
+                                              .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
+          records = records.and(avroRecords);
+          break;
 
         case CSV:
           PCollection<KV<String, FileIO.ReadableFile>> inputFilescsv =
@@ -240,7 +230,7 @@ public class InspectClassify {
                       ParDo.of(new ConvertCSVRecordToDLPRow(options.getColumnDelimiter(), headers))
                           .withSideInputs(headers));
 
-          records.and(csvRecords);
+          records = records.and(csvRecords);
           break;
 
           //                case JSONL:
