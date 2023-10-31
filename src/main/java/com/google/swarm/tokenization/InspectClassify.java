@@ -24,7 +24,6 @@ import com.google.swarm.tokenization.avro.ConvertAvroRecordToDlpRowDoFn;
 import com.google.swarm.tokenization.avro.GenericRecordCoder;
 import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
 import com.google.swarm.tokenization.classification.NewExtractColumnNamesTransform;
-import com.google.swarm.tokenization.classification.ReadHeaderTransform;
 import com.google.swarm.tokenization.coders.DeterministicTableRowJsonCoder;
 import com.google.swarm.tokenization.common.*;
 import com.google.swarm.tokenization.json.JsonColumnNameDoFn;
