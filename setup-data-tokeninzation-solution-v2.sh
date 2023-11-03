@@ -23,7 +23,7 @@ export KEY_RING_NAME=demo-key-ring
 export KEY_NAME=demo-key
 export KEK_FILE_NAME=kek.json
 export TOKENIZING_ROLE_NAME="dlp_tokenizing_runner"
-export PROJECT_NUMBER=$(gcloud projects list --filter=${PROJECT_ID} --format="value(PROJECT_NUMBER)") 
+export PROJECT_NUMBER=$(gcloud projects list --filter="PROJECT_ID: ${PROJECT_ID}" --format="value(PROJECT_NUMBER)")
 export SERVICE_ACCOUNT_NAME=demo-service-account
 export REGION=us-central1
 export BQ_DATASET_NAME=demo_dataset
