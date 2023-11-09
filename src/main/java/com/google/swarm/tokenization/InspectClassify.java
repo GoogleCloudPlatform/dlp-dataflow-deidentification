@@ -23,6 +23,8 @@ import com.google.swarm.tokenization.avro.AvroReaderSplittableDoFn;
 import com.google.swarm.tokenization.avro.ConvertAvroRecordToDlpRowDoFn;
 import com.google.swarm.tokenization.avro.GenericRecordCoder;
 import com.google.swarm.tokenization.beam.ConvertCSVRecordToDLPRow;
+import com.google.swarm.tokenization.beam.DLPInspectText;
+import com.google.swarm.tokenization.classification.ClassifyFiles;
 import com.google.swarm.tokenization.classification.NewExtractColumnNamesTransform;
 import com.google.swarm.tokenization.classification.ReadHeaderTransform;
 import com.google.swarm.tokenization.coders.DeterministicTableRowJsonCoder;
@@ -307,28 +309,16 @@ public class InspectClassify {
     ;
 
     flattenedRecords
-        .apply(
-            "DLPTransform",
-            DLPTransform.newBuilder()
-                .setBatchSize(options.getBatchSize())
-                .setInspectTemplateName(options.getInspectTemplateName())
-                .setDeidTemplateName(options.getDeidentifyTemplateName())
-                .setDlpmethod(options.getDLPMethod())
-                .setProjectId(options.getDLPParent())
-                .setHeaders(headers)
-                .setColumnDelimiter(options.getColumnDelimiter())
-                .setJobName(options.getJobName())
-                .setDlpApiRetryCount(options.getDlpApiRetryCount())
-                .setInitialBackoff(options.getInitialBackoff())
-                .setDataSinkType(options.getDataSinkType())
-                .build())
-        .get(Util.inspectOrDeidSuccess)
-        .apply(
-            "InsertToBQ",
-            BigQueryDynamicWriteTransform.newBuilder()
-                .setDatasetId(options.getDataset())
-                .setProjectId(options.getProject())
-                .build());
+            .apply("DLPInspection", DLPInspectText.newBuilder()
+                    .setBatchSizeBytes(options.getBatchSize())
+                    .setColumnDelimiter(options.getColumnDelimiter())
+                    .setHeaderColumns(headers)
+                    .setInspectTemplateName(options.getInspectTemplateName())
+                    .setProjectId(options.getDLPParent())
+                    .setDlpApiRetryCount(options.getDlpApiRetryCount())
+                    .setInitialBackoff(options.getInitialBackoff())
+                    .build())
+            .apply("ClassifyFiles", ClassifyFiles.newBuilder().setOuxtputPubSubTopic(options.getTopic()).build());
 
     return p.run();
   }
