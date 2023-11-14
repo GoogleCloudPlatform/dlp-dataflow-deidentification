@@ -318,7 +318,7 @@ public class InspectClassify {
                     .setDlpApiRetryCount(options.getDlpApiRetryCount())
                     .setInitialBackoff(options.getInitialBackoff())
                     .build())
-            .apply("ClassifyFiles", ClassifyFiles.newBuilder().setOuxtputPubSubTopic(options.getTopic()).build());
+            .apply("ClassifyFiles", ClassifyFiles.newBuilder().setOutputPubSubTopic(options.getTopic()).build());
 
     return p.run();
   }

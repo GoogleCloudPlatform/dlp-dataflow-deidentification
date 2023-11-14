@@ -3,10 +3,10 @@ package com.google.swarm.tokenization.classification;
 import com.google.auto.value.AutoValue;
 import com.google.privacy.dlp.v2.InspectContentResponse;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.transforms.*;
-import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PDone;
+import org.apache.beam.sdk.values.*;
+
 @AutoValue
 public abstract class ClassifyFiles extends PTransform<PCollection<KV<String, InspectContentResponse>>, PDone> {
 
@@ -28,18 +28,36 @@ public abstract class ClassifyFiles extends PTransform<PCollection<KV<String, In
     @Override
     public PDone expand(PCollection<KV<String, InspectContentResponse>> input) {
 
-     return input.apply("CountFindings",ParDo.of(new DoFn<KV<String, InspectContentResponse>, KV<String, Long>>() {
-            @ProcessElement
-            public void processElement(ProcessContext c) {
-                String filename = c.element().getKey();
-                Long findings = Long.valueOf(c.element().getValue().getResult()
-                        .getFindingsList().size());
+//     return input.apply("CountFindings",ParDo.of(new DoFn<KV<String, InspectContentResponse>, KV<String, Long>>() {
+//            @ProcessElement
+//            public void processElement(ProcessContext c) {
+//                String filename = c.element().getKey();
+//                Long findings = Long.valueOf(c.element().getValue().getResult()
+//                        .getFindingsList().size());
+//
+//                c.output(KV.of(filename,findings));
+//            }
+//        }))
 
-                c.output(KV.of(filename,findings));
-            }
-        })).apply("FindTotalFindings", Combine.<String,Long,Long>perKey(Sum.ofLongs()))
-           .apply("ApplySensitiveTag", ParDo.of(new ApplySensitiveTagDoFn()))
-           .apply("PublishToPubSub", PubsubIO.writeMessages().to(outputPubSubTopic()));
+        PCollectionTuple findings = input.apply("ProcessFindings", ParDo.of(new ProcessInspectFindingsDoFn())
+                        .withOutputTags(ProcessInspectFindingsDoFn.getInspectSuccessTag(),
+                                TupleTagList.of(ProcessInspectFindingsDoFn.getInspectFailureTag())));
+
+
+        PCollection<PubsubMessage> inspectSuccess = findings.get(ProcessInspectFindingsDoFn.getInspectSuccessTag())
+                .apply("FindTotalFindings", Combine.<String,Long,Long>perKey(Sum.ofLongs()))
+                .apply("ApplySensitiveTag", ParDo.of(new CreatePubSubMessage("success")));
+
+
+
+        PCollection<PubsubMessage> inspectFailure = findings.get(ProcessInspectFindingsDoFn.getInspectFailureTag())
+                .apply("FindTotalErrors", Combine.<String,Long,Long>perKey(Sum.ofLongs()))
+                .apply("CreateMessage", ParDo.of(new CreatePubSubMessage("error")));
+
+        return PCollectionList.of(inspectSuccess)
+                .and(inspectFailure)
+                .apply("Flatten", Flatten.pCollections())
+                .apply("PublishToPubSub", PubsubIO.writeMessages().to(outputPubSubTopic()));
 
     }
 }
