@@ -99,7 +99,7 @@ public final class GenericRecordFlattener implements RecordFlattener<GenericReco
 
         case ARRAY:
           String listFieldKey =
-                  isBlank(parentKey) ? fieldName : String.format("%s.%s", parentKey, fieldName);
+              isBlank(parentKey) ? fieldName : String.format("%s.%s", parentKey, fieldName);
           if (value == null) {
             putValue(listFieldKey, Value.newBuilder().getDefaultInstanceForType());
           } else {
@@ -108,7 +108,8 @@ public final class GenericRecordFlattener implements RecordFlattener<GenericReco
             for (int index = 0; index < arrayValues.size(); index++) {
               updatedValues.add(arrayValues.get(index).toString());
             }
-            putValue(listFieldKey, Value.newBuilder().setStringValue(updatedValues.toString()).build());
+            putValue(
+                listFieldKey, Value.newBuilder().setStringValue(updatedValues.toString()).build());
           }
           break;
 
