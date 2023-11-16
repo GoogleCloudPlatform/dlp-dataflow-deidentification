@@ -98,12 +98,19 @@ public final class GenericRecordFlattener implements RecordFlattener<GenericReco
           break;
 
         case ARRAY:
-          List<?> arrayValues = (List<?>) value;
-          List<String> updatedValues = new ArrayList<>();
-          for (int index = 0; index < arrayValues.size(); index++) {
-            updatedValues.add(arrayValues.get(index).toString());
+          String listFieldKey =
+              isBlank(parentKey) ? fieldName : String.format("%s.%s", parentKey, fieldName);
+          if (value == null) {
+            putValue(listFieldKey, Value.newBuilder().getDefaultInstanceForType());
+          } else {
+            List<?> arrayValues = (List<?>) value;
+            List<String> updatedValues = new ArrayList<>();
+            for (int index = 0; index < arrayValues.size(); index++) {
+              updatedValues.add(arrayValues.get(index).toString());
+            }
+            putValue(
+                listFieldKey, Value.newBuilder().setStringValue(updatedValues.toString()).build());
           }
-          putValue(parentKey, Value.newBuilder().setStringValue(updatedValues.toString()).build());
           break;
 
         case UNION:
