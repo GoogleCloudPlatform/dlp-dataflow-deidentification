@@ -506,9 +506,8 @@ To run the pipeline for JSONL files, the list of comma-separated headers also ne
 ./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/CCRecords_sample.jsonl --headers=<comma_separated_list_of_headers>"
 ```
 
-Limitaions:
-1. The original schema of the input file will not be preserved as the data is simplified while converting it to DLP API 
-request object.
+The original schema of the input file will not be preserved. This solution simplifies the data when it converts the data
+to a DLP API request object.
 
 #### 4. Avro
 
@@ -519,9 +518,8 @@ the pipeline except updating the `--filePattern` parameter. For example:
 ./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.avro"
 ```
 
-Limitaions:
-1. The original schema of the input file will not be preserved as the data is simplified while converting it to DLP API
-   request object.
+The original schema of the input file will not be preserved. This solution simplifies the data when it converts the data
+to a DLP API request object.
 
 #### 5. CSV files with custom delimiters
 
@@ -543,9 +541,8 @@ No additional changes are required to run the pipeline except updating the `--fi
 ./gradlew run ... -Pargs="... --filePattern=gs://${PROJECT_ID}-demo-data/*.parquet"
 ```
 
-Limitaions:
-1. The original schema of the input file will not be preserved as the data is simplified while converting it to DLP API
-   request object.
+The original schema of the input file will not be preserved. This solution simplifies the data when it converts the data
+to a DLP API request object.
 
 #### 6. ORC
 
@@ -575,12 +572,11 @@ written in a BigQuery dataset as tables or an output Cloud Storage bucket as ORC
 ```
 
 In the above command, replace <i>output_storage_bucket</i> with the URI of the Cloud Storage bucket where you want to 
-store the de-identified ORC files. The de-identification pipeline supports input files with varying schemas to be 
+store the de-identified ORC files. The de-identification pipeline allows input files with varying schemas to be 
 processed in the same pipeline.
 
-Limitaions:
-1. Currently, it can process only primitive
-data types available in ORC format when the results are stored in an output Cloud Storage bucket.
+Currently, this solution can process only primitive data types available in ORC format when the results are stored in an
+output Cloud Storage bucket.
 
 For sample data in ORC file format, refer to [mock-data](.github/mock-data).
 
