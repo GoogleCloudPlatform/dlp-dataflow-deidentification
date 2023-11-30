@@ -26,4 +26,4 @@ curl -X POST -H "Content-Type: application/json" \
     -H "Authorization: Bearer ${API_KEY}" \
     "${KEK_API}"$() \
     -d '{"plaintext":"'${TEK}'"}' \
-    -o "${KEK}"
+    -o "${KEK}" 
