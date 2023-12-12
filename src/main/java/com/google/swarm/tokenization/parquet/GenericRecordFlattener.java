@@ -24,12 +24,19 @@ import com.google.privacy.dlp.v2.Value;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.google.swarm.tokenization.txt.ParseTextLogDoFn;
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
+import org.mortbay.log.Log;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class GenericRecordFlattener implements RecordFlattener<GenericRecord> {
+
+  private static final Logger LOG = LoggerFactory.getLogger(GenericRecordFlattener.class);
   /**
    * Convenience static factory to instantiate a converter for a Generic Record.
    *
@@ -37,7 +44,7 @@ public final class GenericRecordFlattener implements RecordFlattener<GenericReco
    */
   @Override
   public Table.Row flatten(GenericRecord genericRecord) {
-    return new TypeFlattener(genericRecord).convert();
+    return new TypeFlattener(genericRecord).processRecord();
   }
 
   public List<String> flattenColumns(GenericRecord genericRecord) {
@@ -77,9 +84,34 @@ public final class GenericRecordFlattener implements RecordFlattener<GenericReco
     }
 
     private List<String> convertHeaders() {
-      convertRecord(genericRecord, schema, null);
-      return flattenedFieldNames;
+      List<String> fieldNames = new ArrayList<>();
+      for (Field field : schema.getFields()) {
+        String fieldName = field.name();
+        Object value = genericRecord.get(fieldName);
+        fieldNames.add(fieldName);
+
+      }
+      LOG.info("Fieldnames: " + fieldNames.toString());
+      return fieldNames;
+//      convertRecord(genericRecord, schema, null);
+//      return flattenedFieldNames;
     }
+
+    private Table.Row processRecord(){
+      Table.Row.Builder rowBuilder = Table.Row.newBuilder();
+      for (Field field : schema.getFields()) {
+        String fieldName = field.name();
+        Object fieldValue = genericRecord.get(fieldName);
+        if(fieldValue == null)
+            fieldValue = "";
+        LOG.info("Added fieldValue: " + fieldValue.toString());
+        Value value = Value.newBuilder().setStringValue(String.valueOf(fieldValue)).build();
+        rowBuilder.addValues(value);
+      }
+
+      return rowBuilder.build();
+    }
+
 
     /**
      * Flattens the provided value as per the type of item.
