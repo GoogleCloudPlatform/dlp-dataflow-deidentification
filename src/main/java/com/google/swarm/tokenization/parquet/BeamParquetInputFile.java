@@ -26,7 +26,7 @@ public class BeamParquetInputFile implements InputFile {
 
   private SeekableByteChannel seekableByteChannel;
 
-  BeamParquetInputFile(SeekableByteChannel seekableByteChannel) {
+  public BeamParquetInputFile(SeekableByteChannel seekableByteChannel) {
     this.seekableByteChannel = seekableByteChannel;
   }
 
