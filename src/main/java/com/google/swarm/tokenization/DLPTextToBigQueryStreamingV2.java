@@ -285,6 +285,24 @@ public class DLPTextToBigQueryStreamingV2 {
                 ParDo.of(new ORCWriterDoFn(options.getOutputBucket(), schemaMapping))
                     .withSideInputs(schemaMapping))
             .setCoder(StringUtf8Coder.of());
+      } else if (options.getFileType() == Util.FileType.PARQUET) {
+        // TODO: Update the code snippet for Parquet, similar to ORC logic
+        final PCollectionView<Map<String, String>> schemaMapping =
+                inputFiles.apply(
+                        "Extract Input File Schema",
+                        ExtractFileSchemaTransform.newBuilder()
+                                .setFileType(options.getFileType())
+                                .setProjectId(options.getProject())
+                                .build());
+
+        inspectDeidRecords
+                .get(Util.deidSuccessGCS)
+                .apply(GroupByKey.create())
+                .apply(
+                        "WriteORCToGCS",
+                        ParDo.of(new ORCWriterDoFn(options.getOutputBucket(), schemaMapping))
+                                .withSideInputs(schemaMapping))
+                .setCoder(StringUtf8Coder.of());
       } else {
         inspectDeidRecords
             .get(Util.deidSuccessGCS)

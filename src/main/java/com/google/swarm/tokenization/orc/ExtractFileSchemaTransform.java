@@ -61,23 +61,40 @@ public abstract class ExtractFileSchemaTransform
   public PCollectionView<Map<String, String>> expand(PCollection<KV<String, ReadableFile>> input) {
     PCollectionView<Map<String, String>> schemaMapping;
 
-    schemaMapping =
-        input
-            .apply(
-                ParDo.of(
-                    new DoFn<KV<String, ReadableFile>, KV<String, String>>() {
-                      @ProcessElement
-                      public void processElement(ProcessContext c) throws IOException {
-                        String filename = c.element().getKey();
-                        ReadableFile randomFile = c.element().getValue();
-                        String filePath = randomFile.getMetadata().resourceId().toString();
-                        Reader reader =
-                            new ORCFileReader().createORCFileReader(filePath, projectId());
-                        String schema = reader.getSchema().toString();
-                        c.output(KV.of(filename, schema));
-                      }
-                    }))
-            .apply("ViewAsList", View.asMap());
+    switch (fileType()) {
+      case AVRO:
+        throw new RuntimeException("ExtractFileSchemaTransform does not support {} file format.",m )
+        break;
+      case CSV:
+        break;
+      case JSONL:
+        break;
+      case ORC:
+      schemaMapping =
+              input
+                      .apply(
+                              ParDo.of(
+                                      new DoFn<KV<String, ReadableFile>, KV<String, String>>() {
+                                        @ProcessElement
+                                        public void processElement(ProcessContext c) throws IOException {
+                                          String filename = c.element().getKey();
+                                          ReadableFile randomFile = c.element().getValue();
+                                          String filePath = randomFile.getMetadata().resourceId().toString();
+                                          Reader reader =
+                                                  new ORCFileReader().createORCFileReader(filePath, projectId());
+                                          String schema = reader.getSchema().toString();
+                                          c.output(KV.of(filename, schema));
+                                        }
+                                      }))
+                      .apply("ViewAsList", View.asMap());
+      case PARQUET:
+        // TODO: Extract schema mappings for Parquet
+        break;
+      case TSV:
+        break;
+      case TXT:
+        break;
+    }
 
     return schemaMapping;
   }
