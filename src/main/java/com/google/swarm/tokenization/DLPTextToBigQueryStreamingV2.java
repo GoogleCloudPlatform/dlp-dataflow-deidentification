@@ -42,6 +42,7 @@ import com.google.swarm.tokenization.orc.ExtractFileSchemaTransform;
 import com.google.swarm.tokenization.orc.ORCReaderDoFn;
 import com.google.swarm.tokenization.orc.ORCWriterDoFn;
 import com.google.swarm.tokenization.parquet.ParquetReaderSplittableDoFn;
+import com.google.swarm.tokenization.parquet.ParquetWriterDoFn;
 import com.google.swarm.tokenization.txt.ConvertTxtToDLPRow;
 import com.google.swarm.tokenization.txt.ParseTextLogDoFn;
 import com.google.swarm.tokenization.txt.TxtReaderSplitDoFn;
@@ -287,22 +288,42 @@ public class DLPTextToBigQueryStreamingV2 {
             .setCoder(StringUtf8Coder.of());
       } else if (options.getFileType() == Util.FileType.PARQUET) {
         // TODO: Update the code snippet for Parquet, similar to ORC logic
-        final PCollectionView<Map<String, String>> schemaMapping =
-                inputFiles.apply(
-                        "Extract Input File Schema",
-                        ExtractFileSchemaTransform.newBuilder()
-                                .setFileType(options.getFileType())
-                                .setProjectId(options.getProject())
-                                .build());
+        final PCollectionView<Map<String, String>> parquetSchemaMapping =
+            inputFiles.apply(
+                "Extract Input File Schema",
+                ExtractFileSchemaTransform.newBuilder()
+                    .setFileType(options.getFileType())
+                    .setProjectId(options.getProject())
+                    .build());
 
         inspectDeidRecords
-                .get(Util.deidSuccessGCS)
-                .apply(GroupByKey.create())
-                .apply(
-                        "WriteORCToGCS",
-                        ParDo.of(new ORCWriterDoFn(options.getOutputBucket(), schemaMapping))
-                                .withSideInputs(schemaMapping))
-                .setCoder(StringUtf8Coder.of());
+            .get(Util.deidSuccessGCS)
+            .apply(GroupByKey.create())
+            .apply(
+                "WriteORCToGCS",
+                ParDo.of(new ParquetWriterDoFn(options.getOutputBucket(), parquetSchemaMapping))
+                    .withSideInputs(parquetSchemaMapping));
+
+        //                .apply(
+        //                        FileIO.<String, KV<String, GenericRecord>>writeDynamic()
+        //                                .by((SerializableFunction<KV<String, GenericRecord>,
+        // String>) KV::getKey)
+        //                                .via(
+        //                                        Contextful.fn(
+        //                                                (SerializableFunction<KV<String,
+        // GenericRecord>, GenericRecord>) KV::getValue
+        //                                        ),
+        //                                        ParquetIO.sink(schema)
+        //
+        // .withCompressionCodec(CompressionCodecName.SNAPPY)
+        //
+        //
+        //                                )
+        //                                .withTempDirectory("/tmp/temp-beam")
+        //                                .to(options.getOutputBucket())
+        //                                .withNumShards(1)
+        //                                .withDestinationCoder(StringUtf8Coder.of())
+        //                );
       } else {
         inspectDeidRecords
             .get(Util.deidSuccessGCS)
