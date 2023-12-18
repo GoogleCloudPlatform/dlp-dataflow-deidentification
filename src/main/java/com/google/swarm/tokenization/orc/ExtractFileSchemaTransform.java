@@ -17,14 +17,10 @@ package com.google.swarm.tokenization.orc;
 
 import com.google.auto.value.AutoValue;
 import com.google.swarm.tokenization.common.Util;
+import com.google.swarm.tokenization.parquet.BeamParquetInputFile;
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
-import java.util.List;
 import java.util.Map;
-
-import com.google.swarm.tokenization.parquet.BeamParquetInputFile;
-import com.google.swarm.tokenization.parquet.RecordFlattener;
-import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.beam.sdk.io.FileIO.ReadableFile;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -72,54 +68,55 @@ public abstract class ExtractFileSchemaTransform
 
     switch (fileType()) {
       case AVRO:
-        throw new RuntimeException("ExtractFileSchemaTransform does not support {} file format." );
+        throw new RuntimeException(
+            "ExtractFileSchemaTransform does not support " + fileType() + " file format.");
       case CSV:
         break;
       case JSONL:
         break;
       case ORC:
         schemaMapping =
-                input
-                        .apply(
-                                ParDo.of(
-                                        new DoFn<KV<String, ReadableFile>, KV<String, String>>() {
-                                          @ProcessElement
-                                          public void processElement(ProcessContext c) throws IOException {
-                                            String filename = c.element().getKey();
-                                            ReadableFile randomFile = c.element().getValue();
-                                            String filePath = randomFile.getMetadata().resourceId().toString();
-                                            Reader reader =
-                                                    new ORCFileReader().createORCFileReader(filePath, projectId());
-                                            String schema = reader.getSchema().toString();
-                                            c.output(KV.of(filename, schema));
-                                          }
-                                        }))
-                        .apply("ViewAsList", View.asMap());
+            input
+                .apply(
+                    ParDo.of(
+                        new DoFn<KV<String, ReadableFile>, KV<String, String>>() {
+                          @ProcessElement
+                          public void processElement(ProcessContext c) throws IOException {
+                            String filename = c.element().getKey();
+                            ReadableFile randomFile = c.element().getValue();
+                            String filePath = randomFile.getMetadata().resourceId().toString();
+                            Reader reader =
+                                new ORCFileReader().createORCFileReader(filePath, projectId());
+                            String schema = reader.getSchema().toString();
+                            c.output(KV.of(filename, schema));
+                          }
+                        }))
+                .apply("ViewAsList", View.asMap());
       case PARQUET:
         // TODO: Extract schema mappings for Parquet
         schemaMapping =
-                input
-                        .apply(
-                                ParDo.of(
-                                        new DoFn<KV<String, ReadableFile>, KV<String, String>>() {
-                                          @ProcessElement
-                                          public void processElement(ProcessContext c) throws IOException {
-                                            String filename = c.element().getKey();
-                                            ReadableFile parquetFile = c.element().getValue();
-                                            String filePath = parquetFile.getMetadata().resourceId().toString();
-                                            SeekableByteChannel seekableByteChannel = parquetFile.openSeekable();
-                                            AvroParquetReader.Builder builder =
-                                                    AvroParquetReader.<GenericRecord>builder(new BeamParquetInputFile(seekableByteChannel));
-                                            try (ParquetReader<GenericRecord> fileReader = builder.build()) {
-                                              GenericRecord record = fileReader.read();
-                                              String fileSchema = record.getSchema().toString();
-                                              c.output(KV.of(filename, fileSchema));
-                                            }
-                                            seekableByteChannel.close();
-                                          }
-                                        }))
-                        .apply("ViewAsList", View.asMap());
-
+            input
+                .apply(
+                    ParDo.of(
+                        new DoFn<KV<String, ReadableFile>, KV<String, String>>() {
+                          @ProcessElement
+                          public void processElement(ProcessContext c) throws IOException {
+                            String filename = c.element().getKey();
+                            ReadableFile parquetFile = c.element().getValue();
+                            String filePath = parquetFile.getMetadata().resourceId().toString();
+                            SeekableByteChannel seekableByteChannel = parquetFile.openSeekable();
+                            AvroParquetReader.Builder builder =
+                                AvroParquetReader.<GenericRecord>builder(
+                                    new BeamParquetInputFile(seekableByteChannel));
+                            try (ParquetReader<GenericRecord> fileReader = builder.build()) {
+                              GenericRecord record = fileReader.read();
+                              String fileSchema = record.getSchema().toString();
+                              c.output(KV.of(filename, fileSchema));
+                            }
+                            seekableByteChannel.close();
+                          }
+                        }))
+                .apply("ViewAsList", View.asMap());
 
         break;
       case TSV:

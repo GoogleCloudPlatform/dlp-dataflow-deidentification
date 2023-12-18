@@ -39,6 +39,7 @@ public class AvroColumnNamesDoFn extends DoFn<KV<String, ReadableFile>, KV<Strin
     try (AvroUtil.AvroSeekableByteChannel channel = AvroUtil.getChannel(avroFile)) {
       DatumReader<GenericRecord> reader = new GenericDatumReader<>();
       DataFileReader<GenericRecord> fileReader = new DataFileReader<>(channel, reader);
+      LOG.info("Avro schema for dlp_profile5: {}", fileReader.getSchema());
       List<String> fieldNames = new ArrayList<>();
       AvroUtil.flattenFieldNames(fileReader.getSchema(), fieldNames, "");
 
