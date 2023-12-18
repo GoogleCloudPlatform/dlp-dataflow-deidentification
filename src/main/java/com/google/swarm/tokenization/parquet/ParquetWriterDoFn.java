@@ -115,15 +115,5 @@ public class ParquetWriterDoFn extends DoFn<KV<String, Iterable<Table.Row>>, KV<
         };
 
     tableRowIterable.forEach(assignGenericRowValue);
-
-    File parquetFile = new File(filePath);
-
-    DatumWriter<GenericRecord> writer = new GenericDatumWriter<>(schema);
-    try (DataFileWriter<GenericRecord> fileWriter = new DataFileWriter<>(writer)) {
-      fileWriter.create(schema, parquetFile);
-      for (GenericRecord record : genericRecordList) {
-        fileWriter.append(record);
-      }
-    }
   }
 }
