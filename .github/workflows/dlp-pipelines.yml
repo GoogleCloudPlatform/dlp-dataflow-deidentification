@@ -102,7 +102,7 @@ jobs:
           echo "orc_dataset_id=${{ env.ORC_DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
           echo "orc_deid_gcs_job_name=orc-deid-gcs-$new_uuid" >> "$GITHUB_OUTPUT"
 
-
+##TODO: Remove this
   test-checkout:
     runs-on: ubuntu-latest
     steps:
