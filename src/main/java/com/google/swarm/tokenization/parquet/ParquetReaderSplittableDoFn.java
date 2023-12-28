@@ -43,8 +43,8 @@ public class ParquetReaderSplittableDoFn
     extends DoFn<KV<String, ReadableFile>, KV<String, Table.Row>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(ParquetReaderSplittableDoFn.class);
-  private final Counter numberOfParquetRecordsIngested =
-      Metrics.counter(ParquetReaderSplittableDoFn.class, "numberOfParquetRecordsIngested");
+  private final Counter numberOfRowsRead =
+      Metrics.counter(ParquetReaderSplittableDoFn.class, "numberOfRowsRead");
   private final Integer splitSize;
   private final Integer keyRange;
 
@@ -77,7 +77,7 @@ public class ParquetReaderSplittableDoFn
         while ((record = fileReader.read()) != null) {
           Table.Row tableRow = RecordFlattener.forGenericRecord().flatten(record);
           c.outputWithTimestamp(KV.of(fileName, tableRow), Instant.now());
-          numberOfParquetRecordsIngested.inc();
+          numberOfRowsRead.inc();
         }
       }
       seekableByteChannel.close();
