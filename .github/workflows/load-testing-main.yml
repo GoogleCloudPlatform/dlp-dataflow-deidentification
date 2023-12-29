@@ -5,6 +5,7 @@ on:
 #    branches:
 #      - pipeline_performance
   pull_request:
+    types: [ opened, reopened, synchronize ]
     branches:
       - pipeline_performance
   workflow_dispatch:
