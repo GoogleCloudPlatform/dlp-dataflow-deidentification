@@ -1,6 +1,12 @@
 name: Load testing
 
 on:
+#  push:
+#    branches:
+#      - pipeline_performance
+  pull_request:
+    branches:
+      - pipeline_performance
   workflow_dispatch:
 
 jobs:
