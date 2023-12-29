@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Create Output GCS Bucket
-        uses: ./.github/workflows/load-tests/curate-data.yml
+        uses: ./.github/workflows/load-tests
         with:
           output_gcs_bucket: "test_composite"
           region: "us-central1"
