@@ -13,6 +13,6 @@ runs:
   using: "composite"
   steps:
     - name: Create output GCS Bucket
-      run: |
-        gcloud storage buckets create gs://${{inputs.output_gcs_bucket}} --location=${{inputs.region}}
+      shell: bash
+      run: gcloud storage buckets create gs://${{inputs.output_gcs_bucket}} --location=${{inputs.region}}
 
