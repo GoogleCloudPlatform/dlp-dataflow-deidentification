@@ -16,6 +16,7 @@ jobs:
       - self-hosted
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v2
       - name: Create Output GCS Bucket
         uses: ./.github/workflows/load-tests/curate-data.yml
         with:
