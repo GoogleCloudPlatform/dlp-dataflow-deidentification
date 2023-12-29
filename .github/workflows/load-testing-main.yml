@@ -1,0 +1,18 @@
+name: Load testing
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-output-bucket:
+    runs-on:
+      - self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Create Output GCS Bucket
+        uses: ./.github/workflows/load-tests/curate-data.yml
+        with:
+          output_gcs_bucket: "test_composite"
+          region: "us-central1"
+
+

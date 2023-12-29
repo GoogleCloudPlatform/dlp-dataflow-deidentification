@@ -1,0 +1,18 @@
+name: "Curate input data"
+description: "Create GCS bucket with input data"
+
+inputs:
+  output_gcs_bucket:
+    description: "GCS bucket name"
+    required: true
+  region:
+    description: "Region"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create output GCS Bucket
+      run: |
+        gcloud storage buckets create gs://${{inputs.output_gcs_bucket}} --location=${{inputs.region}}
+
