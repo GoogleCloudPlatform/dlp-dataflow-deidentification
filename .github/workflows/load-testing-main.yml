@@ -18,9 +18,19 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Create Output GCS Bucket
-        uses: ./.github/workflows/load-tests
+        uses: ./.github/workflows/curate-data
         with:
           output_gcs_bucket: "test_composite"
           region: "us-central1"
+          file_count: "10"
+
+#  run-load-tests:
+#    runs-on:
+#      - self-hosted
+#
+#    steps:
+
+
+
 
 
