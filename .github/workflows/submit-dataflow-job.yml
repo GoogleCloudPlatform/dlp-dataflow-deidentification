@@ -20,7 +20,6 @@ on:
 
 jobs:
   run-pipeline:
-    needs: create-input-resources
     runs-on:
       - self-hosted
     steps:
