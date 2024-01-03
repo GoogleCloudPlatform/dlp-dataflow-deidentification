@@ -31,7 +31,7 @@ jobs:
     uses: ./.github/workflows/submit-dataflow-job.yml
     with:
       project_id: "dlp-dataflow-deid-ci-392604"
-      input_gcs_bucket: "input_bucket"
+      input_gcs_bucket: "input_dlp_load_test"
       dataset: "load_test_dataset"
       inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
       deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
