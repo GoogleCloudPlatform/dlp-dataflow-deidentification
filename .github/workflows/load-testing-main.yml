@@ -28,10 +28,8 @@ jobs:
 
   run-load-tests:
     needs: create-input-resources
-
     runs-on:
       - self-hosted
-
     uses: ./.github/workflows/submit-dataflow-job.yml
     with:
       project_id: "dlp-dataflow-deid-ci-392604"
