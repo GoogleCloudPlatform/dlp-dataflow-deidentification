@@ -1,0 +1,44 @@
+on:
+  workflow_call:
+    inputs:
+      project_id:
+        required: true
+        type: string
+      input_gcs_bucket:
+        required: true
+        type: string
+      dataset:
+        required: true
+        type: string
+      inspect_template:
+        required: true
+        type: string
+      deid_template:
+        required: true
+        type: string
+
+
+jobs:
+  steps:
+    - uses: actions/checkout@v2
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v2
+
+    - name: Run DLP Pipeline
+      run: |
+            ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                  --region=us-central1 \
+                  --project=${{inputs.project_id}} \
+                  --tempLocation=gs://${{inputs.input_gcs_bucket}}/temp \
+                  --numWorkers=2 \
+                  --maxNumWorkers=3 \
+                  --runner=DataflowRunner \
+                  --filePattern=gs://${{inputs.input_gcs_bucket}}/*.csv \
+                  --dataset=${{inputs.dataset}} \
+                  --workerMachineType=n1-highmem-4 \
+                  --inspectTemplateName=${{inputs.inspect_template}} \
+                  --deidentifyTemplateName=${{inputs.deid_template}} \
+                  --batchSize=200000 \
+                  --DLPMethod=DEID \
+                  --serviceAccount=demo-service-account@dlp-dataflow-deid-ci-392604.iam.gserviceaccount.com \"
+         

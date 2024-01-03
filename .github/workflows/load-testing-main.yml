@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  create-output-bucket:
+  create-input-resources:
     runs-on:
       - self-hosted
     timeout-minutes: 5
@@ -20,15 +20,26 @@ jobs:
       - name: Create Output GCS Bucket
         uses: ./.github/workflows/curate-data
         with:
-          output_gcs_bucket: "test_composite"
+          output_gcs_bucket: "input_bucket"
           region: "us-central1"
           file_count: "10"
+      - name: Create BQ Dataset
+        run: bq --location=US mk -d --description "GitHub load test dataset" load_test_dataset
 
-#  run-load-tests:
-#    runs-on:
-#      - self-hosted
-#
-#    steps:
+  run-load-tests:
+    needs: create-input-resources
+
+    runs-on:
+      - self-hosted
+
+    uses: ./.github/workflows/submit-dataflow-job.yml
+    with:
+      project_id: "dlp-dataflow-deid-ci-392604"
+      input_gcs_bucket: "input_bucket"
+      dataset: "load_test_dataset"
+      inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
+      deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
+
 
 
 
