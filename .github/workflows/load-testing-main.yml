@@ -20,7 +20,7 @@ jobs:
       - name: Create Output GCS Bucket
         uses: ./.github/workflows/curate-data
         with:
-          output_gcs_bucket: "input_bucket"
+          input_gcs_bucket: "input_dlp_load_test"
           region: "us-central1"
           file_count: "10"
       - name: Create BQ Dataset

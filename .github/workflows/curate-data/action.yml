@@ -14,11 +14,11 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Create output GCS Bucket
+    - name: Create input GCS Bucket
       shell: bash
-      run: gcloud storage buckets create gs://${{inputs.output_gcs_bucket}} --location=${{inputs.region}}
+      run: gcloud storage buckets create gs://${{inputs.input_gcs_bucket}} --location=${{inputs.region}}
 
     - name: Copy files to the bucket
       shell: bash
-      run: for i in `seq 1 ${{inputs.file_count}}`; do gsutil cp .github/mock-data/CCRecords_1564602825.csv gs://${{inputs.output_gcs_bucket}}/file_$i.csv; done
+      run: for i in `seq 1 ${{inputs.file_count}}`; do gsutil cp .github/mock-data/CCRecords_1564602825.csv gs://${{inputs.input_gcs_bucket}}/file_$i.csv; done
 
