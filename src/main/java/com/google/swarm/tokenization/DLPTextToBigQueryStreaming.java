@@ -392,8 +392,8 @@ public class DLPTextToBigQueryStreaming {
 
   static class CSVReaderWithDelimeter extends DoFn<KV<String, ReadableFile>, KV<String, String>> {
     private PCollectionView<List<KV<String, List<String>>>> headerMap;
-    private final Counter numberOfRowsRead =
-        Metrics.counter(CSVReaderWithDelimeter.class, "numberOfRowsRead");
+    private final Counter numberOfRows =
+        Metrics.counter(CSVReaderWithDelimeter.class, "numberOfRows");
     private final Counter numberOfBytesRead =
         Metrics.counter(CSVReaderWithDelimeter.class, "numberOfBytesRead");
     private String delimeter;
@@ -415,7 +415,7 @@ public class DLPTextToBigQueryStreaming {
           reader.readNextRecord();
           String contents = reader.getCurrent().toStringUtf8();
           String key = String.format("%s~%d", fileName, new Random().nextInt(keyRange));
-          numberOfRowsRead.inc();
+          numberOfRows.inc();
           numberOfBytesRead.inc(contents.length());
           c.output(KV.of(key, contents));
         }

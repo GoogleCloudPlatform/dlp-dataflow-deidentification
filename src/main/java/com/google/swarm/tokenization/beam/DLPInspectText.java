@@ -232,8 +232,7 @@ public abstract class DLPInspectText
         Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowBagsFailedInspection");
 
     private final Counter numberOfDLPRowsFailedInspection =
-            Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowsFailedInspection");
-
+        Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowsFailedInspection");
 
     /**
      * @param projectId ID of GCP project that should be used for data inspection.

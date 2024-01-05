@@ -187,8 +187,7 @@ public abstract class DLPTransform
         Metrics.counter(ConvertDeidResponse.class, "NumberOfBytesReidentified");
 
     private final Counter numberOfRowsReidentified =
-            Metrics.counter(ConvertDeidResponse.class, "numberOfRowsReidentified");
-
+        Metrics.counter(ConvertDeidResponse.class, "numberOfRowsReidentified");
 
     @ProcessElement
     public void processElement(
