@@ -22,7 +22,7 @@ on:
     outputs:
       job_id:
         description: "Job id of deid pipeline"
-        value: ${{ jobs.run-pipeline.outputs.output1 }}
+        value: ${{ jobs.run-pipeline.outputs.job_id }}
 
 jobs:
   run-pipeline:
@@ -30,7 +30,7 @@ jobs:
       - self-hosted
 
     outputs:
-      output1: $${{ steps.get-job-id.outputs.job_id}}
+      job_id: $${{ steps.get-job-id.outputs.job_id}}
     steps:
     - uses: actions/checkout@v2
 
