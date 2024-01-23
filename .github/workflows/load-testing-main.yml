@@ -36,14 +36,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v2
-      - name: Create Output GCS Bucket
-        uses: ./.github/workflows/curate-data
-        with:
-          input_gcs_bucket: "input_dlp_load_test"
-          region: "us-central1"
-          file_count: "10"
-      - name: Create BQ Dataset
-        run: bq --location=US mk -d --description "GitHub load test dataset" load_test_dataset
+#      - name: Create Output GCS Bucket
+#        uses: ./.github/workflows/curate-data
+#        with:
+#          input_gcs_bucket: "input_dlp_load_test"
+#          region: "us-central1"
+#          file_count: "10"
+#      - name: Create BQ Dataset
+#        run: bq --location=US mk -d --description "GitHub load test dataset" load_test_dataset
 
   run-load-tests:
     needs:
