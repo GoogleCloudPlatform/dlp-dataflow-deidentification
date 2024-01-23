@@ -26,8 +26,9 @@ jobs:
         run: |
           new_uuid=$(uuidgen)
           modified_uuid=$(echo "$new_uuid" | tr '-' '_')
-          echo "uuid=$new_uuid" >> "$GITHUB_OUTPUT"
-          echo "deid_job_name=deid-$new_uuid" >> "$GITHUB_OUTPUT"
+          modified_uuid=$(echo "$new_uuid" | cut -c1-8 )
+          echo "uuid=$modified_uuid" >> "$GITHUB_OUTPUT"
+          echo "deid_job_name=load-test-$modified_uuid" >> "$GITHUB_OUTPUT"
 
   create-input-resources:
     needs: generate-uuid
