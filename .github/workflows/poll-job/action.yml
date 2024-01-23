@@ -1,0 +1,28 @@
+name: "Poll for job"
+description: "Poll till job completes"
+inputs:
+  job_id:
+    description: "JobId"
+    required: true
+  region:
+    description: "Region"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Poll
+      shell: bash
+      run: |
+        not_finished=true
+        while $not_finished; do
+          status=$(gcloud dataflow jobs show ${{inputs.job_id}} --region ${{inputs.region}} | grep "state:" | awk '{print $2}')          
+          if [[ "status" == "Done" ]]; then
+            echo "PASSED";
+            not_finished=false;
+          else
+            sleep 60s
+          fi
+          echo "Job completed"
+        done
+        echo "Job with id ${{inputs.job_id}} completed"
