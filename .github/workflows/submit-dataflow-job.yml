@@ -65,7 +65,7 @@ jobs:
     - name: Get Job ID
       id: get-job-id
       run: |
-          deid_job_data=$(gcloud dataflow jobs list --project ${{inputs.project_id}} --status active --format json --filter="name=load_test_${{inputs.uuid}}")
+          deid_job_data=$(gcloud dataflow jobs list --project ${{inputs.project_id}} --status active --format json --filter="name=load-test-${{inputs.uuid}}")
           deid_job_id=$(echo "$deid_job_data" | jq -r '.[].id')
           echo "job_id=$deid_job_id" >> $GITHUB_OUTPUT
             
