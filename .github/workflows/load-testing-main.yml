@@ -38,9 +38,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.9.6'
+          python-version: "3.10.13"
+          architecture: "x64"
+        env:
+          AGENT_TOOLSDIRECTORY: /opt/hostedtoolache
 
       - name: execute script
         run: python3 .github/workflows/scripts/fetchJobMetrics.py dlp-dataflow-deid-ci-392604 2024-01-22_23_02_49-12931597370515843515
