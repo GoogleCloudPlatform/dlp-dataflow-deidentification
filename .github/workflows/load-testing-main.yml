@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.9.6'
 
       - name: execute script
         run: python3 .github/workflows/scripts/fetchJobMetrics.py dlp-dataflow-deid-ci-392604 2024-01-22_23_02_49-12931597370515843515
