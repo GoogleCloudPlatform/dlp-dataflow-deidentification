@@ -39,7 +39,9 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: execute script
-        run: python3 .github/workflows/scripts/fetchJobMetrics.py dlp-dataflow-deid-ci-392604 2024-01-22_23_02_49-12931597370515843515
+        run: |
+          pip install --upgrade google-api-python-client
+          python3 .github/workflows/scripts/fetchJobMetrics.py dlp-dataflow-deid-ci-392604 2024-01-22_23_02_49-12931597370515843515
 
   #      - name: Create Output GCS Bucket
 #        uses: ./.github/workflows/curate-data
