@@ -75,12 +75,13 @@ jobs:
       run: |
           deid_job_data=$(gcloud dataflow jobs list --project ${{inputs.project_id}} --status active --format json --filter="name=${{steps.set-job-params.outputs.job_name}}")
           deid_job_id=$(echo "$deid_job_data" | jq -r '.[].id')
+          echo "job id is $deid_job_id"
           echo "job_id=$deid_job_id" >> $GITHUB_OUTPUT   
 
     - name: Poll till job finishes
       uses: ./.github/workflows/poll-job
       with:
-        job_id: ${{ steps.get-job-id.outputs.job_id }}
+        job_id: ${{steps.get-job-id.outputs.job_id}}
         region: "us-central1"
 
 #    - name: Fetch metrics
