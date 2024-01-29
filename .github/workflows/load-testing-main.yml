@@ -40,8 +40,12 @@ jobs:
 
       - name: execute script
         run: |
-          pip install --upgrade google-api-python-client
-          python3 .github/workflows/scripts/fetchJobMetrics.py dlp-dataflow-deid-ci-392604 2024-01-22_23_02_49-12931597370515843515
+          python3 .github/workflows/scripts/testFetchJobMetrics.py dlp-dataflow-deid-ci-392604 2024-01-22_23_02_49-12931597370515843515
+
+      - name: Write to workflow job summary
+        run: |
+          SUMMARY=$'# Load Testing Summary\n## Test run details \job status: '
+          echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
 
   #      - name: Create Output GCS Bucket
 #        uses: ./.github/workflows/curate-data
@@ -52,34 +56,34 @@ jobs:
 #      - name: Create BQ Dataset
 #        run: bq --location=US mk -d --description "GitHub load test dataset" load_test_dataset
 
-  run-load-tests:
-    needs:
-      - generate-uuid
-      - create-input-resources
-
-    uses: ./.github/workflows/submit-dataflow-job.yml
-    with:
-      project_id: "dlp-dataflow-deid-ci-392604"
-      input_gcs_bucket: "input_dlp_load_test"
-      dataset: "load_test_dataset"
-      inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
-      deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
-      uuid: ${{ needs.generate-uuid.outputs.uuid }}
-
-  poll:
-    needs:
-      - create-input-resources
-      - run-load-tests
-    runs-on:
-      - self-hosted
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v2
-      - name: Poll till job finishes
-        uses: ./.github/workflows/poll-job
-        with:
-          job_id: ${{ needs.run-load-tests.outputs.job_id }}
-          region: "us-central1"
+#  run-load-tests:
+#    needs:
+#      - generate-uuid
+#      - create-input-resources
+#
+#    uses: ./.github/workflows/submit-dataflow-job.yml
+#    with:
+#      project_id: "dlp-dataflow-deid-ci-392604"
+#      input_gcs_bucket: "input_dlp_load_test"
+#      dataset: "load_test_dataset"
+#      inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
+#      deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
+#      uuid: ${{ needs.generate-uuid.outputs.uuid }}
+#
+#  poll:
+#    needs:
+#      - create-input-resources
+#      - run-load-tests
+#    runs-on:
+#      - self-hosted
+#    timeout-minutes: 60
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Poll till job finishes
+#        uses: ./.github/workflows/poll-job
+#        with:
+#          job_id: ${{ needs.run-load-tests.outputs.job_id }}
+#          region: "us-central1"
 
 #      - name: Fetch metrics
 #        uses: ./.github/workflows/fetch-metrics
