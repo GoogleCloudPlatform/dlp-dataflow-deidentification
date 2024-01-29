@@ -60,7 +60,7 @@ jobs:
     needs:
       - generate-uuid
       - create-input-resources
-      -
+      
     strategy:
       matrix:
         test_load: [ 10, 20 ]
