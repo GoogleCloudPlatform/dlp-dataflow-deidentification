@@ -60,7 +60,7 @@ jobs:
     needs:
       - generate-uuid
       - create-input-resources
-      
+
     strategy:
       matrix:
         test_load: [ 10, 20 ]
@@ -73,6 +73,7 @@ jobs:
       inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
       deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
       uuid: ${{ needs.generate-uuid.outputs.uuid }}
+      test_load: ${{ matrix.test_load }}
 #
 #  poll:
 #    needs:
