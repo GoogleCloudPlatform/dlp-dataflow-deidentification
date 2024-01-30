@@ -42,9 +42,17 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: execute script
-        run: |
-          python3 .github/workflows/scripts/testFetchJobMetrics.py dlp-dataflow-deid-ci-392604 2024-01-22_23_02_49-12931597370515843515
+#      - name: execute script
+#        run: |
+#          python3 .github/workflows/scripts/testFetchJobMetrics.py dlp-dataflow-deid-ci-392604 2024-01-22_23_02_49-12931597370515843515
+#
+      - name: Fetch metrics
+        uses: ./.github/workflows/fetch-metrics
+        with:
+          job_id: "2024-01-22_23_02_49-12931597370515843515"
+          project_id: ${{ env.PROJECT_ID }}
+          region: "us-central1"
+          test_report_file: "load_test_report.txt"
 
       - name: Write to workflow job summary
         run: |

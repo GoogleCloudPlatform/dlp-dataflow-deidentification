@@ -1,0 +1,31 @@
+name: "Fetch job metrics"
+description: "Fetch the metrics of Dataflow job"
+inputs:
+  job_id:
+    description: "JobId"
+    required: true
+  project_id:
+    description: "gcp project id"
+    required: true
+  region:
+    description: "Region"
+    required: true
+  test_report_file:
+    description: "file name"
+    required: true
+
+
+runs:
+  using: "composite"
+  steps:
+    - name: Execute script
+      shell: bash
+#      run: python3 .github/workflows/scripts/fetchJobMetrics.py ${{inputs.project_id}} ${{inputs.job_id}} ${{inputs.test_report_file}}
+      run: python3 .github/workflows/scripts/testFetchJobMetrics.py dlp-dataflow-deid-ci-392604 2024-01-22_23_02_49-12931597370515843515 ${{inputs.test_report_file}}
+
+    - name: Upload test report
+      uses: actions/upload-artifact@v4
+      with:
+        name: test_artifact
+        path: ${{inputs.test_report_file}}
+
