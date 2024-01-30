@@ -78,41 +78,49 @@ jobs:
 #      - name: Create BQ Dataset
 #        run: bq --location=US mk -d --description "GitHub load test dataset" load_test_dataset
 
-  run-load-tests:
-    needs:
-      - generate-uuid
-      - pre-processing
-
-    strategy:
-      matrix:
-        test_load: [ 10, 20 ]
-
-    uses: ./.github/workflows/submit-dataflow-job.yml
-    with:
-      project_id: "dlp-dataflow-deid-ci-392604"
-      input_gcs_bucket: "input_dlp_load_test"
-      dataset: "load_test_dataset"
-      inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
-      deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
-      uuid: ${{ needs.generate-uuid.outputs.uuid }}
-      test_load: ${{ matrix.test_load }}
-#
-#  publish-test-results:
+#  run-load-tests:
 #    needs:
 #      - generate-uuid
 #      - pre-processing
+#
+#    strategy:
+#      matrix:
+#        test_load: [ 10, 20 ]
+#
+#    uses: ./.github/workflows/submit-dataflow-job.yml
+#    with:
+#      project_id: "dlp-dataflow-deid-ci-392604"
+#      input_gcs_bucket: "input_dlp_load_test"
+#      dataset: "load_test_dataset"
+#      inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
+#      deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
+#      uuid: ${{ needs.generate-uuid.outputs.uuid }}
+#      test_load: ${{ matrix.test_load }}
+
+  publish-test-results:
+    needs:
+      - generate-uuid
+      - pre-processing
 #      - run-load-tests
-#
-#    steps:
-#      - name: Write to workflow job summary
-#        run: |
-#          SUMMARY=$'# Load Testing Summary\n## Test run details \njob status: '
-#          echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
-#
-#
-#
-#
-#
-#
-#
-#
+    runs-on:
+      - self-hosted
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Write to workflow job summary
+        run: |
+          SUMMARY=$'# Load Testing Summary\n## Test run details '
+          echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
+
+      - name: Execute publishMetrics Script
+        run: |
+          python3 .github/workflows/scripts/publishTestReport.py dlp-dataflow-deid-ci-392604 232ae16b
+          
+
+
+
+
+
+
+
+

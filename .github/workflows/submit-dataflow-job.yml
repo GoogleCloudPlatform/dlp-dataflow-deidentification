@@ -102,13 +102,7 @@ jobs:
 #        project_id: ${{ inputs.project_id }}
 #        dataset: ${{steps.set-job-params.outputs.dataset}}
 
-    - name: Fetch metrics
-      uses: ./.github/workflows/fetch-metrics
-      with:
-        job_id: "2024-01-22_23_02_49-12931597370515843515"
-        project_id: ${{inputs.project_id}}
-        region: "us-central1"
-        test_report_file: ${{steps.set-job-params.outputs.test_report_file}}
+
 
             
     
