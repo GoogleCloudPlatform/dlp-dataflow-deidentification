@@ -50,6 +50,10 @@ jobs:
       id: set-job-params
       run: |
         echo "job_name=load-test-${{inputs.uuid}}-test-${{inputs.test_load}}" >> $GITHUB_OUTPUT   
+        echo "dataset=dataset_${{inputs.uuid}}_test_${{inputs.test_load}}" >> $GITHUB_OUTPUT   
+
+    - name: Create output dataset
+      run: bq --location=US mk -d --description "GitHub load test dataset" ${{steps.set-job-params.outputs.dataset}}
 
     - name: Run DLP Pipeline
       run: |
@@ -90,6 +94,13 @@ jobs:
 #        job_id: "${{ steps.get-job-id.outputs.job_id }}"
 #        region: "us-central1"
 
+
+    - name: Cleanup
+      uses: ./.github/workflows/cleanup
+      with:
+        region: "us-central1"
+        project_id: dlp-dataflow-deid-ci-392604
+        dataset: ${{steps.set-job-params.outputs.dataset}}
 
             
     

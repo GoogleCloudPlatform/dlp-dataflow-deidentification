@@ -30,7 +30,7 @@ jobs:
           echo "uuid=$modified_uuid" >> "$GITHUB_OUTPUT"
           echo "deid_job_name=load-test-$modified_uuid" >> "$GITHUB_OUTPUT"
 
-  create-input-resources:
+  pre-processing:
     needs: generate-uuid
     runs-on:
       - self-hosted
@@ -59,11 +59,11 @@ jobs:
   run-load-tests:
     needs:
       - generate-uuid
-      - create-input-resources
+      - pre-processing
 
     strategy:
       matrix:
-        test_load: [ 10, 20 ]
+        test_load: [ 10 ]
 
     uses: ./.github/workflows/submit-dataflow-job.yml
     with:
@@ -74,27 +74,7 @@ jobs:
       deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
       uuid: ${{ needs.generate-uuid.outputs.uuid }}
       test_load: ${{ matrix.test_load }}
-#
-#  poll:
-#    needs:
-#      - create-input-resources
-#      - run-load-tests
-#    runs-on:
-#      - self-hosted
-#    timeout-minutes: 60
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Poll till job finishes
-#        uses: ./.github/workflows/poll-job
-#        with:
-#          job_id: ${{ needs.run-load-tests.outputs.job_id }}
-#          region: "us-central1"
 
-#      - name: Fetch metrics
-#        uses: ./.github/workflows/fetch-metrics
-#        with:
-#          job_id: ""
-#          region: "us-central1"
 
 
 
