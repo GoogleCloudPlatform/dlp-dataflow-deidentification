@@ -29,98 +29,69 @@ jobs:
         id: gen-uuid
         run: |
           new_uuid=$(uuidgen)
-          modified_uuid=$(echo "$new_uuid" | tr '-' '_')
           modified_uuid=$(echo "$new_uuid" | cut -c1-8 )
           echo "uuid=$modified_uuid" >> "$GITHUB_OUTPUT"
-          echo "deid_job_name=load-test-$modified_uuid" >> "$GITHUB_OUTPUT"
 
   pre-processing:
     needs: generate-uuid
     runs-on:
       - self-hosted
     timeout-minutes: 5
-    steps:
-#      - uses: actions/checkout@v2
-
-#      - name: execute script
-#        run: |
-#          python3 .github/workflows/scripts/testFetchJobMetrics.py dlp-dataflow-deid-ci-392604 2024-01-22_23_02_49-12931597370515843515
-#
-#      - name: Fetch metrics
-#        uses: ./.github/workflows/fetch-metrics
-#        with:
-#          job_id: "2024-01-22_23_02_49-12931597370515843515"
-#          project_id: ${{ env.PROJECT_ID }}
-#          region: "us-central1"
-#          test_report_file: "load_test_report.txt"
-
-      - name: Write to workflow job summary
-        run: |
-          SUMMARY=$'# Load Testing Summary\n## Test run details'
-          echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
-
-#      - name: write table
-#        run : |
-#          {
-#            echo "| Test                | Status |"
-#            echo "| ------------------- | ----- |"
-#            echo "| batch 200Gb        | Done |"
-#            echo "| batch 200Gb         | Done |"
-#            echo "| Streaming 10files/s  | Done|"
-#          } >> $GITHUB_STEP_SUMMARY
-
-  #      - name: Create Output GCS Bucket
-#        uses: ./.github/workflows/curate-data
-#        with:
-#          input_gcs_bucket: "input_dlp_load_test"
-#          region: "us-central1"
-#          file_count: "10"
-#      - name: Create BQ Dataset
-#        run: bq --location=US mk -d --description "GitHub load test dataset" load_test_dataset
-
-#  run-load-tests:
-#    needs:
-#      - generate-uuid
-#      - pre-processing
-#
-#    strategy:
-#      matrix:
-#        test_load: [ 10, 20 ]
-#
-#    uses: ./.github/workflows/submit-dataflow-job.yml
-#    with:
-#      project_id: "dlp-dataflow-deid-ci-392604"
-#      input_gcs_bucket: "input_dlp_load_test"
-#      dataset: "load_test_dataset"
-#      inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
-#      deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
-#      uuid: ${{ needs.generate-uuid.outputs.uuid }}
-#      test_load: ${{ matrix.test_load }}
-
-  publish-test-results:
-    needs:
-      - generate-uuid
-      - pre-processing
-#      - run-load-tests
-    runs-on:
-      - self-hosted
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v2
 
-      - name: Write to workflow job summary
+      - name: Read test details
+        id: set-matrix
         run: |
-          SUMMARY=$'# Load Testing Summary\n## Test run details '
-          echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
-
-      - name: Execute publishMetrics Script
-        run: |
-          python3 .github/workflows/scripts/publishTestReport.py dlp-dataflow-deid-ci-392604 232ae16b
+          matrix=$(cat .github/workflows/configs/load_tests_details.json | jq '.' )
+          echo "$matrix"
+          matrix=$(jq -c . < .github/workflows/configs/load_tests_details.json)
+          echo "matrix={\"include\":$(echo $matrix)}"
+          echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT
           
 
 
 
+  run-load-tests:
+    needs:
+      - generate-uuid
+      - pre-processing
 
+    strategy:
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.pre-processing.outputs.matrix) }}
 
+    uses: ./.github/workflows/submit-dataflow-job.yml
+    with:
+      project_id: "dlp-dataflow-deid-ci-392604"
+      input_gcs_bucket: "input_dlp_load_test"
+      dataset: "load_test_dataset"
+      inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
+      deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
+      uuid: ${{ needs.generate-uuid.outputs.uuid }}
+      test_load: ${{ matrix.name }}
 
-
-
+#  publish-test-results:
+#    needs:
+#      - generate-uuid
+#      - pre-processing
+#      - run-load-tests
+#    runs-on:
+#      - self-hosted
+#    steps:
+#      - uses: actions/checkout@v2
+#
+#      - name: Execute publishMetrics Script
+#        run: |
+#          python3 .github/workflows/scripts/publishTestReport.py ${{env.PROJECT_ID}} ${{ needs.generate-uuid.outputs.uuid }}
+#
+#
+#
+#
+#
+#
+#
+#
+#

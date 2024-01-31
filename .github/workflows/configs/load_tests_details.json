@@ -1,0 +1,10 @@
+[
+  {
+    "name": "Batch1",
+    "load": "10GB"
+  },
+  {
+    "name": "Batch2",
+    "load": "20GB"
+  }
+]
