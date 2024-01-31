@@ -45,14 +45,9 @@ jobs:
       - name: Read test details
         id: set-matrix
         run: |
-          matrix=$(cat .github/workflows/configs/load_tests_details.json | jq '.' )
-          echo "$matrix"
           matrix=$(jq -c . < .github/workflows/configs/load_tests_details.json)
-          echo "matrix={\"include\":$(echo $matrix)}"
           echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT
           
-
-
 
   run-load-tests:
     needs:
@@ -67,11 +62,12 @@ jobs:
     with:
       project_id: "dlp-dataflow-deid-ci-392604"
       input_gcs_bucket: "input_dlp_load_test"
-      dataset: "load_test_dataset"
       inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
       deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
       uuid: ${{ needs.generate-uuid.outputs.uuid }}
-      test_load: ${{ matrix.name }}
+      test_name: ${{ matrix.name }}
+      bucket_size: ${{ matrix.bucket_size }}
+      job_type: ${{ matrix.type }}
 
 #  publish-test-results:
 #    needs:

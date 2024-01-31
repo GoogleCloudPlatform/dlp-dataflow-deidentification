@@ -1,10 +1,12 @@
 [
   {
-    "name": "Batch1",
-    "load": "10GB"
+    "name": "Batch1_10GB",
+    "bucket_size": "10GB",
+    "type": "batch"
   },
   {
-    "name": "Batch2",
-    "load": "20GB"
+    "name": "Batch2_20GB",
+    "bucket_size": "20GB",
+    "type": "batch"
   }
 ]

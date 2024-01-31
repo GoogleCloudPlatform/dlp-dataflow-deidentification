@@ -7,9 +7,6 @@ on:
       input_gcs_bucket:
         required: true
         type: string
-      dataset:
-        required: true
-        type: string
       inspect_template:
         required: true
         type: string
@@ -19,7 +16,13 @@ on:
       uuid:
         required: true
         type: string
-      test_load:
+      test_name:
+        required: true
+        type: string
+      bucket_size:
+        required: true
+        type: string
+      job_type:
         required: true
         type: string
     outputs:
@@ -49,10 +52,9 @@ jobs:
     - name: Set job parameters
       id: set-job-params
       run: |
-        echo "job_name=load-test-${{inputs.uuid}}-test-${{inputs.test_load}}" >> $GITHUB_OUTPUT   
-        echo "dataset=dataset_${{inputs.uuid}}_test_${{inputs.test_load}}" >> $GITHUB_OUTPUT   
-        echo "test_report_file=test_${{inputs.uuid}}_${{inputs.test_load}}.txt" >> $GITHUB_OUTPUT   
-        echo "Test details: ${{inputs.test_load}}" 
+        echo "job_name=load-test-${{inputs.uuid}}-test-${{inputs.test_name}}" >> $GITHUB_OUTPUT   
+        echo "dataset=dataset_${{inputs.uuid}}_${{inputs.test_name}}" >> $GITHUB_OUTPUT   
+        echo "Test details: ${{inputs.test_name}}" 
 
 #    - name: Create output dataset
 #      run: bq --location=US mk -d --description "GitHub load test dataset" ${{steps.set-job-params.outputs.dataset}}
