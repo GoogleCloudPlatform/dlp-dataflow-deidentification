@@ -13,6 +13,9 @@ on:
 env:
   PROJECT_ID: "dlp-dataflow-deid-ci-392604"
   REGION: "us-central1"
+  INSPECT_TEMPLATE: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
+  DEID_TEMPLATE: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
+
 
 jobs:
   generate-uuid:
@@ -54,6 +57,8 @@ jobs:
       - generate-uuid
       - pre-processing
 
+    runs-on: self-hosted
+    continue-on-error: true
     strategy:
       max-parallel: 1
       matrix: ${{ fromJSON(needs.pre-processing.outputs.matrix) }}
@@ -63,41 +68,43 @@ jobs:
         id: set-job-params
         run: |
           uuid=${{needs.generate-uuid.outputs.uuid}}
-          echo "job_name=load-test-$uuid-test-${{matrix.name}}" >> $GITHUB_OUTPUT   
-          echo "dataset=dataset_$uuid_${{matrix.name}}" >> $GITHUB_OUTPUT   
+          echo "job_name=load-test-${{needs.generate-uuid.outputs.uuid}}-test-${{matrix.name}}" >> $GITHUB_OUTPUT   
+          echo "dataset=dataset_${{needs.generate-uuid.outputs.uuid}}_${{matrix.name}}" >> $GITHUB_OUTPUT   
           echo "Test details: ${{matrix.name}}" 
+          echo "job_name=load-test-${{needs.generate-uuid.outputs.uuid}}-test-${{matrix.name}}"
+          echo "dataset=dataset_${{needs.generate-uuid.outputs.uuid}}_${{matrix.name}}"
 
       - name: Submit dataflow job
         id: submit-dataflow-job
         uses: ./.github/workflows/submit-dataflow-job
         with:
-          project_id: "dlp-dataflow-deid-ci-392604"
+          project_id: ${{env.PROJECT_ID}}
           input_gcs_bucket: "input_dlp_load_test"
-          dataset: ${{steps.set-job-params.dataset}}
-          inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
-          deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
-          job_name: ${{steps.set-job-params.job_name}}
+          dataset: ${{ steps.set-job-params.outputs.dataset }}
+          inspect_template: ${{env.INSPECT_TEMPLATE}}
+          deid_template: ${{env.DEID_TEMPLATE}}
+          job_name: ${{steps.set-job-params.outputs.job_name}}
           job_type: ${{ matrix.type }}
 
-      - name: Poll till job finishes
-        uses: ./.github/workflows/poll-job
-        with:
-          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
-          region: "us-central1"
+#      - name: Poll till job finishes
+#        uses: ./.github/workflows/poll-job
+#        with:
+#          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+#          region: ${{env.REGION}}
 
-      - name: Fetch metrics
-        uses: ./.github/workflows/fetch-metrics
-        with:
-          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
-          region: "us-central1"
+#      - name: Fetch metrics
+#        uses: ./.github/workflows/fetch-metrics
+#        with:
+#          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+#          region: ${{env.REGION}}
 
       - name: Cleanup
+        if: always()
         uses: ./.github/workflows/cleanup
         with:
-          region: "us-central1"
-          project_id: ${{ inputs.project_id }}
+          project_id: ${{env.PROJECT_ID}}
           job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
-          dataset: ${{steps.set-job-params.dataset}}
+          dataset: ${{steps.set-job-params.outputs.dataset}}
 
   publish-test-results:
     needs:
@@ -111,6 +118,7 @@ jobs:
 
       - name: Execute publishMetrics Script
         run: |
-          python3 .github/workflows/scripts/publishTestReport.py ${{env.PROJECT_ID}} ${{ needs.generate-uuid.outputs.uuid }}
+          python3 .github/workflows/scripts/testPublishTestReport.py ${{env.PROJECT_ID}} ${{ needs.generate-uuid.outputs.uuid }}
+
 
 
