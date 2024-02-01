@@ -58,36 +58,59 @@ jobs:
       max-parallel: 1
       matrix: ${{ fromJSON(needs.pre-processing.outputs.matrix) }}
 
-    uses: ./.github/workflows/submit-dataflow-job.yml
-    with:
-      project_id: "dlp-dataflow-deid-ci-392604"
-      input_gcs_bucket: "input_dlp_load_test"
-      inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
-      deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
-      uuid: ${{ needs.generate-uuid.outputs.uuid }}
-      test_name: ${{ matrix.name }}
-      bucket_size: ${{ matrix.bucket_size }}
-      job_type: ${{ matrix.type }}
+    steps:
+      - name: Set job parameters
+        id: set-job-params
+        run: |
+          uuid=${{needs.generate-uuid.outputs.uuid}}
+          echo "job_name=load-test-$uuid-test-${{matrix.name}}" >> $GITHUB_OUTPUT   
+          echo "dataset=dataset_$uuid_${{matrix.name}}" >> $GITHUB_OUTPUT   
+          echo "Test details: ${{matrix.name}}" 
 
-#  publish-test-results:
-#    needs:
-#      - generate-uuid
-#      - pre-processing
-#      - run-load-tests
-#    runs-on:
-#      - self-hosted
-#    steps:
-#      - uses: actions/checkout@v2
-#
-#      - name: Execute publishMetrics Script
-#        run: |
-#          python3 .github/workflows/scripts/publishTestReport.py ${{env.PROJECT_ID}} ${{ needs.generate-uuid.outputs.uuid }}
-#
-#
-#
-#
-#
-#
-#
-#
-#
+      - name: Submit dataflow job
+        id: submit-dataflow-job
+        uses: ./.github/workflows/submit-dataflow-job
+        with:
+          project_id: "dlp-dataflow-deid-ci-392604"
+          input_gcs_bucket: "input_dlp_load_test"
+          dataset: ${{steps.set-job-params.dataset}}
+          inspect_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
+          deid_template: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
+          job_name: ${{steps.set-job-params.job_name}}
+          job_type: ${{ matrix.type }}
+
+      - name: Poll till job finishes
+        uses: ./.github/workflows/poll-job
+        with:
+          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+          region: "us-central1"
+
+      - name: Fetch metrics
+        uses: ./.github/workflows/fetch-metrics
+        with:
+          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+          region: "us-central1"
+
+      - name: Cleanup
+        uses: ./.github/workflows/cleanup
+        with:
+          region: "us-central1"
+          project_id: ${{ inputs.project_id }}
+          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+          dataset: ${{steps.set-job-params.dataset}}
+
+  publish-test-results:
+    needs:
+      - generate-uuid
+      - pre-processing
+      - run-load-tests
+    runs-on:
+      - self-hosted
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Execute publishMetrics Script
+        run: |
+          python3 .github/workflows/scripts/publishTestReport.py ${{env.PROJECT_ID}} ${{ needs.generate-uuid.outputs.uuid }}
+
+

@@ -15,6 +15,5 @@ runs:
   using: "composite"
   steps:
     - name: Cleanup
-      if: "!cancelled()"
       shell: bash
       run: bq rm -r -f -d ${{inputs.project_id}}:${{inputs.dataset}}
