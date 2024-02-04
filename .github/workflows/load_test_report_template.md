@@ -3,8 +3,8 @@
 ### Load test uuid: {0}
 
 
-| Test details | Dataflow Job id | Job Status                               | Time taken |
-|--------------|-----------------|------------------------------------------|------------|
+| Test name | Dataflow job type   | Job Status    | Success rate  |
+|-----------|---------------------|---------------|---------------|
  {1}
 
 
