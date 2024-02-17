@@ -37,8 +37,7 @@ jobs:
 
   pre-processing:
     needs: generate-uuid
-    runs-on:
-      - self-hosted
+    runs-on: [self-hosted, load-testing]
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
