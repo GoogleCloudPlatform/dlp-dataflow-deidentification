@@ -7,11 +7,14 @@ inputs:
   project_id:
     description: "gcp project id"
     required: true
-  region:
-    description: "Region"
+  test_uuid:
+    description: "test uuid"
     required: true
-  test_report_file:
-    description: "file name"
+  test_name:
+    description: "Test name"
+    required: true
+  test_details:
+    description: "Test configuration details"
     required: true
 
 
@@ -20,7 +23,7 @@ runs:
   steps:
     - name: Execute script
       shell: bash
-      run: python3 .github/workflows/scripts/fetchJobMetrics.py ${{inputs.project_id}} ${{inputs.job_id}} ${{inputs.test_report_file}}
+      run: python3 .github/workflows/scripts/fetchJobMetrics.py ${{inputs.project_id}} ${{inputs.job_id}} ${{inputs.test_uuid}} ${{inputs.test_name}} '${{inputs.test_details}}'
 #      run: python3 .github/workflows/scripts/testFetchJobMetrics.py dlp-dataflow-deid-ci-392604 2024-01-22_23_02_49-12931597370515843515 ${{inputs.test_report_file}}
 
 

@@ -2,75 +2,47 @@ from google.cloud import dataflow_v1beta3
 import sys
 from google.cloud import bigquery
 import uuid
+import json
+from google.cloud import monitoring_v3
+import time
 
-# valid_metrics = [ "numberOfRowDeidentified", "numberOfRowsRead"]
+VALID_METRICS = ["TotalVcpuTime", "TotalMemoryUsage", "numberOfRowDeidentified", "numberOfRowsRead"]
+TABLE_NAME = "load_test_metrics"
+BQ_DATASET_ID = "load_test_report"
 
-valid_metrics = [ "TotalVcpuTime", "TotalMemoryUsage", "numberOfRowDeidentified", "numberOfRowsRead"]
+class LoadTest:
+    def __init__(self, test_id, project_id, job_id, test_details, test_name):
+        self.test_uuid = test_id
+        self.project_id = project_id
+        self.job_id = job_id
+        self.test_details = test_details
+        self.test_name = test_name
+        self.dataflow_job_details = self.set_job_details()
 
-def fetch_job_metrics(project_id,job_id):
-    # Create a client
-    client = dataflow_v1beta3.MetricsV1Beta3Client()
+    def set_job_details(self):
+        client = dataflow_v1beta3.JobsV1Beta3Client()
+        request = dataflow_v1beta3.GetJobRequest(project_id=self.project_id,
+                                             job_id=self.job_id)
+        response = client.get_job(request=request)
+        return response
 
-    # Initialize request argument(s)
-    request = dataflow_v1beta3.GetJobMetricsRequest(
-        project_id = project_id,
-        job_id=job_id
-    )
+    def fetch_metrics(self):
+        client = dataflow_v1beta3.MetricsV1Beta3Client()
+        request = dataflow_v1beta3.GetJobMetricsRequest(
+            project_id=self.project_id,
+            job_id=self.job_id
+        )
+        response = client.get_job_metrics(request=request)
+        return response
 
-    # Make the request
-    response = client.get_job_metrics(request=request)
-
-    # Handle the response
-    return response
-
-def verify_job_success(job_metrics):
-    if job_metrics["numberOfRowsRead"] == job_metrics["numberOfRowDeidentified"]:
-        return "SUCCESS"
-    else :
-        return "PARTIAL_SUCCESS"
-
-def write_data_to_bigquery(project_id,job_id,job_success_status,metrics):
-
-    client = bigquery.Client()
-    dataset_id = "load_test_report"
-    table_id = "load_test_report"
-    table_ref = client.dataset(dataset_id,project=project_id).table(table_id)
-    table = client.get_table(table_ref)
-    row_uuid = str(uuid.uuid4())[:8]
-    print(row_uuid)
-
-    row_to_insert = {
-        "id":row_uuid ,
-        "job_id": job_id,
-        "job_status": "Done",
-        "job_success_status": job_success_status,
-        "time_taken": "",
-        "job_metrics": metrics,
-        "streaming": False,
-        "load_test_details": ""
-
-    }
-    print(row_to_insert)
-
-    error = client.insert_rows(table, [row_to_insert])
-    print(error)
-    return
-
-def prepare_metrics_data(metrics):
-    return
-
-if __name__ == '__main__':
-    try:
-        project_id = sys.argv[1]
-        job_id = sys.argv[2]
-
-        job_metrics = fetch_job_metrics(project_id,job_id)
+    def get_job_metrics(self):
+        job_metrics = self.fetch_metrics()
 
         metrics_map = {}
 
         for metric in job_metrics.metrics:
             # print(metric.name.name)
-            if metric.name.name in valid_metrics:
+            if metric.name.name in VALID_METRICS:
                 metric_name = metric.name.name
                 if "tentative" not in metric.name.context:
                     value = int(metric.scalar)
@@ -79,12 +51,104 @@ if __name__ == '__main__':
                     else:
                         metrics_map[metric_name] = metrics_map[metric_name] + int(value)
 
-
         print(metrics_map)
+        return metrics_map
 
-        job_success_status = verify_job_success(metrics_map)
+    def get_elapsed_time(self):
+        client = monitoring_v3.MetricServiceClient()
+        project_name = f"projects/{self.project_id}"
 
-        write_data_to_bigquery(project_id,job_id,job_success_status,metrics_map)
+        series = monitoring_v3.TimeSeries()
+        series.metric.type = "dataflow.googleapis.com/job/elapsed_time"
+        series.metric.labels["job_id"] = self.job_id
+
+        now = time.time()
+        seconds = int(now)
+        nanos = int((now - seconds) * 10 ** 9)
+        interval = monitoring_v3.TimeInterval(
+            {"end_time": {"seconds": seconds, "nanos": nanos},
+             "start_time": self.dataflow_job_details.create_time}
+        )
+        print("Fetching elapased time...")
+        # Initialize request argument(s)
+        request = monitoring_v3.ListTimeSeriesRequest(
+            name=project_name,
+            filter="metric.type=\"dataflow.googleapis.com/job/elapsed_time\" AND metric.labels.job_id=\"2024-02-21_00_22_06-13984982867039201744\"",
+            view="FULL",
+            interval=interval
+            # Add aggregation parametes
+            # https://github.com/GoogleCloudPlatform/dataflow-metrics-exporter/blob/main/src/main/java/com/google/cloud/dfmetrics/pipelinemanager/MonitoringClient.java#L140
+        )
+        page_result = client.list_time_series(request=request)
+        elapsed_time = 0
+        for response in page_result:
+            for point in response.points:
+                print(point.value.int64_value)
+                elapsed_time = max(elapsed_time, point.value.int64_value)
+
+        return elapsed_time
+
+    def get_job_success_status(self,job_metrics):
+        if job_metrics["numberOfRowsRead"] == job_metrics["numberOfRowDeidentified"]:
+            return "SUCCESS"
+        elif job_metrics["numberOfRowDeidentified"] == 0:
+            return "FAILURE"
+        else:
+            return "PARTIAL_SUCCESS"
+
+
+    def write_data_to_bigquery(self,row):
+        client = bigquery.Client()
+        table_ref = client.dataset(BQ_DATASET_ID, project=project_id).table(TABLE_NAME)
+        table = client.get_table(table_ref)
+        print(row)
+        error = client.insert_rows(table, [row])
+        print(error)
+
+    def get_job_type(self):
+        if self.dataflow_job_details.type_ == dataflow_v1beta3.types.JobType.JOB_TYPE_BATCH.name:
+            return "BATCH"
+        elif self.dataflow_job_details.type_ == dataflow_v1beta3.types.JobType.JOB_TYPE_STREAMING:
+            return "STREAMING"
+        return "NONE"
+
+
+
+    def prepare_metrics_data(self, metrics):
+
+        test_run_data = {
+            "test_id": self.test_uuid,
+            "test_name": self.test_name,
+            "dataflow_job_id": self.job_id,
+            "job_type": self.dataflow_job_details.type_.name,
+            "dataflow_job_state": str(self.dataflow_job_details.current_state.name),
+            "job_success_status": self.get_job_success_status(metrics),
+            "time_taken": self.get_elapsed_time(),
+            "job_metrics": metrics,
+            "load_test_details": json.dumps(self.test_details),
+            "dlp_api_requests": [],
+            "file_type": "CSV"
+        }
+        return test_run_data
+
+
+if __name__ == '__main__':
+    try:
+        project_id = sys.argv[1]
+        job_id = sys.argv[2]
+        test_id = sys.argv[3]
+        test_name = sys.argv[4]
+        test_details = json.loads(sys.argv[5])
+
+        test_job_object = LoadTest(
+            test_id, project_id, job_id, test_details, test_name
+        )
+
+        job_metrics = test_job_object.get_job_metrics()
+
+        test_job_object.write_data_to_bigquery(test_job_object.prepare_metrics_data(job_metrics))
+
+
 
     except Exception as e:
         print(e)

@@ -11,10 +11,10 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: "dlp-dataflow-deid-ci-392604"
+  PROJECT_ID: "dlp-dataflow-load-test"
   REGION: "us-central1"
-  INSPECT_TEMPLATE: "projects/dlp-dataflow-deid-ci-392604/locations/global/inspectTemplates/dlp-demo-inspect-latest-1689137435622"
-  DEID_TEMPLATE: "projects/dlp-dataflow-deid-ci-392604/locations/global/deidentifyTemplates/dlp-demo-deid-latest-1689137435622"
+  INSPECT_TEMPLATE: "projects/dlp-dataflow-load-test/inspectTemplates/dlp-demo-inspect-latest-1706594483019"
+  DEID_TEMPLATE: "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
 
 
 jobs:
@@ -25,7 +25,6 @@ jobs:
 
     outputs:
       uuid: ${{ steps.gen-uuid.outputs.uuid }}
-      job_name: ${{ steps.gen-uuid.outputs.deid_job_name }}
 
     steps:
       - name: Generate UUID for workflow
@@ -51,69 +50,71 @@ jobs:
           echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT
           
 
-#  run-load-tests:
-#    needs:
-#      - generate-uuid
-#      - pre-processing
-#
-#    runs-on: self-hosted
-#    continue-on-error: true
-#    strategy:
-#      max-parallel: 1
-#      matrix: ${{ fromJSON(needs.pre-processing.outputs.matrix) }}
-#
-#    steps:
-#      - name: Set job parameters
-#        id: set-job-params
-#        run: |
-#          uuid=${{needs.generate-uuid.outputs.uuid}}
-#          echo "job_name=load-test-${{needs.generate-uuid.outputs.uuid}}-test-${{matrix.name}}" >> $GITHUB_OUTPUT
-#          echo "dataset=dataset_${{needs.generate-uuid.outputs.uuid}}_${{matrix.name}}" >> $GITHUB_OUTPUT
-#          echo "Test details: ${{matrix.name}}"
-#          echo "job_name=load-test-${{needs.generate-uuid.outputs.uuid}}-test-${{matrix.name}}"
-#          echo "dataset=dataset_${{needs.generate-uuid.outputs.uuid}}_${{matrix.name}}"
-#
-#      - name: Submit dataflow job
-#        id: submit-dataflow-job
-#        uses: ./.github/workflows/submit-dataflow-job
-#        with:
-#          project_id: ${{env.PROJECT_ID}}
-#          input_gcs_bucket: "input_dlp_load_test"
-#          dataset: ${{ steps.set-job-params.outputs.dataset }}
-#          inspect_template: ${{env.INSPECT_TEMPLATE}}
-#          deid_template: ${{env.DEID_TEMPLATE}}
-#          job_name: ${{steps.set-job-params.outputs.job_name}}
-#          job_type: ${{ matrix.type }}
-#
-##      - name: Poll till job finishes
-##        uses: ./.github/workflows/poll-job
-##        with:
-##          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
-##          region: ${{env.REGION}}
-#
-#      - name: Fetch metrics
-#        uses: ./.github/workflows/fetch-metrics
-#        with:
-#          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
-#          project_id: ${{env.PROJECT_ID}}
-#          test_uuid: ${{needs.generate-uuid.outputs.uuid}}
-#          test_name: ${{ matrix.name }}
-#
-#      - name: Cleanup
-#        if: always()
-#        uses: ./.github/workflows/cleanup
-#        with:
-#          project_id: ${{env.PROJECT_ID}}
-#          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
-#          dataset: ${{steps.set-job-params.outputs.dataset}}
+  run-load-tests:
+    needs:
+      - generate-uuid
+      - pre-processing
+
+    runs-on: [self-hosted, load-testing]
+    continue-on-error: true
+    strategy:
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.pre-processing.outputs.matrix) }}
+
+    steps:
+      - name: Set job parameters
+        id: set-job-params
+        run: |
+          uuid=${{needs.generate-uuid.outputs.uuid}}
+          test_name=$(echo "${{matrix.name}}" | tr '_' '-')
+          echo "job_name=load-test-${{needs.generate-uuid.outputs.uuid}}-test-$test_name" >> $GITHUB_OUTPUT
+          echo "dataset=dataset_${{needs.generate-uuid.outputs.uuid}}_${{matrix.name}}" >> $GITHUB_OUTPUT
+          echo "Test details: ${{matrix.name}}"
+          echo "job_name=load-test-${{needs.generate-uuid.outputs.uuid}}-test-$test_name"
+          echo "dataset=dataset_${{needs.generate-uuid.outputs.uuid}}_${{matrix.name}}"
+
+      - name: Submit dataflow job
+        id: submit-dataflow-job
+        uses: ./.github/workflows/submit-dataflow-job
+        with:
+          project_id: ${{env.PROJECT_ID}}
+          input_gcs_bucket: "input_dlp_load_test_2"
+          gcs_file_path: ${{ matrix.gcs_file_path }}
+          dataset: ${{ steps.set-job-params.outputs.dataset }}
+          inspect_template: ${{env.INSPECT_TEMPLATE}}
+          deid_template: ${{ matrix.deid_template }}
+          job_name: ${{steps.set-job-params.outputs.job_name}}
+          job_type: ${{ matrix.type }}
+
+      - name: Poll till job finishes
+        uses: ./.github/workflows/poll-job
+        with:
+          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+          region: ${{env.REGION}}
+
+      - name: Fetch metrics
+        uses: ./.github/workflows/fetch-metrics
+        with:
+          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+          project_id: ${{env.PROJECT_ID}}
+          test_uuid: ${{needs.generate-uuid.outputs.uuid}}
+          test_name: ${{ matrix.name }}
+          test_details: ${{ toJSON(matrix) }}
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/workflows/cleanup
+        with:
+          project_id: ${{env.PROJECT_ID}}
+          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+          dataset: ${{steps.set-job-params.outputs.dataset}}
 
   publish-test-results:
     needs:
       - generate-uuid
       - pre-processing
-#      - run-load-tests
-    runs-on:
-      - self-hosted
+      - run-load-tests
+    runs-on: [self-hosted, load-testing]
     steps:
       - uses: actions/checkout@v2
 

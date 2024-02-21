@@ -1,12 +1,28 @@
 [
   {
-    "name": "Batch1_10GB",
-    "bucket_size": "10GB",
-    "type": "batch"
+    "name": "Batch1_csv",
+    "type": "batch",
+    "file_type": "CSV",
+    "file_size": "10MB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/tiny_csv.csv",
+    "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
   },
   {
-    "name": "Batch2_20GB",
-    "bucket_size": "20GB",
-    "type": "batch"
+    "name": "Batch2_csv",
+    "type": "batch",
+    "file_type": "CSV",
+    "file_size": "20MB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/tiny_csv.csv",
+    "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
+
+  },
+  {
+    "name": "Batch3_avro",
+    "type": "batch",
+    "file_type": "AVRO",
+    "file_size": "60MB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/avro_files_01.avro",
+    "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
+
   }
 ]
