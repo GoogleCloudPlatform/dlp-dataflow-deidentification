@@ -120,7 +120,7 @@ jobs:
 
       - name: Execute publishMetrics Script
         run: |
-          python3 .github/workflows/scripts/testPublishTestReport.py ${{env.PROJECT_ID}} ${{ needs.generate-uuid.outputs.uuid }}
+          python3 .github/workflows/scripts/publishTestReport.py ${{env.PROJECT_ID}} ${{ needs.generate-uuid.outputs.uuid }}
 
 
 

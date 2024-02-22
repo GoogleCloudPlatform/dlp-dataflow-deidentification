@@ -73,7 +73,7 @@ class LoadTest:
         # Initialize request argument(s)
         request = monitoring_v3.ListTimeSeriesRequest(
             name=project_name,
-            filter="metric.type=\"dataflow.googleapis.com/job/elapsed_time\" AND metric.labels.job_id=\"2024-02-21_00_22_06-13984982867039201744\"",
+            filter="metric.type=\"dataflow.googleapis.com/job/elapsed_time\" AND metric.labels.job_id=\"{}\"".format(self.job_id),
             view="FULL",
             interval=interval
             # Add aggregation parametes
