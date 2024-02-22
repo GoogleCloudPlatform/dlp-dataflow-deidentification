@@ -3,16 +3,16 @@
     "name": "Batch1_csv",
     "type": "batch",
     "file_type": "CSV",
-    "file_size": "10MB",
-    "gcs_file_path": "gs://input_dlp_load_test_2/tiny_csv.csv",
+    "file_size": "50MB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/largecsv50MB.csv",
     "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
   },
   {
     "name": "Batch2_csv",
     "type": "batch",
     "file_type": "CSV",
-    "file_size": "20MB",
-    "gcs_file_path": "gs://input_dlp_load_test_2/tiny_csv.csv",
+    "file_size": "100MB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/largecsv100MB.csv",
     "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
 
   },
@@ -20,8 +20,17 @@
     "name": "Batch3_avro",
     "type": "batch",
     "file_type": "AVRO",
-    "file_size": "60MB",
-    "gcs_file_path": "gs://input_dlp_load_test_2/avro_files_01.avro",
+    "file_size": "50MB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/largeavro50MB.avro",
+    "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
+
+  },
+  {
+    "name": "Batch4_avro",
+    "type": "batch",
+    "file_type": "AVRO",
+    "file_size": "100MB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/largeavro100MB.avro",
     "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
 
   }

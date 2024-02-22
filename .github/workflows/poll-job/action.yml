@@ -26,4 +26,5 @@ runs:
             sleep 60s
           fi
         done
+        sleep 60s 
         echo "Job with id ${{inputs.job_id}} completed"

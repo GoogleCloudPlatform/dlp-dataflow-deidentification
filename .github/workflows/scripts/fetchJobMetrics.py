@@ -126,8 +126,9 @@ class LoadTest:
             "time_taken": self.get_elapsed_time(),
             "job_metrics": metrics,
             "load_test_details": json.dumps(self.test_details),
-            "dlp_api_requests": [],
-            "file_type": "CSV"
+            "file_type": self.test_details["file_type"],
+            "file_size": self.test_details["file_size"],
+            "timestamp": ""
         }
         return test_run_data
 
