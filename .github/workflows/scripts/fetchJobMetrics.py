@@ -1,3 +1,5 @@
+import datetime
+
 from google.cloud import dataflow_v1beta3
 import sys
 from google.cloud import bigquery
@@ -128,7 +130,7 @@ class LoadTest:
             "load_test_details": json.dumps(self.test_details),
             "file_type": self.test_details["file_type"],
             "file_size": self.test_details["file_size"],
-            "timestamp": ""
+            "timestamp": datetime.datetime.utcnow()
         }
         return test_run_data
 

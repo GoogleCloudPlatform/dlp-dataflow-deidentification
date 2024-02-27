@@ -3,25 +3,26 @@
     "name": "Batch1_csv",
     "type": "batch",
     "file_type": "CSV",
-    "file_size": "50MB",
-    "gcs_file_path": "gs://input_dlp_load_test_2/largecsv50MB.csv",
-    "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
-  },
-  {
-    "name": "Batch2_csv",
-    "type": "batch",
-    "file_type": "CSV",
     "file_size": "100MB",
     "gcs_file_path": "gs://input_dlp_load_test_2/largecsv100MB.csv",
     "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
 
   },
   {
-    "name": "Batch3_avro",
+    "name": "Batch2_csv",
     "type": "batch",
-    "file_type": "AVRO",
-    "file_size": "50MB",
-    "gcs_file_path": "gs://input_dlp_load_test_2/largeavro50MB.avro",
+    "file_type": "CSV",
+    "file_size": "1GB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/largecsv1GB.csv",
+    "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
+
+  },
+  {
+    "name": "Batch3_csv",
+    "type": "batch",
+    "file_type": "CSV",
+    "file_size": "2GB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/largecsv2GB.csv",
     "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
 
   },
@@ -31,6 +32,24 @@
     "file_type": "AVRO",
     "file_size": "100MB",
     "gcs_file_path": "gs://input_dlp_load_test_2/largeavro100MB.avro",
+    "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
+
+  },
+  {
+    "name": "Batch5_avro",
+    "type": "batch",
+    "file_type": "AVRO",
+    "file_size": "750MB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/largeavro750MB.avro",
+    "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
+
+  },
+  {
+    "name": "Batch6_avro",
+    "type": "batch",
+    "file_type": "AVRO",
+    "file_size": "1500MB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/largeavro1500MB.avro",
     "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
 
   }
