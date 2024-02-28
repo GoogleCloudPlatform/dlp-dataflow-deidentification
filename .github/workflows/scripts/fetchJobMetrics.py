@@ -6,6 +6,7 @@ from google.cloud import bigquery
 import uuid
 import json
 from google.cloud import monitoring_v3
+from google.cloud import monitoring_dashboard_v1
 import time
 
 VALID_METRICS = ["TotalVcpuTime", "TotalMemoryUsage", "numberOfRowDeidentified", "numberOfRowsRead"]
@@ -85,7 +86,7 @@ class LoadTest:
         elapsed_time = 0
         for response in page_result:
             for point in response.points:
-                print(point.value.int64_value)
+                # print(point.value.int64_value)
                 elapsed_time = max(elapsed_time, point.value.int64_value)
 
         return elapsed_time
@@ -115,6 +116,25 @@ class LoadTest:
         return "NONE"
 
 
+    def get_monitoring_dashboard(self):
+        # client = monitoring_dashboard_v1.DashboardsServiceClient()
+        # request = monitoring_dashboard_v1.GetDashboardRequest(
+        #     name="projects/175500764928/dashboards/f291443e-c268-4b79-8875-b3258a66bea4",
+        # )    response = client.get_dashboard(request=request)
+        # print(response)
+        print(type(self.dataflow_job_details.create_time),self.dataflow_job_details.create_time)
+        print(self.dataflow_job_details.create_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
+        print("Current time", datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
+        start_time = self.dataflow_job_details.create_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        end_time = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        monitoring_dashboard_url = "https://pantheon.corp.google.com/monitoring/dashboards/builder/9f527992-6420-4717" \
+                                   "-a888-a9bc76aa6a33;startTime={};endTime={}?project=dlp-dataflow-load-test".format(
+            start_time, end_time
+        )
+
+        print(monitoring_dashboard_url)
+        return monitoring_dashboard_url
+
 
     def prepare_metrics_data(self, metrics):
 
@@ -130,7 +150,8 @@ class LoadTest:
             "load_test_details": json.dumps(self.test_details),
             "file_type": self.test_details["file_type"],
             "file_size": self.test_details["file_size"],
-            "timestamp": datetime.datetime.utcnow()
+            "timestamp": datetime.datetime.utcnow(),
+            "monitoring_dashboard": self.get_monitoring_dashboard()
         }
         return test_run_data
 
@@ -150,6 +171,7 @@ if __name__ == '__main__':
         job_metrics = test_job_object.get_job_metrics()
 
         test_job_object.write_data_to_bigquery(test_job_object.prepare_metrics_data(job_metrics))
+
 
 
 

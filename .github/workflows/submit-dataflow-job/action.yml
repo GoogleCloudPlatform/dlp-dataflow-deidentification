@@ -72,6 +72,7 @@ runs:
       id: get-job-id
       shell: bash
       run: |
+          sleep 30s
           deid_job_data=$(gcloud dataflow jobs list --project ${{inputs.project_id}} --status active --format json --filter="name=${{inputs.job_name}}")
           deid_job_id=$(echo "$deid_job_data" | jq -r '.[].id')
           echo "job id is $deid_job_id"
