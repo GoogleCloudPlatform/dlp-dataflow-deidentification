@@ -90,6 +90,7 @@ runs:
               --DLPMethod=DEID \
               --serviceAccount=demo-service-account@dlp-dataflow-load-test.iam.gserviceaccount.com \
               --jobName=${{ inputs.job_name }} \
+              --processExistingFiles=false \
               --gcsNotificationTopic=projects/dlp-dataflow-load-test/topics/load_test_pub_sub_topic"
 
 

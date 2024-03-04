@@ -1,20 +1,20 @@
 [
   {
-    "name": "Batch1_csv",
-    "type": "batch",
-    "file_type": "CSV",
-    "file_size": "10KB",
-    "gcs_file_path": "gs://input_dlp_load_test_2/tiny_csv.csv",
-    "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
-  },
-  {
-    "name": "Streamimng1_csv",
+    "name": "Streaming1_csv",
     "type": "streaming",
     "file_type": "CSV",
     "file_size": "10KB/min",
     "gcs_file_path": "gs://input_load_test_streaming_job/*.csv",
     "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019",
     "source_file_bucket": "input_dlp_load_test_2",
-    "source_file_pattern": "gs://input_dlp_load_test_2/tiny_csv.csv"
+    "source_file_pattern": "tiny_csv.csv"
+  },
+  {
+    "name": "Batch1_csv",
+    "type": "batch",
+    "file_type": "CSV",
+    "file_size": "10KB",
+    "gcs_file_path": "gs://input_dlp_load_test_2/tiny_csv.csv",
+    "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
   }
 ]
