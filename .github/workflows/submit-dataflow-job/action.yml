@@ -48,7 +48,8 @@ runs:
       shell: bash
       run: bq --location=US mk -d --description "GitHub load test dataset" ${{inputs.dataset}}
 
-    - name: Run DLP Pipeline
+    - name: Run Batch DLP Pipeline
+      if: always() && inputs.job_type  == 'batch'
       shell: bash
       run: |
             ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
@@ -68,12 +69,36 @@ runs:
                   --serviceAccount=demo-service-account@dlp-dataflow-load-test.iam.gserviceaccount.com \
                   --jobName=${{ inputs.job_name }} "
 
-    - name: Get Job ID
+    - name: Run DLP Pipeline
+      if: always() && inputs.job_type == 'streaming'
+      shell: bash
+      run: |
+        ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+              --region=us-central1 \
+              --streaming --enableStreamingEngine \
+              --project=${{inputs.project_id}} \
+              --tempLocation=gs://${{inputs.input_gcs_bucket}}/temp \
+              --numWorkers=2 \
+              --maxNumWorkers=3 \
+              --runner=DataflowRunner \
+              --filePattern=${{inputs.gcs_file_path}}  \
+              --dataset=${{inputs.dataset}} \
+              --workerMachineType=n1-highmem-4 \
+              --inspectTemplateName=${{inputs.inspect_template}} \
+              --deidentifyTemplateName=${{inputs.deid_template}} \
+              --batchSize=200000 \
+              --DLPMethod=DEID \
+              --serviceAccount=demo-service-account@dlp-dataflow-load-test.iam.gserviceaccount.com \
+              --jobName=${{ inputs.job_name }} \
+              --gcsNotificationTopic=projects/dlp-dataflow-load-test/topics/load_test_pub_sub_topic"
+
+
+    - name: Get Job ID #TODO: Poll till status not active
       id: get-job-id
       shell: bash
       run: |
           sleep 30s
-          deid_job_data=$(gcloud dataflow jobs list --project ${{inputs.project_id}} --status active --format json --filter="name=${{inputs.job_name}}")
+          deid_job_data=$(gcloud dataflow jobs list --project ${{inputs.project_id}} --region us-central1 --format json --filter="name=${{inputs.job_name}}")
           deid_job_id=$(echo "$deid_job_data" | jq -r '.[].id')
           echo "job id is $deid_job_id"
           echo "job_id=$deid_job_id" >> $GITHUB_OUTPUT

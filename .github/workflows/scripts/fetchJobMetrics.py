@@ -6,7 +6,6 @@ from google.cloud import bigquery
 import uuid
 import json
 from google.cloud import monitoring_v3
-from google.cloud import monitoring_dashboard_v1
 import time
 
 VALID_METRICS = ["TotalVcpuTime", "TotalMemoryUsage", "numberOfRowDeidentified", "numberOfRowsRead"]
@@ -171,9 +170,6 @@ if __name__ == '__main__':
         job_metrics = test_job_object.get_job_metrics()
 
         test_job_object.write_data_to_bigquery(test_job_object.prepare_metrics_data(job_metrics))
-
-
-
 
     except Exception as e:
         print(e)

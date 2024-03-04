@@ -21,6 +21,7 @@ env:
   REGION: "us-central1"
   INSPECT_TEMPLATE: "projects/dlp-dataflow-load-test/inspectTemplates/dlp-demo-inspect-latest-1706594483019"
   DEID_TEMPLATE: "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
+  PUB_SUB_TOPIC: "projects/dlp-dataflow-load-test/topics/load_test_pub_sub_topic"
 
 
 jobs:
@@ -54,6 +55,12 @@ jobs:
         run: |
           matrix=$(jq -c . < .github/workflows/configs/load_tests_details.json)
           echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT
+
+      - name: Test if
+        id: test-step
+        if: always() && env.REGION == 'us-west2'
+        run : |
+            echo "If condition true"
           
 
   run-load-test:
@@ -92,6 +99,18 @@ jobs:
           job_name: ${{steps.set-job-params.outputs.job_name}}
           job_type: ${{ matrix.type }}
 
+      - name: execute copy files workflow for streaming jobs
+        id: copy-files
+        if: always() &&  matrix.type == 'streaming'
+        uses: ./.github/workflows/execute-copy-workflow
+        with:
+          raw_bucket: ${{ matrix.source_file_bucket }}
+          source_file: ${{ matrix.source_file_pattern }}
+          input_gcs_bucket: "input_load_test_streaming_job"
+          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+          workflow_name: "generate_files_workflow"
+          region: ${{env.REGION}}
+
       - name: Poll till job finishes
         uses: ./.github/workflows/poll-job
         with:
@@ -114,6 +133,8 @@ jobs:
           project_id: ${{env.PROJECT_ID}}
           job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
           dataset: ${{steps.set-job-params.outputs.dataset}}
+          input_gcs_bucket: "input_load_test_streaming_job"
+          job_type: ${{ matrix.type }}
 
   publish-test-results:
     needs:
