@@ -108,6 +108,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 5
 
@@ -128,6 +129,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 5
 
@@ -146,6 +148,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -231,6 +234,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -310,6 +314,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -388,6 +393,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -500,6 +506,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -581,6 +588,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -643,6 +651,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -724,6 +733,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -808,6 +818,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -882,6 +893,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -993,6 +1005,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
