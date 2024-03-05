@@ -20,16 +20,6 @@
     "source_file_pattern": "largecsv500MB.csv"
   },
   {
-    "name": "Streaming3_csv",
-    "type": "streaming",
-    "file_type": "CSV",
-    "file_size": "1GB/min",
-    "gcs_file_path": "gs://input_load_test_streaming_job/*.csv",
-    "deid_template": "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019",
-    "source_file_bucket": "input_dlp_load_test_2",
-    "source_file_pattern": "largecsv1GB.csv"
-  },
-  {
     "name": "Batch1_csv",
     "type": "batch",
     "file_type": "CSV",

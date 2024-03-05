@@ -28,9 +28,12 @@ runs:
           elif [[ "$status" == "Failed" ]]; then
             echo "JOB FAILED";
             not_finished=false;
+          elif [[ "$status" == "Cancelled" ]]; then
+            echo "JOB CANCELLED";
+            not_finished=false;
           else
             sleep 60s
           fi
         done
         sleep 150s 
-        echo "Job with id ${{inputs.job_id}} completed"
+        echo "Job with id ${{inputs.job_id}} $status"
