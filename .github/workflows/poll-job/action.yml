@@ -20,7 +20,7 @@ runs:
           status=$(gcloud dataflow jobs show ${{inputs.job_id}} --region ${{inputs.region}} | grep "state:" | awk '{print $2}') 
           echo "Job status: $status"
           if [[ "$status" == "Done" ]]; then
-            echo "DATA JOB PASSED";
+            echo "BATCH JOB PASSED";
             not_finished=false;
           elif [[ "$status" == "Drained" ]]; then
             echo "STREAMING JOB PASSED";
