@@ -232,7 +232,7 @@ public abstract class DLPInspectText
         Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowBagsFailedInspection");
 
     private final Counter numberOfDLPRowsFailedInspection =
-            Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowsFailedInspection");
+        Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowsFailedInspection");
 
 
     /**

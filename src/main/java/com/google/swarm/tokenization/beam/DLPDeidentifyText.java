@@ -252,8 +252,7 @@ public abstract class DLPDeidentifyText
 
     // Counter to track total number of rows that failed to deidentify
     private final Counter numberOfDLPRowsFailedDeid =
-            Metrics.counter(DeidentifyText.class, "numberOfDLPRowsFailedDeid");
-
+        Metrics.counter(DeidentifyText.class, "numberOfDLPRowsFailedDeid");
 
     private final String projectId;
     private final String inspectTemplateName;

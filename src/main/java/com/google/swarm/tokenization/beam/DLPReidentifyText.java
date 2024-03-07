@@ -262,7 +262,8 @@ public abstract class DLPReidentifyText
         Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowBagsFailedReid");
 
     private final Counter numberOfDLPRowsFailedReid =
-            Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowsFailedReid");
+        Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowsFailedReid");
+
 
     @Setup
     public void setup() throws IOException {
