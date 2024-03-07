@@ -10,7 +10,7 @@ inputs:
   dataset:
     description: "dataset"
     required: true
-  input_gcs_bucket_path:
+  input_gcs_bucket:
     description: "Bucket with run time created files"
     required: true
   job_type:
@@ -27,9 +27,9 @@ runs:
     - name: Cleanup GCS files
       if: always() && inputs.job_type == 'streaming'
       shell: bash
-      run: gcloud storage rm ${{inputs.input_gcs_bucket_path}}
+      run: gcloud storage rm gs://${{inputs.input_gcs_bucket}}/*
 
     - name: Delete pub/sub notification config
       if: always() && inputs.job_type == 'streaming'
       shell: bash
-      run: gsutil notification delete ${{inputs.input_gcs_bucket_path}}
+      run: gsutil notification delete gs://${{inputs.input_gcs_bucket}}

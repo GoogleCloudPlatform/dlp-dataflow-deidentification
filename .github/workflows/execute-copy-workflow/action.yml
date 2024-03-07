@@ -29,15 +29,15 @@ runs:
       shell: bash
       run: |
         raw_file_pattern=$(echo "${{inputs.raw_file_pattern}}" | awk -F "/" '{print $NF}')
-        raw_bucket=$(gcloud storage objects list gs://input_dlp_load_test_2/*.csv | grep "bucket:" | head -1 | awk '{print $2}')
+        raw_bucket=$(echo "${{inputs.raw_file_pattern}}" | awk -F "/" '{print $3}')
         not_finished=true
         num_executions=1
         while [ $num_executions -le 10 ];
         do
-          echo "Executing workflow: "
+          echo "Executing workflow: $num_executions"
           gcloud workflows run ${{inputs.workflow_name}} \
                 --call-log-level=log-errors-only \
-                --data='{"input_bucket": "${{inputs.input_gcs_bucket}}","raw_bucket": "$raw_bucket","source_file": "$raw_file_pattern"}'
+                --data="{\"input_bucket\": \"${{inputs.input_gcs_bucket}}\",\"raw_bucket\": \"$raw_bucket\",\"source_file\": \"$raw_file_pattern\"}"
           num_executions=$((num_executions+1))
           sleep 60s
         done

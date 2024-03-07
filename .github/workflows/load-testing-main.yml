@@ -130,7 +130,7 @@ jobs:
           project_id: ${{env.PROJECT_ID}}
           job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
           dataset: ${{steps.set-job-params.outputs.dataset}}
-          input_gcs_bucket_path: ${{ matrix.gcs_file_path }}
+          input_gcs_bucket: ${{ steps.set-job-params.outputs.input_gcs_bucket }}
           job_type: ${{ matrix.type }}
 
   publish-test-results:
