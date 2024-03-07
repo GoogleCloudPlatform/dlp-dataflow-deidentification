@@ -231,6 +231,9 @@ public abstract class DLPInspectText
     private final Counter numberOfDLPRowBagsFailedInspection =
         Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowBagsFailedInspection");
 
+    private final Counter numberOfDLPRowsFailedInspection =
+        Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowsFailedInspection");
+
     /**
      * @param projectId ID of GCP project that should be used for data inspection.
      * @param inspectTemplateName Template name for inspection.
@@ -321,6 +324,7 @@ public abstract class DLPInspectText
             LOG.warn("Error in DLP API, Retrying...");
           } else {
             numberOfDLPRowBagsFailedInspection.inc();
+            numberOfDLPRowsFailedInspection.inc(table.getRowsCount());
             LOG.error(
                 "Retried {} times unsuccessfully. Not able to inspect some records. Exception: {}",
                 this.dlpApiRetryCount,

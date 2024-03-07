@@ -245,8 +245,14 @@ public abstract class DLPDeidentifyText
       extends DoFn<KV<String, Iterable<Table.Row>>, KV<String, DeidentifyContentResponse>> {
 
     public static final Logger LOG = LoggerFactory.getLogger(DeidentifyText.class);
+
+    // Counter to track total number of times DLP Content API calls for DEID failed
     private final Counter numberOfDLPRowBagsFailedDeid =
         Metrics.counter(DeidentifyText.class, "numberOfDLPRowBagsFailedDeid");
+
+    // Counter to track total number of rows that failed to deidentify
+    private final Counter numberOfDLPRowsFailedDeid =
+        Metrics.counter(DeidentifyText.class, "numberOfDLPRowsFailedDeid");
 
     private final String projectId;
     private final String inspectTemplateName;
@@ -361,6 +367,7 @@ public abstract class DLPDeidentifyText
             LOG.warn("Error in DLP API, Retrying...");
           } else {
             numberOfDLPRowBagsFailedDeid.inc();
+            numberOfDLPRowsFailedDeid.inc(table.getRowsCount());
             LOG.error(
                 "Retried {} times unsuccessfully. Some records were not de-identified. Exception: {}",
                 this.dlpApiRetryCount,

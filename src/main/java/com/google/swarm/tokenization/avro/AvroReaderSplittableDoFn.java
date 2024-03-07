@@ -42,8 +42,8 @@ public class AvroReaderSplittableDoFn
     extends DoFn<KV<String, ReadableFile>, KV<String, GenericRecord>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(AvroReaderSplittableDoFn.class);
-  private final Counter numberOfAvroRecordsIngested =
-      Metrics.counter(AvroReaderSplittableDoFn.class, "numberOfAvroRecordsIngested");
+  private final Counter numberOfRowsRead =
+      Metrics.counter(AvroReaderSplittableDoFn.class, "numberOfRowsRead");
   private final Integer splitSize;
   private final Integer keyRange;
 
@@ -82,7 +82,7 @@ public class AvroReaderSplittableDoFn
 
         // Output the Avro record
         c.outputWithTimestamp(KV.of(fileName, record), Instant.now());
-        numberOfAvroRecordsIngested.inc();
+        numberOfRowsRead.inc();
       }
     }
 
