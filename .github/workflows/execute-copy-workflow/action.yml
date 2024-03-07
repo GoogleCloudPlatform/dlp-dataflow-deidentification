@@ -5,7 +5,7 @@ inputs:
   raw_bucket:
     description: "GCS Raw bucket name"
     required: true
-  source_file:
+  raw_file_pattern:
     description: "File name pattern"
     required: true
   input_gcs_bucket:
@@ -28,6 +28,8 @@ runs:
     - name: Execute the workflow
       shell: bash
       run: |
+        raw_file_pattern=$(echo "${{inputs.raw_file_pattern}}" | awk -F "/" '{print $NF}')
+        raw_bucket=$(gcloud storage objects list gs://input_dlp_load_test_2/*.csv | grep "bucket:" | head -1 | awk '{print $2}')
         not_finished=true
         num_executions=1
         while [ $num_executions -le 10 ];
@@ -35,7 +37,7 @@ runs:
           echo "Executing workflow: "
           gcloud workflows run ${{inputs.workflow_name}} \
                 --call-log-level=log-errors-only \
-                --data='{"input_bucket": "${{inputs.input_gcs_bucket}}","raw_bucket": "${{inputs.raw_bucket}}","source_file": "${{inputs.source_file}}"}'
+                --data='{"input_bucket": "${{inputs.input_gcs_bucket}}","raw_bucket": "$raw_bucket","source_file": "$raw_file_pattern"}'
           num_executions=$((num_executions+1))
           sleep 60s
         done

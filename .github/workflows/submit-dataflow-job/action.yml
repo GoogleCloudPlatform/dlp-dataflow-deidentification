@@ -25,6 +25,9 @@ inputs:
   job_type:
     description: "Dataflow job type - streaming/batch"
     required: false
+  gcs_notification_topic:
+    description: "Pub/sub topic"
+    required: false
 outputs:
   job_id:
     description: "Job id of deid pipeline"
@@ -47,6 +50,11 @@ runs:
     - name: Create output dataset
       shell: bash
       run: bq --location=US mk -d --description "GitHub load test dataset" ${{inputs.dataset}}
+
+    - name: Create pub sub topic
+      if: always() && inputs.job_type == 'streaming'
+      shell: bash
+      run: gsutil notification create -e OBJECT_FINALIZE -t ${{inputs.gcs_notification_topic}} -f json gs://${{inputs.input_gcs_bucket}}
 
     - name: Run Batch DLP Pipeline
       if: always() && inputs.job_type  == 'batch'
@@ -91,7 +99,7 @@ runs:
               --serviceAccount=demo-service-account@dlp-dataflow-load-test.iam.gserviceaccount.com \
               --jobName=${{ inputs.job_name }} \
               --processExistingFiles=false \
-              --gcsNotificationTopic=projects/dlp-dataflow-load-test/topics/load_test_pub_sub_topic"
+              --gcsNotificationTopic=${{inputs.gcs_notification_topic}}"
 
 
     - name: Get Job ID #TODO: Poll till status not active
