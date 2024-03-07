@@ -20,14 +20,14 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Cleanup BQ Tables
-      shell: bash
-      run: bq rm -r -f -d ${{inputs.project_id}}:${{inputs.dataset}}
+#    - name: Cleanup BQ Tables
+#      shell: bash
+#      run: bq rm -r -f -d ${{inputs.project_id}}:${{inputs.dataset}}
 
-    - name: Cleanup GCS files
-      if: always() && inputs.job_type == 'streaming'
-      shell: bash
-      run: gcloud storage rm gs://${{inputs.input_gcs_bucket}}/*
+#    - name: Cleanup GCS files
+#      if: always() && inputs.job_type == 'streaming'
+#      shell: bash
+#      run: gcloud storage rm gs://${{inputs.input_gcs_bucket}}/*
 
     - name: Delete pub/sub notification config
       if: always() && inputs.job_type == 'streaming'

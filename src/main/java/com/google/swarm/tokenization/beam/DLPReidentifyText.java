@@ -264,7 +264,6 @@ public abstract class DLPReidentifyText
     private final Counter numberOfDLPRowsFailedReid =
         Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowsFailedReid");
 
-
     @Setup
     public void setup() throws IOException {
       requestBuilder = ReidentifyContentRequest.newBuilder().setParent(projectId);

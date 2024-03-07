@@ -189,7 +189,6 @@ public abstract class DLPTransform
     private final Counter numberOfRowsReidentified =
         Metrics.counter(ConvertDeidResponse.class, "numberOfRowsReidentified");
 
-
     @ProcessElement
     public void processElement(
         @Element KV<String, ReidentifyContentResponse> element, MultiOutputReceiver out) {
