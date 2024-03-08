@@ -1,7 +1,7 @@
 import sys, os
 from google.cloud import bigquery
 
-TEST_REPORT_TEMPLATE_FILE = '.github/workflows/load_test_report_template.md'
+TEST_REPORT_TEMPLATE_FILE = '.github/workflows/test_report_template.md'
 TABLE_NAME = "load_test_metrics"
 BQ_DATASET_ID = "load_test_report"
 

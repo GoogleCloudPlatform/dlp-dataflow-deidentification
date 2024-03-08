@@ -55,7 +55,7 @@ jobs:
       - name: Read test details
         id: set-matrix
         run: |
-          matrix=$(jq -c . < .github/workflows/configs/load_tests_details.json)
+          matrix=$(jq -c . < .github/workflows/configs/tests_config.json)
           echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT          
 
   run-test:
