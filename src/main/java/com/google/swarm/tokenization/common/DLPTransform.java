@@ -186,6 +186,9 @@ public abstract class DLPTransform
     private final Counter numberOfBytesReidentified =
         Metrics.counter(ConvertDeidResponse.class, "NumberOfBytesReidentified");
 
+    private final Counter numberOfRowsReidentified =
+        Metrics.counter(ConvertDeidResponse.class, "numberOfRowsReidentified");
+
     @ProcessElement
     public void processElement(
         @Element KV<String, ReidentifyContentResponse> element, MultiOutputReceiver out) {
@@ -195,6 +198,7 @@ public abstract class DLPTransform
       LOG.info("Table Ref {}", tableName);
       Table originalData = element.getValue().getItem().getTable();
       numberOfBytesReidentified.inc(originalData.toByteArray().length);
+      numberOfRowsReidentified.inc(originalData.getRowsCount());
       List<String> headers =
           originalData.getHeadersList().stream()
               .map(fid -> fid.getName())

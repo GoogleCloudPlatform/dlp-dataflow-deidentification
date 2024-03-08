@@ -261,6 +261,9 @@ public abstract class DLPReidentifyText
     private final Counter numberOfDLPRowBagsFailedReid =
         Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowBagsFailedReid");
 
+    private final Counter numberOfDLPRowsFailedReid =
+        Metrics.counter(DLPInspectText.InspectData.class, "numberOfDLPRowsFailedReid");
+
     @Setup
     public void setup() throws IOException {
       requestBuilder = ReidentifyContentRequest.newBuilder().setParent(projectId);
@@ -363,6 +366,7 @@ public abstract class DLPReidentifyText
             LOG.warn("Error in DLP API, Retrying...");
           } else {
             numberOfDLPRowBagsFailedReid.inc();
+            numberOfDLPRowsFailedReid.inc(table.getRowsCount());
             LOG.error(
                 "Retried {} times unsuccessfully. Not able to reidentify some records. Exception: {}",
                 this.dlpApiRetryCount,

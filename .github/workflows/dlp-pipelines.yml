@@ -1,8 +1,8 @@
 name: Test INSPECT, DEID & REID
 
 on:
-  pull_request:
-    types: [ opened, reopened, synchronize ]
+#  pull_request:
+#    types: [ opened, reopened, synchronize ]
   schedule:
     - cron: '30 9 * * *'
   workflow_dispatch:
@@ -102,12 +102,14 @@ jobs:
           echo "orc_dataset_id=${{ env.ORC_DATASET_ID }}_$modified_uuid" >> "$GITHUB_OUTPUT"
           echo "orc_deid_gcs_job_name=orc-deid-gcs-$new_uuid" >> "$GITHUB_OUTPUT"
 
+
   create-dataset:
     needs:
       - generate-uuid
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 5
 
@@ -128,6 +130,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 5
 
@@ -146,6 +149,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -231,6 +235,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -310,6 +315,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -388,6 +394,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -500,6 +507,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -581,6 +589,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -643,6 +652,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -724,6 +734,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -808,6 +819,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -882,6 +894,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 
@@ -993,6 +1006,7 @@ jobs:
 
     runs-on:
       - self-hosted
+      - CI
 
     timeout-minutes: 30
 

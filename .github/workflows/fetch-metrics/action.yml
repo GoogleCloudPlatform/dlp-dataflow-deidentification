@@ -1,0 +1,28 @@
+name: "Fetch job metrics"
+description: "Fetch the metrics of Dataflow job"
+inputs:
+  job_id:
+    description: "JobId"
+    required: true
+  project_id:
+    description: "gcp project id"
+    required: true
+  test_uuid:
+    description: "test uuid"
+    required: true
+  test_name:
+    description: "Test name"
+    required: true
+  test_details:
+    description: "Test configuration details"
+    required: true
+
+
+runs:
+  using: "composite"
+  steps:
+    - name: Execute script
+      shell: bash
+      run: python3 .github/workflows/scripts/fetchJobMetrics.py ${{inputs.project_id}} ${{inputs.job_id}} ${{inputs.test_uuid}} ${{inputs.test_name}} '${{inputs.test_details}}'
+
+
