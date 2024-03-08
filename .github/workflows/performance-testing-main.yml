@@ -147,5 +147,3 @@ jobs:
         run: |
           python3 .github/workflows/scripts/publishTestReport.py ${{env.PROJECT_ID}} ${{ needs.generate-uuid.outputs.uuid }}
 
-
-
