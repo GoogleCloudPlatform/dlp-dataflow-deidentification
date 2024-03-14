@@ -17,8 +17,6 @@ def get_job_details(job_details):
 
 def fetch_test_details(project_id, test_id):
     client = bigquery.Client()
-    table_ref = client.dataset(BQ_DATASET_ID, project=project_id).table(TABLE_NAME)
-    table = client.get_table(table_ref)
     query = """
         SELECT *
         FROM `{0}.{1}.{2}`

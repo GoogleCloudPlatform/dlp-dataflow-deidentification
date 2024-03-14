@@ -12,7 +12,8 @@ VALID_METRICS = ["TotalVcpuTime", "TotalMemoryUsage", "numberOfRowDeidentified",
 TABLE_NAME = "load_test_metrics"
 BQ_DATASET_ID = "load_test_report"
 
-class LoadTest:
+
+class MetricsUtil:
     def __init__(self, test_id, project_id, job_id, test_details, test_name):
         self.test_uuid = test_id
         self.project_id = project_id
@@ -24,7 +25,7 @@ class LoadTest:
     def set_job_details(self):
         client = dataflow_v1beta3.JobsV1Beta3Client()
         request = dataflow_v1beta3.GetJobRequest(project_id=self.project_id,
-                                             job_id=self.job_id)
+                                                 job_id=self.job_id)
         response = client.get_job(request=request)
         return response
 
@@ -43,7 +44,6 @@ class LoadTest:
         metrics_map = {}
 
         for metric in job_metrics.metrics:
-            # print(metric.name.name)
             if metric.name.name in VALID_METRICS:
                 metric_name = metric.name.name
                 if "tentative" not in metric.name.context:
@@ -75,22 +75,20 @@ class LoadTest:
         # Initialize request argument(s)
         request = monitoring_v3.ListTimeSeriesRequest(
             name=project_name,
-            filter="metric.type=\"dataflow.googleapis.com/job/elapsed_time\" AND metric.labels.job_id=\"{}\"".format(self.job_id),
+            filter="metric.type=\"dataflow.googleapis.com/job/elapsed_time\" AND metric.labels.job_id=\"{}\"".format(
+                self.job_id),
             view="FULL",
             interval=interval
-            # Add aggregation parametes
-            # https://github.com/GoogleCloudPlatform/dataflow-metrics-exporter/blob/main/src/main/java/com/google/cloud/dfmetrics/pipelinemanager/MonitoringClient.java#L140
         )
         page_result = client.list_time_series(request=request)
         elapsed_time = 0
         for response in page_result:
             for point in response.points:
-                # print(point.value.int64_value)
                 elapsed_time = max(elapsed_time, point.value.int64_value)
 
         return elapsed_time
 
-    def get_job_success_status(self,job_metrics):
+    def get_job_success_status(self, job_metrics):
         if job_metrics["numberOfRowsRead"] == job_metrics["numberOfRowDeidentified"]:
             return "SUCCESS"
         elif job_metrics["numberOfRowDeidentified"] == 0:
@@ -98,8 +96,7 @@ class LoadTest:
         else:
             return "PARTIAL_SUCCESS"
 
-
-    def write_data_to_bigquery(self,row):
+    def write_data_to_bigquery(self, row):
         client = bigquery.Client()
         table_ref = client.dataset(BQ_DATASET_ID, project=project_id).table(TABLE_NAME)
         table = client.get_table(table_ref)
@@ -114,14 +111,8 @@ class LoadTest:
             return "STREAMING"
         return "NONE"
 
-
     def get_monitoring_dashboard(self):
-        # client = monitoring_dashboard_v1.DashboardsServiceClient()
-        # request = monitoring_dashboard_v1.GetDashboardRequest(
-        #     name="projects/175500764928/dashboards/f291443e-c268-4b79-8875-b3258a66bea4",
-        # )    response = client.get_dashboard(request=request)
-        # print(response)
-        print(type(self.dataflow_job_details.create_time),self.dataflow_job_details.create_time)
+        print(type(self.dataflow_job_details.create_time), self.dataflow_job_details.create_time)
         print(self.dataflow_job_details.create_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
         print("Current time", datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
         start_time = self.dataflow_job_details.create_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
@@ -133,7 +124,6 @@ class LoadTest:
 
         print(monitoring_dashboard_url)
         return monitoring_dashboard_url
-
 
     def prepare_metrics_data(self, metrics):
 
@@ -163,13 +153,13 @@ if __name__ == '__main__':
         test_name = sys.argv[4]
         test_details = json.loads(sys.argv[5])
 
-        test_job_object = LoadTest(
+        metrics_util = MetricsUtil(
             test_id, project_id, job_id, test_details, test_name
         )
 
-        job_metrics = test_job_object.get_job_metrics()
+        job_metrics = metrics_util.get_job_metrics()
 
-        test_job_object.write_data_to_bigquery(test_job_object.prepare_metrics_data(job_metrics))
+        metrics_util.write_data_to_bigquery(metrics_util.prepare_metrics_data(job_metrics))
 
     except Exception as e:
         print(e)

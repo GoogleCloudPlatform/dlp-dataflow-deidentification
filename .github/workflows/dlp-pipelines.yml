@@ -1,8 +1,8 @@
 name: Test INSPECT, DEID & REID
 
 on:
-#  pull_request:
-#    types: [ opened, reopened, synchronize ]
+  pull_request:
+    types: [ opened, reopened, synchronize ]
   schedule:
     - cron: '30 9 * * *'
   workflow_dispatch:
