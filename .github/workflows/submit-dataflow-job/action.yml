@@ -86,12 +86,12 @@ runs:
               --streaming --enableStreamingEngine \
               --project=${{inputs.project_id}} \
               --tempLocation=gs://${{inputs.input_gcs_bucket}}/temp \
-              --numWorkers=4 \
+              --numWorkers=5 \
               --maxNumWorkers=8 \
               --runner=DataflowRunner \
               --filePattern=${{inputs.gcs_file_path}}  \
               --dataset=${{inputs.dataset}} \
-              --workerMachineType=n1-highmem-4 \
+              --workerMachineType=n1-highmem-8 \
               --inspectTemplateName=${{inputs.inspect_template}} \
               --deidentifyTemplateName=${{inputs.deid_template}} \
               --batchSize=200000 \
