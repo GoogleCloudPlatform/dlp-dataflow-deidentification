@@ -1,0 +1,119 @@
+name: "submit-dataflow-jpbs"
+description: "Workflow to trigger dataflow job and return the job id"
+inputs:
+  project_id:
+    description: "GCP project id"
+    required: true
+  input_gcs_bucket:
+    description: "input gcs bucket name"
+    required: true
+  gcs_file_path:
+    description: "input gcs bucket name"
+    required: true
+  dataset:
+    description: "Output BQ dataset"
+    required: true
+  inspect_template:
+    description: "Inspect template id"
+    required: true
+  deid_template:
+    description: "Deid template id"
+    required: true
+  job_name:
+    description: "Dataflow job name"
+    required: true
+  job_type:
+    description: "Dataflow job type - streaming/batch"
+    required: false
+  gcs_notification_topic:
+    description: "Pub/sub topic"
+    required: false
+outputs:
+  job_id:
+    description: "Job id of deid pipeline"
+    value: ${{ steps.get-job-id.outputs.job_id }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'zulu'
+        java-version: 17
+
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v2
+
+    - name: Create output dataset
+      shell: bash
+      run: bq --location=US mk -d --description "GitHub load test dataset" ${{inputs.dataset}}
+
+    - name: Create pub sub topic
+      if: always() && inputs.job_type == 'streaming'
+      shell: bash
+      run: gsutil notification create -e OBJECT_FINALIZE -t ${{inputs.gcs_notification_topic}} -f json gs://${{inputs.input_gcs_bucket}}
+
+    - name: Run Batch DLP Pipeline
+      if: always() && inputs.job_type  == 'batch'
+      shell: bash
+      run: |
+            ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+                  --region=us-central1 \
+                  --project=${{inputs.project_id}} \
+                  --tempLocation=gs://${{inputs.input_gcs_bucket}}/temp \
+                  --numWorkers=2 \
+                  --maxNumWorkers=5 \
+                  --runner=DataflowRunner \
+                  --filePattern=${{inputs.gcs_file_path}}  \
+                  --dataset=${{inputs.dataset}} \
+                  --workerMachineType=n1-highmem-4 \
+                  --inspectTemplateName=${{inputs.inspect_template}} \
+                  --deidentifyTemplateName=${{inputs.deid_template}} \
+                  --batchSize=200000 \
+                  --DLPMethod=DEID \
+                  --serviceAccount=demo-service-account@dlp-dataflow-load-test.iam.gserviceaccount.com \
+                  --jobName=${{ inputs.job_name }} "
+
+    - name: Run DLP Pipeline
+      if: always() && inputs.job_type == 'streaming'
+      shell: bash
+      run: |
+        ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
+              --region=us-central1 \
+              --streaming --enableStreamingEngine \
+              --project=${{inputs.project_id}} \
+              --tempLocation=gs://${{inputs.input_gcs_bucket}}/temp \
+              --numWorkers=4 \
+              --maxNumWorkers=8 \
+              --runner=DataflowRunner \
+              --filePattern=${{inputs.gcs_file_path}}  \
+              --dataset=${{inputs.dataset}} \
+              --workerMachineType=n1-highmem-4 \
+              --inspectTemplateName=${{inputs.inspect_template}} \
+              --deidentifyTemplateName=${{inputs.deid_template}} \
+              --batchSize=200000 \
+              --DLPMethod=DEID \
+              --serviceAccount=demo-service-account@dlp-dataflow-load-test.iam.gserviceaccount.com \
+              --jobName=${{ inputs.job_name }} \
+              --processExistingFiles=false \
+              --gcsNotificationTopic=${{inputs.gcs_notification_topic}}"
+
+
+    - name: Get Job ID #TODO: Poll till status not active
+      id: get-job-id
+      shell: bash
+      run: |
+          sleep 30s
+          deid_job_data=$(gcloud dataflow jobs list --project ${{inputs.project_id}} --region us-central1 --format json --filter="name=${{inputs.job_name}}")
+          deid_job_id=$(echo "$deid_job_data" | jq -r '.[].id')
+          echo "job id is $deid_job_id"
+          echo "job_id=$deid_job_id" >> $GITHUB_OUTPUT
+
+
+
+
+
+
