@@ -16,15 +16,13 @@
 package com.google.swarm.tokenization.beam;
 
 import com.google.privacy.dlp.v2.Table.Row;
-import com.google.swarm.tokenization.InspectClassifyPipelineOptions;
+import com.google.swarm.tokenization.options.CommonPipelineOptions;
 import java.util.Random;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.ShardedKeyCoder;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.DoFn.Element;
-import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
@@ -58,8 +56,8 @@ public class ShardRows
     }
 
     if (numberOfShards == UNDEFINED_NUMBER_OF_SHARDS) {
-      InspectClassifyPipelineOptions options =
-          input.getPipeline().getOptions().as(InspectClassifyPipelineOptions.class);
+      CommonPipelineOptions options =
+          input.getPipeline().getOptions().as(CommonPipelineOptions.class);
       numberOfShards = options.getNumShardsPerDLPRequestBatching();
     }
 

@@ -20,15 +20,13 @@ import com.google.swarm.tokenization.common.Util.DLPMethod;
 import com.google.swarm.tokenization.common.Util.DataSinkType;
 import com.google.swarm.tokenization.common.Util.FileType;
 import com.google.swarm.tokenization.common.Util.InputLocation;
+import com.google.swarm.tokenization.options.CommonPipelineOptions;
 import java.util.List;
-import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
-import org.apache.beam.sdk.io.aws.options.S3Options;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.TypedRead.Method;
 import org.apache.beam.sdk.options.*;
 
-public interface DLPTextToBigQueryStreamingV2PipelineOptions
-    extends DataflowPipelineOptions, S3Options {
+public interface DLPTextToBigQueryStreamingV2PipelineOptions extends CommonPipelineOptions {
 
   @Validation.Required
   String getFilePattern();
