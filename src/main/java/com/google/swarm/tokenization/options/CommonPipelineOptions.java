@@ -101,9 +101,7 @@ public interface CommonPipelineOptions extends DataflowPipelineOptions, S3Option
   }
 
   @Validation.Required
-  @Default.InstanceFactory(
-      com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2PipelineOptions.InputPollingFactory
-          .class)
+  @Default.InstanceFactory(InputPollingFactory.class)
   Util.InputLocation getInputProviderType();
 
   void setInputProviderType(Util.InputLocation input);

@@ -84,8 +84,7 @@ public class Util {
     ORC,
     PARQUET,
     TSV,
-    TXT,
-    TEXT
+    TXT
   }
 
   public enum InputLocation {
@@ -521,24 +520,5 @@ public class Util {
     }
 
     return StringUtils.EMPTY;
-  }
-
-  public static List<Util.FileType> getExtension(List<String> fileTypes) {
-    List<Util.FileType> extensionList = new ArrayList<>();
-    for (String filetype : fileTypes) {
-
-      if (filetype == "avro") extensionList.add(Util.FileType.AVRO);
-      else if (filetype == "csv") extensionList.add(Util.FileType.CSV);
-      else if (filetype == "jsonl") extensionList.add(Util.FileType.JSONL);
-      else if (filetype == "text") extensionList.add(Util.FileType.TXT);
-    }
-    return extensionList;
-  }
-
-  public static Util.FileType getExtension(String fileType) {
-    if (fileType == "avro") return Util.FileType.AVRO;
-    else if (fileType == "csv") return Util.FileType.CSV;
-    else if (fileType == "jsonl") return Util.FileType.JSONL;
-    else return Util.FileType.TXT;
   }
 }

@@ -71,7 +71,7 @@ public abstract class BigQueryDynamicWriteTransform
     Write<KV<String, TableRow>> transform =
         BigQueryIO.<KV<String, TableRow>>write()
             .to(new BQDestination(datasetId(), projectId()))
-            .withFormatFunction(x -> x.getValue())
+            .withFormatFunction(KV::getValue)
             .withWriteDisposition(WriteDisposition.WRITE_APPEND)
             .withoutValidation()
             .ignoreInsertIds()
