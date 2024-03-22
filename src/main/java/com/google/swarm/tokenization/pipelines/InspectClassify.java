@@ -84,40 +84,42 @@ public class InspectClassify {
     final PCollectionView<Map<String, List<String>>> headers =
         records.get(ProcessFiles.headersMap).apply("ViewAsList", View.asMap());
 
-    PCollection<KV<String, InspectContentResponse>> inspectResponse = records
-        .get(ProcessFiles.tableRows)
-        .apply(
-            "DLPInspection",
-            DLPInspectText.newBuilder()
-                .setBatchSizeBytes(options.getBatchSize())
-                .setColumnDelimiter(options.getColumnDelimiterForCsvFiles())
-                .setHeaderColumns(headers)
-                .setInspectTemplateName(options.getInspectTemplateName())
-                .setProjectId(options.getDLPParent())
-                .setDlpApiRetryCount(options.getDlpApiRetryCount())
-                .setInitialBackoff(options.getInitialBackoff())
-                .build());
+    PCollection<KV<String, InspectContentResponse>> inspectResponse =
+        records
+            .get(ProcessFiles.tableRows)
+            .apply(
+                "DLPInspection",
+                DLPInspectText.newBuilder()
+                    .setBatchSizeBytes(options.getBatchSize())
+                    .setColumnDelimiter(options.getColumnDelimiterForCsvFiles())
+                    .setHeaderColumns(headers)
+                    .setInspectTemplateName(options.getInspectTemplateName())
+                    .setProjectId(options.getDLPParent())
+                    .setDlpApiRetryCount(options.getDlpApiRetryCount())
+                    .setInitialBackoff(options.getInitialBackoff())
+                    .build());
 
-    if(options.getTopic()!=null){
+    if (options.getTopic() != null) {
       inspectResponse.apply(
-              "ClassifyFiles",
-              ClassifyFiles.newBuilder().setOutputPubSubTopic(options.getTopic()).build());
+          "ClassifyFiles",
+          ClassifyFiles.newBuilder().setOutputPubSubTopic(options.getTopic()).build());
     }
 
-    if(options.getDataset()!=null){
-      inspectResponse.apply(
+    if (options.getDataset() != null) {
+      inspectResponse
+          .apply(
               "ConvertInspectResponse",
               ParDo.of(new DLPTransform.ConvertInspectResponse(options.getJobName()))
-                      .withOutputTags(
-                              Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)))
-              .get(Util.inspectOrDeidSuccess)
-              .apply("InsertToBQ",
-                      BigQueryDynamicWriteTransform.newBuilder()
-                              .setDatasetId(options.getDataset())
-                              .setProjectId(options.getProject())
-                              .build());
+                  .withOutputTags(
+                      Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)))
+          .get(Util.inspectOrDeidSuccess)
+          .apply(
+              "InsertToBQ",
+              BigQueryDynamicWriteTransform.newBuilder()
+                  .setDatasetId(options.getDataset())
+                  .setProjectId(options.getProject())
+                  .build());
     }
-    
 
     return p.run();
   }
