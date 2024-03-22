@@ -23,6 +23,8 @@ import com.google.swarm.tokenization.avro.ConvertAvroRecordToDlpRowDoFn;
 import com.google.swarm.tokenization.avro.GenericRecordCoder;
 import com.google.swarm.tokenization.common.ResolveDuplicatesCombineFn;
 import java.util.List;
+
+import com.google.swarm.tokenization.options.InspectClassifyPipelineOptions;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.FileIO;
@@ -56,6 +58,9 @@ public abstract class ProcessAvro
   @Override
   public PCollectionTuple expand(PCollection<KV<String, FileIO.ReadableFile>> input) {
 
+    InspectClassifyPipelineOptions options =
+            input.getPipeline().getOptions().as(InspectClassifyPipelineOptions.class);
+
     PCollection<KV<String, List<String>>> headers =
         input
             .apply("ReadHeader", ParDo.of(new AvroColumnNamesDoFn()))
@@ -65,7 +70,7 @@ public abstract class ProcessAvro
 
     PCollection<KV<String, Table.Row>> records =
         input
-            .apply(ParDo.of(new AvroReaderSplittableDoFn(100, 900 * 1000)))
+            .apply(ParDo.of(new AvroReaderSplittableDoFn(options.getKeyRange(), options.getSplitSize())))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), GenericRecordCoder.of()))
             .apply(ParDo.of(new ConvertAvroRecordToDlpRowDoFn()));
 

@@ -16,9 +16,12 @@
 package com.google.swarm.tokenization.pipelines;
 
 import com.google.api.services.bigquery.model.TableRow;
+import com.google.privacy.dlp.v2.InspectContentResponse;
 import com.google.swarm.tokenization.beam.DLPInspectText;
 import com.google.swarm.tokenization.classification.ClassifyFiles;
 import com.google.swarm.tokenization.coders.DeterministicTableRowJsonCoder;
+import com.google.swarm.tokenization.common.BigQueryDynamicWriteTransform;
+import com.google.swarm.tokenization.common.DLPTransform;
 import com.google.swarm.tokenization.common.Util;
 import com.google.swarm.tokenization.options.InspectClassifyPipelineOptions;
 import com.google.swarm.tokenization.transforms.ProcessFiles;
@@ -31,13 +34,11 @@ import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.io.FileIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
-import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PCollectionTuple;
-import org.apache.beam.sdk.values.PCollectionView;
+import org.apache.beam.sdk.values.*;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,7 +84,7 @@ public class InspectClassify {
     final PCollectionView<Map<String, List<String>>> headers =
         records.get(ProcessFiles.headersMap).apply("ViewAsList", View.asMap());
 
-    records
+    PCollection<KV<String, InspectContentResponse>> inspectResponse = records
         .get(ProcessFiles.tableRows)
         .apply(
             "DLPInspection",
@@ -95,10 +96,28 @@ public class InspectClassify {
                 .setProjectId(options.getDLPParent())
                 .setDlpApiRetryCount(options.getDlpApiRetryCount())
                 .setInitialBackoff(options.getInitialBackoff())
-                .build())
-        .apply(
-            "ClassifyFiles",
-            ClassifyFiles.newBuilder().setOutputPubSubTopic(options.getTopic()).build());
+                .build());
+
+    if(options.getTopic()!=null){
+      inspectResponse.apply(
+              "ClassifyFiles",
+              ClassifyFiles.newBuilder().setOutputPubSubTopic(options.getTopic()).build());
+    }
+
+    if(options.getDataset()!=null){
+      inspectResponse.apply(
+              "ConvertInspectResponse",
+              ParDo.of(new DLPTransform.ConvertInspectResponse(options.getJobName()))
+                      .withOutputTags(
+                              Util.inspectOrDeidSuccess, TupleTagList.of(Util.inspectOrDeidFailure)))
+              .get(Util.inspectOrDeidSuccess)
+              .apply("InsertToBQ",
+                      BigQueryDynamicWriteTransform.newBuilder()
+                              .setDatasetId(options.getDataset())
+                              .setProjectId(options.getProject())
+                              .build());
+    }
+    
 
     return p.run();
   }
