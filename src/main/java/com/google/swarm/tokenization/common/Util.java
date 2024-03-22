@@ -73,7 +73,8 @@ public class Util {
   public enum DLPMethod {
     INSPECT,
     DEID,
-    REID
+    REID,
+    INSPECT_FILE
   }
 
   public enum FileType {
