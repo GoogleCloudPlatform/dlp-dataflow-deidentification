@@ -1,11 +1,6 @@
 name: Performance testing
 
 on:
-  pull_request:
-    types: [ opened, reopened, synchronize ]
-    branches:
-      - pipeline_performance
-      - master
   workflow_dispatch:
     inputs:
       test_config_json:
