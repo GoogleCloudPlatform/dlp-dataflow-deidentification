@@ -1,0 +1,48 @@
+name: "Execute copy workflow"
+description: "Copies files from raw bucket to specified input bucket"
+
+inputs:
+  raw_bucket:
+    description: "GCS Raw bucket name"
+    required: true
+  raw_file_pattern:
+    description: "File name pattern"
+    required: true
+  input_gcs_bucket:
+    description: "GCS bucket name"
+    required: true
+  job_id:
+    description: "Job ID"
+    required: true
+  workflow_name:
+    description: "Workflow name"
+    required: true
+  region:
+    description: "Region"
+    required: true
+
+
+runs:
+  using: "composite"
+  steps:
+    - name: Execute the workflow
+      shell: bash
+      run: |
+        raw_file_pattern=$(echo "${{inputs.raw_file_pattern}}" | awk -F "/" '{print $NF}')
+        raw_bucket=$(echo "${{inputs.raw_file_pattern}}" | awk -F "/" '{print $3}')
+        not_finished=true
+        num_executions=1
+        while [ $num_executions -le 10 ];
+        do
+          echo "Executing workflow: $num_executions"
+          gcloud workflows run ${{inputs.workflow_name}} \
+                --call-log-level=log-errors-only \
+                --data="{\"input_bucket\": \"${{inputs.input_gcs_bucket}}\",\"raw_bucket\": \"$raw_bucket\",\"source_file\": \"$raw_file_pattern\"}"
+          num_executions=$((num_executions+1))
+          sleep 60s
+        done
+
+    - name: Drain the pipeline
+      shell: bash
+      run: |
+        gcloud dataflow jobs drain ${{inputs.job_id}} --region ${{inputs.region}} 

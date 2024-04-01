@@ -1,0 +1,144 @@
+name: Performance testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_config_json:
+        description: test configs
+        type: String
+
+
+env:
+  PROJECT_ID: "dlp-dataflow-load-test"
+  REGION: "us-central1"
+  INSPECT_TEMPLATE: "projects/dlp-dataflow-load-test/inspectTemplates/dlp-demo-inspect-latest-1706594483019"
+  DEID_TEMPLATE: "projects/dlp-dataflow-load-test/deidentifyTemplates/dlp-demo-deid-latest-1706594483019"
+  PUB_SUB_TOPIC: "projects/dlp-dataflow-load-test/topics/load_test_pub_sub_topic"
+  CLOUD_WORKFLOW: "generate_files_workflow"
+
+
+jobs:
+  generate-uuid:
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 5
+
+    outputs:
+      uuid: ${{ steps.gen-uuid.outputs.uuid }}
+
+    steps:
+      - name: Generate UUID for workflow
+        id: gen-uuid
+        run: |
+          new_uuid=$(uuidgen)
+          modified_uuid=$(echo "$new_uuid" | cut -c1-8 )
+          echo "uuid=$modified_uuid" >> "$GITHUB_OUTPUT"
+
+  pre-processing:
+    needs: generate-uuid
+    runs-on: [self-hosted, load-testing]
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Read test details
+        id: set-matrix
+        run: |
+          matrix=$(jq -c . < .github/workflows/configs/tests_config.json)
+          if [[ "${{github.event.inputs.test_config_json}}" != "" ]]; then 
+            matrix=$(echo '${{github.event.inputs.test_config_json}}'  | jq .)
+          fi
+          echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT  
+          echo $matrix
+
+  run-test:
+    needs:
+      - generate-uuid
+      - pre-processing
+
+    runs-on: [self-hosted, load-testing]
+    continue-on-error: true
+    strategy:
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.pre-processing.outputs.matrix) }}
+
+    steps:
+      - name: Set job parameters
+        id: set-job-params
+        run: |
+          uuid=${{needs.generate-uuid.outputs.uuid}}
+          test_name=$(echo "${{matrix.name}}" | tr '_' '-')
+          echo "job_name=load-test-${{needs.generate-uuid.outputs.uuid}}-test-$test_name" >> $GITHUB_OUTPUT
+          echo "dataset=dataset_${{needs.generate-uuid.outputs.uuid}}_${{matrix.name}}" >> $GITHUB_OUTPUT
+          echo "Test details: ${{matrix.name}}"
+          echo "job_name=load-test-${{needs.generate-uuid.outputs.uuid}}-test-$test_name"
+          echo "dataset=dataset_${{needs.generate-uuid.outputs.uuid}}_${{matrix.name}}"
+          input_gcs_bucket=$(echo "${{ matrix.gcs_file_path }}" | awk -F "/" '{print $3}')
+          echo "input_gcs_bucket=$input_gcs_bucket" >> $GITHUB_OUTPUT
+
+      - name: Submit dataflow job
+        id: submit-dataflow-job
+        uses: ./.github/workflows/submit-dataflow-job
+        with:
+          project_id: ${{env.PROJECT_ID}}
+          input_gcs_bucket: ${{ steps.set-job-params.outputs.input_gcs_bucket }}
+          gcs_file_path: ${{ matrix.gcs_file_path }}
+          dataset: ${{ steps.set-job-params.outputs.dataset }}
+          inspect_template: ${{env.INSPECT_TEMPLATE}}
+          deid_template: ${{ matrix.deid_template }}
+          job_name: ${{steps.set-job-params.outputs.job_name}}
+          job_type: ${{ matrix.type }}
+          gcs_notification_topic: ${{env.PUB_SUB_TOPIC}}
+
+      - name: execute copy files workflow for streaming jobs
+        id: copy-files
+        if: always() &&  matrix.type == 'streaming'
+        uses: ./.github/workflows/execute-copy-workflow
+        with:
+          raw_bucket: ${{ matrix.source_file_bucket }}
+          raw_file_pattern: ${{ matrix.raw_file_pattern }}
+          input_gcs_bucket: ${{ steps.set-job-params.outputs.input_gcs_bucket }}
+          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+          workflow_name: ${{env.CLOUD_WORKFLOW}}
+          region: ${{env.REGION}}
+
+      - name: Poll till job finishes
+        uses: ./.github/workflows/poll-job
+        with:
+          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+          region: ${{env.REGION}}
+
+      - name: Fetch metrics
+        uses: ./.github/workflows/fetch-metrics
+        with:
+          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+          project_id: ${{env.PROJECT_ID}}
+          test_uuid: ${{needs.generate-uuid.outputs.uuid}}
+          test_name: ${{ matrix.name }}
+          test_details: ${{ toJSON(matrix) }}
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/workflows/cleanup
+        with:
+          project_id: ${{env.PROJECT_ID}}
+          job_id: ${{steps.submit-dataflow-job.outputs.job_id}}
+          dataset: ${{steps.set-job-params.outputs.dataset}}
+          input_gcs_bucket: ${{ steps.set-job-params.outputs.input_gcs_bucket }}
+          job_type: ${{ matrix.type }}
+
+  publish-test-results:
+    needs:
+      - generate-uuid
+      - pre-processing
+      - run-test
+    runs-on: [self-hosted, load-testing]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Execute publishMetrics Script
+        run: |
+          python3 .github/workflows/scripts/publishTestReport.py ${{env.PROJECT_ID}} ${{ needs.generate-uuid.outputs.uuid }}
+
