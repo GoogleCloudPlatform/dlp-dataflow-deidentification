@@ -263,7 +263,7 @@ public abstract class DLPTransform
     }
   }
 
-  static class ConvertInspectResponse
+  public static class ConvertInspectResponse
       extends DoFn<KV<String, InspectContentResponse>, KV<String, TableRow>> {
 
     private String jobName;
