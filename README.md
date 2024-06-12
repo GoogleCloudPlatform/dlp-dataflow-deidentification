@@ -21,6 +21,7 @@
         * [De-identification](#de-identification)
         * [Validation](#validation)
         * [Re-identification](#re-identification-from-bigquery)
+        * [Inspect and Classify](#inspect-and-classify)
     * [Pipeline parameters](#pipeline-parameters)
     * [Supported file formats](#supported-file-formats)
     * [Amazon S3 scanner](#amazon-s3-scanner)
@@ -446,6 +447,24 @@ to validate de-identified results:
    This command triggers a batch re-identification Dataflow pipeline that processes all the records from the query
    stored in `reid_query.sql`. The re-identified results can be found in the BigQuery
    dataset (`dataset` parameter) with the name of the input table as the suffix.
+
+#### Inspect and Classify
+
+```commandline
+./gradlew run -DmainClass=com.google.swarm.tokenization.InspectClassify \
+-Pargs=" --region=${REGION} \
+--project=${PROJECT_ID} \
+--tempLocation=gs://${DATA_STORAGE_BUCKET}/temp \
+--numWorkers=1 --maxNumWorkers=2 \
+--runner=DataflowRunner \
+--filePattern=gs://dlp-orc-support-398810-demo-data/inspect_classify/* \
+--dataset=inspect_classify   \
+--inspectTemplateName=${INSPECT_TEMPLATE_NAME} \
+--fileTypes=fileType1,fileType2,fileTypeN \
+--batchSize=200000 \
+--DLPMethod=INSPECT \
+--serviceAccount=${SERVICE_ACCOUNT_EMAIL}"
+```
 
 
 ### Pipeline Parameters
