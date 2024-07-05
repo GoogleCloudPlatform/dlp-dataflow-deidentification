@@ -65,7 +65,7 @@ runs:
                   --project=${{inputs.project_id}} \
                   --tempLocation=gs://${{inputs.input_gcs_bucket}}/temp \
                   --numWorkers=2 \
-                  --maxNumWorkers=5 \
+                  --maxNumWorkers=10 \
                   --runner=DataflowRunner \
                   --filePattern=${{inputs.gcs_file_path}}  \
                   --dataset=${{inputs.dataset}} \
